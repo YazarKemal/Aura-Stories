@@ -1,125 +1,199 @@
+
 'use client';
 
-import { ArrowLeft, Camera, ChevronDown } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Eye, 
+  Users, 
+  Coins, 
+  Plus, 
+  TrendingUp, 
+  MessageSquare, 
+  Heart, 
+  BarChart3, 
+  Edit3, 
+  MoreVertical,
+  ChevronRight,
+  Sparkles
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { categories } from '@/lib/mock-data';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { stories } from '@/lib/mock-data';
+import Image from 'next/image';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface WriterDashboardProps {
   onBack: () => void;
 }
 
+const DASHBOARD_METRICS = [
+  { id: 'reads', label: 'Toplam Okunma', value: '1.2M', icon: Eye, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' },
+  { id: 'followers', label: 'Takipçiler', value: '14.5K', icon: Users, color: 'text-primary bg-primary/10 dark:bg-primary/20' },
+  { id: 'earnings', label: 'Kazanç', value: '125,000', icon: Coins, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', isCoins: true },
+];
+
+const RECENT_INTERACTIONS = [
+  { id: 1, user: 'Ayşe', action: '4. Bölüme 50🪙 Kahve hediye etti!', time: '2s önce', type: 'gift' },
+  { id: 2, user: 'KitapKurdu', action: 'yeni bir yorum bıraktı: "Harika bir kurgu!"', time: '15d önce', type: 'comment' },
+  { id: 3, user: 'Melih_7', action: 'hikayeni kütüphanesine ekledi.', time: '1s önce', type: 'library' },
+];
+
 export function WriterDashboard({ onBack }: WriterDashboardProps) {
+  // Mocking author's own stories
+  const myWorks = stories.slice(0, 3);
+
   return (
     <div className="fixed inset-0 z-[250] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-bottom duration-500">
-      {/* Top App Bar */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md px-6 py-4 flex items-center border-b border-border/50">
-        <button 
-          onClick={onBack}
-          className="p-2 -ml-2 text-accent hover:bg-muted/50 rounded-full transition-colors"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h2 className="flex-1 text-center font-headline font-black text-accent text-lg pr-8">
-          Yeni Hikaye Oluştur
-        </h2>
+      {/* Immersive Header */}
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl px-6 py-5 flex items-center justify-between border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className="p-2 -ml-2 text-accent hover:bg-muted/50 rounded-full transition-colors active:scale-90"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="flex flex-col">
+            <h2 className="font-headline font-black text-accent text-xl leading-none">Yazar Stüdyosu</h2>
+            <span className="text-[10px] uppercase font-bold tracking-widest text-primary">Creator Pro</span>
+          </div>
+        </div>
+        <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white border-none text-[10px] font-black px-3 py-1">
+          <Sparkles className="w-3 h-3 mr-1" />
+          ALTIN YAZAR
+        </Badge>
       </header>
 
-      <div className="p-6 pb-32 flex flex-col gap-8 max-w-md mx-auto">
-        {/* Book Cover Upload */}
-        <section className="space-y-3">
-          <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Kitap Kapağı</Label>
-          <div className="relative group cursor-pointer">
-            <div className="aspect-[2/3] w-40 mx-auto rounded-3xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center gap-3 transition-all group-hover:bg-primary/10 group-hover:border-primary/50">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Camera className="w-6 h-6" />
+      <div className="p-6 pb-40 flex flex-col gap-8 max-w-md mx-auto">
+        {/* Key Metrics Grid */}
+        <section className="grid grid-cols-1 gap-4">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Performans Özeti
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {DASHBOARD_METRICS.map((metric) => {
+              const Icon = metric.icon;
+              return (
+                <Card key={metric.id} className="p-4 rounded-[1.5rem] border-none bg-white dark:bg-card shadow-sm flex flex-col items-center text-center gap-2 group hover:scale-[1.02] transition-transform cursor-pointer">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", metric.color)}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-0.5 justify-center">
+                      <span className="text-lg font-black text-accent leading-none">{metric.value}</span>
+                      {metric.isCoins && <Coins className="w-3 h-3 text-amber-500 fill-current" />}
+                    </div>
+                    <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter leading-tight mt-1">{metric.label}</span>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Action Button: Publish New Chapter */}
+        <section>
+          <Button 
+            className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-primary via-accent to-primary text-white text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all animate-pulse-subtle flex items-center justify-center gap-3"
+          >
+            <Edit3 className="w-6 h-6" />
+            Yeni Bölüm Yayımla
+          </Button>
+        </section>
+
+        {/* My Works (Horizontally Scrolling) */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" />
+              Eserlerim
+            </h3>
+            <Button variant="link" className="text-[10px] font-bold text-primary h-auto p-0">Tümünü Gör</Button>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap pb-2">
+            <div className="flex gap-4">
+              {myWorks.map((story) => (
+                <div key={story.id} className="inline-block w-36 group cursor-pointer">
+                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border border-white/10 mb-2">
+                    <Image 
+                      src={story.imageUrl} 
+                      alt={story.title} 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                       <button className="p-2 rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 transition-colors">
+                          <Edit3 className="w-5 h-5" />
+                       </button>
+                       <button className="p-2 rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 transition-colors">
+                          <BarChart3 className="w-5 h-5" />
+                       </button>
+                    </div>
+                    <div className="absolute top-2 right-2">
+                       <button className="p-1 rounded-full bg-black/20 backdrop-blur-md text-white">
+                          <MoreVertical className="w-4 h-4" />
+                       </button>
+                    </div>
+                  </div>
+                  <h4 className="text-xs font-bold text-accent truncate">{story.title}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[9px] font-bold text-primary">{(story.readCount / 1000).toFixed(0)}k Okunma</span>
+                  </div>
+                </div>
+              ))}
+              {/* Add New Story Placeholder */}
+              <div className="inline-block w-36">
+                <div className="aspect-[2/3] rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center gap-3 group cursor-pointer hover:bg-primary/10 transition-colors">
+                  <div className="p-3 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                    <Plus className="w-6 h-6" />
+                  </div>
+                  <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">Yeni Eser</span>
+                </div>
               </div>
-              <span className="text-[10px] font-bold text-primary/60 uppercase tracking-tight">Kapak Yükle</span>
             </div>
-          </div>
+          </ScrollArea>
         </section>
 
-        {/* Metadata Fields */}
-        <section className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="title" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Hikaye Adı</Label>
-            <Input 
-              id="title" 
-              placeholder="Hikayenize etkileyici bir isim verin" 
-              className="h-14 rounded-2xl border-border/50 bg-white/50 focus:bg-white transition-all text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Kategori Seçimi</Label>
-            <Select>
-              <SelectTrigger className="h-14 rounded-2xl border-border/50 bg-white/50 focus:bg-white text-base">
-                <SelectValue placeholder="Bir tür seçin" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-border/50">
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name} className="py-3 rounded-xl">
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="synopsis" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Özet</Label>
-            <Textarea 
-              id="synopsis" 
-              placeholder="Okuyucuları hikayenize çekecek çarpıcı bir özet yazın..." 
-              className="min-h-[120px] rounded-2xl border-border/50 bg-white/50 focus:bg-white transition-all text-base resize-none"
-            />
-          </div>
+        {/* Recent Interactions Feed */}
+        <section className="space-y-4">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            Son Etkileşimler
+          </h3>
+          <Card className="rounded-[2.5rem] border-none bg-white dark:bg-card shadow-sm overflow-hidden">
+            <div className="flex flex-col">
+              {RECENT_INTERACTIONS.map((item, index) => (
+                <div key={item.id}>
+                  <div className="p-5 flex gap-4 items-start hover:bg-muted/20 transition-colors cursor-pointer group">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                      item.type === 'gift' ? "bg-amber-50 text-amber-500" : (item.type === 'comment' ? "bg-blue-50 text-blue-500" : "bg-primary/10 text-primary")
+                    )}>
+                      {item.type === 'gift' && <Coins className="w-5 h-5" />}
+                      {item.type === 'comment' && <MessageSquare className="w-5 h-5" />}
+                      {item.type === 'library' && <Plus className="w-5 h-5" />}
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-accent leading-none">{item.user}</span>
+                        <span className="text-[10px] text-muted-foreground font-medium">{item.time}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{item.action}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:translate-x-1 transition-transform self-center" />
+                  </div>
+                  {index < RECENT_INTERACTIONS.length - 1 && <div className="mx-6 border-b border-border/30" />}
+                </div>
+              ))}
+            </div>
+            <Button variant="ghost" className="w-full h-12 rounded-none text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5">
+              Tümünü Gör
+            </Button>
+          </Card>
         </section>
-
-        {/* First Chapter Section */}
-        <section className="space-y-6 pt-4">
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border/50" />
-            <h3 className="text-sm font-headline font-bold text-primary uppercase tracking-widest">İlk Bölüm</h3>
-            <div className="h-px flex-1 bg-border/50" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="chapter-title" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Bölüm Başlığı</Label>
-            <Input 
-              id="chapter-title" 
-              placeholder="Örn: Bölüm 1: Başlangıç" 
-              className="h-14 rounded-2xl border-border/50 bg-white/50 focus:bg-white transition-all text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content" className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Bölüm İçeriği</Label>
-            <Textarea 
-              id="content" 
-              placeholder="Hikayenizi buraya yazmaya başlayın..." 
-              className="min-h-[300px] rounded-2xl border-border/50 bg-white/50 focus:bg-white transition-all text-base font-serif leading-relaxed p-6 resize-none"
-            />
-          </div>
-        </section>
-      </div>
-
-      {/* Sticky Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background/95 to-transparent z-[260]">
-        <Button 
-          className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-lg font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-        >
-          Hikayeyi Yayımla
-        </Button>
       </div>
     </div>
   );

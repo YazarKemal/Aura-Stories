@@ -20,7 +20,8 @@ import {
   Heart,
   Trophy,
   TreeDeciduous,
-  Crown
+  Crown,
+  LayoutDashboard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,18 +79,29 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, isDarkMode, on
   return (
     <div className="flex flex-col gap-6 pb-40 px-6 animate-in fade-in duration-500">
       {/* Profile Header */}
-      <section className="flex items-center gap-4 py-4">
-        <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-white dark:border-white/10 shadow-md">
-            <UserCircle className="w-16 h-16 text-muted-foreground" />
+      <section className="flex items-center justify-between py-4">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-white dark:border-white/10 shadow-md">
+              <UserCircle className="w-16 h-16 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-headline font-black text-accent">Ziyaretçi_8357</h2>
+            <Badge className="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 hover:bg-pink-100 border-none text-[10px] w-fit font-bold">
+              İlk giriş ödülü
+            </Badge>
           </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-headline font-black text-accent">Ziyaretçi_8357</h2>
-          <Badge className="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 hover:bg-pink-100 border-none text-[10px] w-fit font-bold">
-            İlk giriş ödülü
-          </Badge>
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={onOpenWriterDashboard}
+          className="rounded-full border-primary/30 text-primary font-bold hover:bg-primary/10 transition-all flex items-center gap-2"
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="hidden sm:inline">Yazar Paneli</span>
+        </Button>
       </section>
 
       {/* Aura VIP Banner */}
