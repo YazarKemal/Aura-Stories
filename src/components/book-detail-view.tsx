@@ -1,19 +1,20 @@
-
 'use client';
 
 import { Story } from '@/lib/types';
-import { ArrowLeft, Star, Eye, Share2, Bookmark } from 'lucide-react';
+import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 interface BookDetailViewProps {
   story: Story;
   onBack: () => void;
   onStartReading: () => void;
+  onOpenChat: () => void;
 }
 
-export function BookDetailView({ story, onBack, onStartReading }: BookDetailViewProps) {
+export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: BookDetailViewProps) {
   return (
     <div className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
       {/* Hero Section */}
@@ -62,7 +63,7 @@ export function BookDetailView({ story, onBack, onStartReading }: BookDetailView
       </section>
 
       {/* Content Section */}
-      <section className="px-6 -mt-8 relative z-10 pb-32 animate-in slide-in-from-bottom-10 fade-in duration-1000 delay-300">
+      <section className="px-6 -mt-8 relative z-10 pb-40 animate-in slide-in-from-bottom-10 fade-in duration-1000 delay-300">
         <div className="flex flex-col items-center text-center gap-2 mb-6">
           <h1 className="text-3xl font-headline font-black text-accent leading-tight">
             {story.title}
@@ -99,6 +100,28 @@ export function BookDetailView({ story, onBack, onStartReading }: BookDetailView
             </Badge>
           ))}
         </div>
+
+        {/* AI Character Chat Card */}
+        <Card 
+          onClick={onOpenChat}
+          className="mb-8 p-6 rounded-[2rem] bg-gradient-to-br from-accent via-primary to-accent border-none shadow-xl shadow-primary/20 cursor-pointer active:scale-[0.98] transition-all group overflow-hidden relative"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
+             <Sparkles className="w-24 h-24 text-white" />
+          </div>
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white ring-1 ring-white/30">
+              <MessageCircle className="w-7 h-7" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-white font-bold text-lg">Karakter Odası</h3>
+                <Badge className="bg-amber-400 text-amber-900 border-none text-[8px] font-black px-1.5 h-3.5">YENİ</Badge>
+              </div>
+              <p className="text-white/70 text-xs font-medium">Başrol karakteriyle hemen sohbete başla!</p>
+            </div>
+          </div>
+        </Card>
 
         {/* Synopsis */}
         <div className="space-y-4">

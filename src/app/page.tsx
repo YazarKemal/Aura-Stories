@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -11,6 +10,7 @@ import { RewardsScreen } from '@/components/rewards-screen';
 import { ProfileScreen } from '@/components/profile-screen';
 import { LibraryScreen } from '@/components/library-screen';
 import { WriterDashboard } from '@/components/writer-dashboard';
+import { CharacterChatView } from '@/components/character-chat-view';
 import { Story } from '@/lib/types';
 
 export default function Home() {
@@ -18,14 +18,20 @@ export default function Home() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
     setIsReading(false);
+    setIsChatOpen(false);
   };
 
   const handleStartReading = () => {
     setIsReading(true);
+  };
+
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
   };
 
   return (
@@ -33,6 +39,14 @@ export default function Home() {
       {/* Writer Dashboard Overlay */}
       {isWriterDashboardOpen && (
         <WriterDashboard onBack={() => setIsWriterDashboardOpen(false)} />
+      )}
+
+      {/* Character Chat Overlay */}
+      {isChatOpen && selectedStory && (
+        <CharacterChatView 
+          story={selectedStory} 
+          onBack={() => setIsChatOpen(false)} 
+        />
       )}
 
       {/* Reading View Overlay */}
@@ -44,19 +58,20 @@ export default function Home() {
       )}
 
       {/* Detail View Overlay */}
-      {selectedStory && !isReading && (
+      {selectedStory && !isReading && !isChatOpen && (
         <BookDetailView 
           story={selectedStory} 
           onBack={() => setSelectedStory(null)} 
           onStartReading={handleStartReading}
+          onOpenChat={handleOpenOpenChat}
         />
       )}
 
       {/* App Header - Hidden when overlays are active */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && <Header />}
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && <Header />}
 
       {/* Tab Content with Soft Fade Transition */}
-      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen ? 'hidden' : ''}`}>
+      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen ? 'hidden' : ''}`}>
         <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
           {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
           {activeTab === 'library' && (
@@ -70,9 +85,13 @@ export default function Home() {
       </div>
 
       {/* Bottom Navigation - Hidden when overlays are active */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && (
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
     </main>
   );
+}
+
+function handleOpenOpenChat(this: any) {
+  throw new Error('Function not implemented.');
 }
