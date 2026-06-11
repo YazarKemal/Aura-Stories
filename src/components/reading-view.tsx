@@ -8,8 +8,6 @@ import {
   Lock, 
   Coins, 
   Play, 
-  Info, 
-  User, 
   Sparkles, 
   Timer, 
   CheckCircle2, 
@@ -19,7 +17,6 @@ import {
   Coffee,
   Crown,
   Flower2,
-  X,
   Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -337,6 +334,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
         <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden animate-in slide-in-from-bottom duration-500">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{selectedLore?.name || 'Karakter Bilgisi'}</SheetTitle>
+            <SheetDescription>{selectedLore?.role || 'Detaylar'}</SheetDescription>
+          </SheetHeader>
           {selectedLore && (
             <div className="h-full flex flex-col relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/5 pointer-events-none" />
@@ -359,13 +360,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                     <Sparkles className="w-3 h-3 mr-1" />
                     Karakter Bilgisi
                   </Badge>
-                  <SheetTitle className="text-3xl font-headline font-black text-accent">{selectedLore.name}</SheetTitle>
+                  <h3 className="text-3xl font-headline font-black text-accent">{selectedLore.name}</h3>
                   <span className="text-primary font-bold text-sm tracking-wide">{selectedLore.role}</span>
                 </div>
                 
-                <SheetDescription className="text-foreground/80 leading-relaxed italic text-base">
+                <p className="text-foreground/80 leading-relaxed italic text-base">
                   "{selectedLore.description}"
-                </SheetDescription>
+                </p>
               </div>
             </div>
           )}
@@ -375,6 +376,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Inline Comments Sheet */}
       <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
         <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Satır İçi Yorumlar</SheetTitle>
+            <SheetDescription>Topluluk tepkileri</SheetDescription>
+          </SheetHeader>
           <div className="p-8 flex flex-col h-full">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center mb-6" />
             <div className="flex items-center justify-between mb-8">
@@ -415,6 +420,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Tipping / Gift Modal */}
       <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Yazara Destek Ol</SheetTitle>
+            <SheetDescription>Küçük bir hediye gönder</SheetDescription>
+          </SheetHeader>
           <div className="p-8 flex flex-col gap-6">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
