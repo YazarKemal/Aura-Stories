@@ -537,14 +537,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             </div>
 
             {/* IG Story Preview Card */}
-            <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group mx-2">
+            <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group mx-2 bg-black">
               <div className="absolute inset-0">
                 <Image src={story.imageUrl} alt="preview" fill className="object-cover scale-110 blur-xl opacity-60" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/90" />
               </div>
 
-              <div className="relative h-full p-10 flex flex-col justify-between text-white z-10">
-                <div className="flex justify-between items-start">
+              <div className="relative h-full p-8 flex flex-col text-white z-10">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4">
                    <div className="flex flex-col">
                       <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Aura Stories</h4>
                       <div className="w-8 h-1 bg-primary rounded-full" />
@@ -552,24 +553,29 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                    <Quote className="w-8 h-8 text-primary/40 rotate-12" />
                 </div>
 
-                <div className="flex flex-col gap-6">
-                  <p className="text-2xl font-serif font-bold italic leading-relaxed drop-shadow-md">
+                {/* Quote (Flexible area) */}
+                <div className="flex-1 flex items-center justify-center py-4">
+                   <p className="text-lg sm:text-xl font-serif font-bold italic leading-relaxed drop-shadow-md text-center line-clamp-[10]">
                     "{selectedQuote || 'Alıntı metni buraya gelecek...'}"
                   </p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden relative border-2 border-white/20 shadow-lg">
-                      <Image src={story.imageUrl} alt="cover" fill className="object-cover" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-headline font-black tracking-tight">{story.title}</span>
-                      <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">{story.author}</span>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="flex justify-center">
-                  <div className="px-4 py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[9px] font-black uppercase tracking-tighter">
-                     AuraStories.com
+                {/* Book Details (Sticky to bottom) */}
+                <div className="mt-auto space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden relative border-2 border-white/20 shadow-lg shrink-0">
+                      <Image src={story.imageUrl} alt="cover" fill className="object-cover" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-headline font-black tracking-tight truncate">{story.title}</span>
+                      <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest truncate">{story.author}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <div className="px-4 py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[9px] font-black uppercase tracking-tighter">
+                       AuraStories.com
+                    </div>
                   </div>
                 </div>
               </div>
