@@ -63,7 +63,7 @@ export default function Home() {
           story={selectedStory} 
           onBack={() => setSelectedStory(null)} 
           onStartReading={handleStartReading}
-          onOpenChat={handleOpenOpenChat}
+          onOpenChat={handleOpenChat}
         />
       )}
 
@@ -90,8 +90,4 @@ export default function Home() {
       )}
     </main>
   );
-}
-
-function handleOpenOpenChat(this: any) {
-  throw new Error('Function not implemented.');
 }
