@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Story } from '@/lib/types';
 import { 
   ArrowLeft, 
@@ -62,27 +62,29 @@ const DUMMY_COMMENTS = [
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isGiftsOpen, setIsGiftsOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
+  
+  // Use ref to track scroll position to avoid effect re-runs on every scroll
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
         setIsVisible(false);
       } else {
         setIsVisible(true);
       }
-      setLastScrollY(currentScrollY);
+      lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+  }, []);
 
   const paragraphs = [
     "Gece, İstanbul'un üzerine bir yorgan gibi serilmişti. Sokak lambalarının cılız ışığı, ıslak kaldırımlarda titrek yansımalar oluşturuyordu. Genç kadın, elindeki eski anahtarı titreyen parmaklarıyla kapı kilidine soktu. İçeriden gelen küf ve toz kokusu, yıllardır açılmamış bir sırrın habercisiydi.",
@@ -141,6 +143,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleSendGift = (giftType: string) => {
     setCelebrationGift(giftType);
+    // Auto-close overlay after animation
     setTimeout(() => {
       setCelebrationGift(null);
       setIsGiftsOpen(false);
@@ -156,9 +159,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   return (
     <div className="fixed inset-0 z-[200] bg-[#FDFBF7] overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-      {/* Celebration Overlay */}
+      {/* Celebration Overlay - High z-index for visibility */}
       {celebrationGift && (
-        <div className="fixed inset-0 z-[600] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1000] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px]" />
           <div className="relative animate-bounce">
              <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl shadow-primary/40 border-4 border-primary/20">
@@ -419,7 +422,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Tipping / Gift Modal */}
       <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500 z-[500]">
           <SheetHeader className="sr-only">
             <SheetTitle>Yazara Destek Ol</SheetTitle>
             <SheetDescription>Küçük bir hediye gönder</SheetDescription>
