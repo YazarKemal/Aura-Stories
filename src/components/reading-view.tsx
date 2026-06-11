@@ -3,8 +3,9 @@
 
 import { useState, useEffect } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Type, Lock, Coins, Play, Info, User, Sparkles } from 'lucide-react';
+import { ArrowLeft, Type, Lock, Coins, Play, Info, User, Sparkles, Timer, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -40,6 +41,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
+  const [votedOption, setVotedOption] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -65,7 +67,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   ];
 
   const renderParagraph = (text: string, index: number) => {
-    // Search for Demir Ağa in the text to make it interactive
     if (text.includes('Demir Ağa')) {
       const parts = text.split('Demir Ağa');
       return (
@@ -89,9 +90,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     );
   };
 
+  const handleVote = (option: string) => {
+    setVotedOption(option);
+  };
+
   return (
     <div className="fixed inset-0 z-[200] bg-[#FDFBF7] overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-      {/* Top Minimalist Header */}
       <header 
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 bg-[#FDFBF7]/90 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
@@ -113,7 +117,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </button>
       </header>
 
-      {/* Main Content Area */}
       <article className="pt-24 px-8 pb-12 max-w-md mx-auto">
         <h1 className="text-3xl font-headline font-black text-accent mb-8 leading-tight">
           Bölüm 1: Teslimiyet
@@ -122,14 +125,92 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         <div className="space-y-6 relative">
           {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
 
-          {/* Fade Out Effect */}
           <div className="relative h-24 overflow-hidden pointer-events-none">
              {renderParagraph(paragraphs[4], 4)}
              <div className="absolute inset-0 bg-gradient-to-t from-[#FDFBF7] via-[#FDFBF7]/80 to-transparent" />
           </div>
         </div>
 
-        {/* Premium Paywall Card */}
+        {/* Community Choice (Sen Seç) Card */}
+        <section className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700">
+          <div className="relative p-6 rounded-[2.5rem] bg-white border-2 border-primary/20 shadow-xl overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
+               <Sparkles className="w-20 h-20 text-primary" />
+            </div>
+
+            <div className="flex flex-col gap-6 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-tighter">Kapanışa: 12S 45D</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Kaderini Belirle</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-headline font-black text-accent leading-tight">
+                  Hikayenin Kaderini Belirle!
+                </h3>
+                <p className="text-sm text-muted-foreground font-medium italic">
+                  "Sizce Defne gerçeği Demir'e itiraf etmeli mi?"
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {!votedOption ? (
+                  <>
+                    <Button 
+                      onClick={() => handleVote('A')}
+                      variant="outline"
+                      className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
+                    >
+                      <span>Gerçeği İtiraf Etsin</span>
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Coins className="w-3 h-3 fill-current" />
+                        <span className="text-[10px]">10</span>
+                      </div>
+                    </Button>
+                    <Button 
+                      onClick={() => handleVote('B')}
+                      variant="outline"
+                      className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
+                    >
+                      <span>Sırrını Saklasın</span>
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Coins className="w-3 h-3 fill-current" />
+                        <span className="text-[10px]">10</span>
+                      </div>
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
+                        <span>Gerçeği İtiraf Etsin</span>
+                        <span className={cn(votedOption === 'A' ? "text-primary" : "text-muted-foreground")}>65%</span>
+                      </div>
+                      <Progress value={65} className={cn("h-3 rounded-full", votedOption === 'A' ? "bg-primary/10" : "bg-muted")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
+                        <span>Sırrını Saklasın</span>
+                        <span className={cn(votedOption === 'B' ? "text-primary" : "text-muted-foreground")}>35%</span>
+                      </div>
+                      <Progress value={35} className={cn("h-3 rounded-full", votedOption === 'B' ? "bg-primary/10" : "bg-muted")} />
+                    </div>
+                    <p className="text-[10px] text-center text-primary font-bold uppercase tracking-widest mt-2">
+                       {votedOption === 'A' ? 'İtiraf seçeneğine oy verdiniz!' : 'Sırrı saklama seçeneğine oy verdiniz!'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
            <div className="p-8 rounded-3xl bg-white shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-primary/10 flex flex-col items-center text-center gap-6">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -162,15 +243,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </section>
       </article>
 
-      {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
         <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden animate-in slide-in-from-bottom duration-500">
           {selectedLore && (
             <div className="h-full flex flex-col relative">
-              {/* Background Gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/5 pointer-events-none" />
               
-              {/* Image Header */}
               <div className="relative h-60 w-full">
                 <Image 
                   src={selectedLore.imageUrl}
@@ -183,7 +261,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/40 rounded-full" />
               </div>
 
-              {/* Content */}
               <div className="px-8 py-6 flex flex-col items-center text-center gap-4 relative z-10">
                 <div className="flex flex-col items-center">
                   <Badge className="bg-primary/20 text-primary border-none mb-2 text-[10px] font-bold uppercase tracking-tighter">
@@ -218,7 +295,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Decorative footer */}
       <footer className="h-24 bg-[#FDFBF7]" />
     </div>
   );
