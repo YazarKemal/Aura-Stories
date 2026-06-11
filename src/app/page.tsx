@@ -7,6 +7,7 @@ import { Header } from '@/components/header';
 import { BookDetailView } from '@/components/book-detail-view';
 import { ReadingView } from '@/components/reading-view';
 import { RewardsScreen } from '@/components/rewards-screen';
+import { ProfileScreen } from '@/components/profile-screen';
 import { Story } from '@/lib/types';
 
 export default function Home() {
@@ -58,28 +59,7 @@ export default function Home() {
           </div>
         )}
         {activeTab === 'rewards' && <RewardsScreen />}
-        {activeTab === 'profile' && (
-          <div className="px-4 animate-in fade-in duration-500">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-accent ring-4 ring-white shadow-lg overflow-hidden relative">
-                 <img src="https://picsum.photos/seed/user1/200" alt="Avatar" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-headline font-bold text-accent">Aura Kullanıcısı</h2>
-                <p className="text-sm text-muted-foreground">Premium Üye • İstanbul</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              {['Hesap Ayarları', 'Bildirimler', 'Gizlilik ve Güvenlik', 'Yardım Merkezi', 'Hakkında'].map((item, i) => (
-                <button key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-border/50 hover:bg-muted/50 transition-colors">
-                  <span className="text-sm font-medium">{item}</span>
-                  <span className="text-muted-foreground opacity-50">→</span>
-                </button>
-              ))}
-              <button className="mt-4 p-4 rounded-2xl bg-destructive/10 text-destructive text-sm font-bold">Çıkış Yap</button>
-            </div>
-          </div>
-        )}
+        {activeTab === 'profile' && <ProfileScreen />}
       </div>
 
       {/* Bottom Navigation - Hidden when overlays are active */}
