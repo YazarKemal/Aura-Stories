@@ -1,7 +1,7 @@
 'use client';
 
 import { Story } from '@/lib/types';
-import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle, Trophy } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           </div>
         </div>
 
-        {/* Book Cover - Shared Element Simulation */}
+        {/* Book Cover */}
         <div className="relative z-0 group animate-in zoom-in-95 fade-in duration-700 delay-200">
           <div className="relative aspect-[2/3] w-48 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] ring-1 ring-white/20">
             <Image
@@ -68,7 +68,14 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           <h1 className="text-3xl font-headline font-black text-accent leading-tight">
             {story.title}
           </h1>
-          <p className="text-primary font-bold text-lg">{story.author}</p>
+          
+          <div className="flex items-center gap-2">
+            <p className="text-primary font-bold text-lg">{story.author}</p>
+            <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white border-none text-[8px] font-black px-1.5 h-4 flex items-center gap-1 shadow-sm">
+              <Trophy className="w-2.5 h-2.5" />
+              ALTIN YAZAR
+            </Badge>
+          </div>
           
           <div className="flex items-center gap-6 mt-2">
             <div className="flex flex-col items-center">
