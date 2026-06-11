@@ -8,6 +8,7 @@ import {
   Lock, 
   Coins, 
   Play, 
+  Pause,
   Sparkles, 
   Timer, 
   CheckCircle2, 
@@ -17,10 +18,18 @@ import {
   Coffee,
   Crown,
   Flower2,
-  Send
+  Send,
+  Headphones,
+  SkipBack,
+  SkipForward,
+  Settings2,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -60,13 +69,27 @@ const DUMMY_COMMENTS = [
   { id: '3', user: 'StoryLover', text: 'Bu oda kesinlikle bir şeyler saklıyor.', time: '12d' },
 ];
 
+type ReadingTheme = 'light' | 'sepia' | 'dark';
+
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isGiftsOpen, setIsGiftsOpen] = useState(false);
+  const [isTypographyOpen, setIsTypographyOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
+  
+  // Typography State
+  const [fontSize, setFontSize] = useState([18]);
+  const [readingTheme, setReadingTheme] = useState<ReadingTheme>('light');
+  const [isDyslexic, setIsDyslexic] = useState(false);
+
+  // Audio Player State
+  const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [audioProgress, setAudioProgress] = useState(35);
   
   const lastScrollY = useRef(0);
 
@@ -116,10 +139,21 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
     return (
       <div key={index} className="relative group/para mb-6">
-        <p className={cn(
-          "font-serif text-lg leading-relaxed text-foreground/90",
-          index === 0 && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
-        )}>
+        <p 
+          style={{ 
+            fontSize: `${fontSize[0]}px`,
+            lineHeight: isDyslexic ? '2' : '1.6',
+            letterSpacing: isDyslexic ? '0.05em' : 'normal'
+          }}
+          className={cn(
+            "text-lg leading-relaxed",
+            isDyslexic ? "font-body" : "font-serif",
+            readingTheme === 'light' && "text-foreground/90",
+            readingTheme === 'sepia' && "text-[#5b4636]",
+            readingTheme === 'dark' && "text-gray-300",
+            index === 0 && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
+          )}
+        >
           {content}
         </p>
         
@@ -148,6 +182,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }, 2000);
   };
 
+  const toggleSpeed = () => {
+    const speeds = [1, 1.25, 1.5, 2];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    setPlaybackSpeed(speeds[nextIndex]);
+  };
+
   const giftOptions = [
     { id: 'rose', name: 'Gül', icon: Flower2, cost: 10, color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' },
     { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-amber-700 bg-amber-50 dark:bg-amber-900/20' },
@@ -155,8 +196,17 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     { id: 'heart', name: 'Kalp', icon: Heart, cost: 5, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' },
   ];
 
+  const themeColors = {
+    light: "bg-white",
+    sepia: "bg-[#f4ecd8]",
+    dark: "bg-[#1a1a1a]"
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500">
+    <div className={cn(
+      "fixed inset-0 z-[200] overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500",
+      themeColors[readingTheme]
+    )}>
       {/* Celebration Overlay */}
       {celebrationGift && (
         <div className="fixed inset-0 z-[1000] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
@@ -178,27 +228,54 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <header 
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 bg-background/90 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
-          !isVisible ? "-translate-y-full" : "translate-y-0"
+          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
+          !isVisible ? "-translate-y-full" : "translate-y-0",
+          readingTheme === 'dark' ? "bg-black/80 border-white/10" : "bg-white/80 border-black/10"
         )}
       >
         <button 
           onClick={onBack}
-          className="p-2 -ml-2 text-accent hover:bg-black/5 rounded-full transition-colors active:scale-90"
+          className={cn(
+            "p-2 -ml-2 rounded-full transition-colors active:scale-90",
+            readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+          )}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex flex-col items-center">
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Bölüm 1</span>
-          <h2 className="text-sm font-headline font-bold text-accent truncate max-w-[200px]">Teslimiyet</h2>
+          <h2 className={cn(
+            "text-sm font-headline font-bold truncate max-w-[200px]",
+            readingTheme === 'dark' ? "text-white" : "text-accent"
+          )}>Teslimiyet</h2>
         </div>
-        <button className="p-2 -mr-2 text-accent hover:bg-black/5 rounded-full transition-colors active:scale-90">
-          <Type className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => setIsAudioPlayerOpen(!isAudioPlayerOpen)}
+            className={cn(
+              "p-2 rounded-full transition-colors active:scale-90",
+              isAudioPlayerOpen ? "text-primary bg-primary/10" : (readingTheme === 'dark' ? "text-white" : "text-accent")
+            )}
+          >
+            <Headphones className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={() => setIsTypographyOpen(true)}
+            className={cn(
+              "p-2 -mr-2 rounded-full transition-colors active:scale-90",
+              readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+            )}
+          >
+            <Type className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
-      <article className="pt-24 px-8 pb-12 max-w-md mx-auto">
-        <h1 className="text-3xl font-headline font-black text-accent mb-8 leading-tight">
+      <article className="pt-24 px-8 pb-40 max-w-md mx-auto">
+        <h1 className={cn(
+          "text-3xl font-headline font-black mb-8 leading-tight",
+          readingTheme === 'sepia' ? "text-[#4a3a2a]" : (readingTheme === 'dark' ? "text-white" : "text-accent")
+        )}>
           Bölüm 1: Teslimiyet
         </h1>
 
@@ -207,13 +284,21 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
           <div className="relative h-24 overflow-hidden pointer-events-none">
              {renderParagraph(paragraphs[4], 4)}
-             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+             <div className={cn(
+               "absolute inset-0 bg-gradient-to-t via-transparent to-transparent",
+               readingTheme === 'light' && "from-white",
+               readingTheme === 'sepia' && "from-[#f4ecd8]",
+               readingTheme === 'dark' && "from-[#1a1a1a]"
+             )} />
           </div>
         </div>
 
         {/* Community Choice (Sen Seç) Card */}
         <section className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700">
-          <div className="relative p-6 rounded-[2.5rem] bg-card border-2 border-primary/20 shadow-xl overflow-hidden group">
+          <div className={cn(
+            "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-colors",
+            readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
+          )}>
             <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
                <Sparkles className="w-20 h-20 text-primary" />
             </div>
@@ -231,7 +316,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xl font-headline font-black text-accent leading-tight">
+                <h3 className={cn(
+                  "text-xl font-headline font-black leading-tight",
+                  readingTheme === 'dark' ? "text-white" : "text-accent"
+                )}>
                   Hikayenin Kaderini Belirle!
                 </h3>
                 <p className="text-sm text-muted-foreground font-medium italic">
@@ -293,13 +381,19 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
         {/* Paywall Card */}
         <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
-           <div className="p-8 rounded-3xl bg-card shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-primary/10 flex flex-col items-center text-center gap-6">
+           <div className={cn(
+             "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-colors",
+             readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
+           )}>
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                  <Lock className="w-8 h-8" />
               </div>
               
               <div className="space-y-2">
-                 <h3 className="text-xl font-headline font-bold text-accent">Bu bölüm kilitli</h3>
+                 <h3 className={cn(
+                   "text-xl font-headline font-bold",
+                   readingTheme === 'dark' ? "text-white" : "text-accent"
+                 )}>Bu bölüm kilitli</h3>
                  <p className="text-sm text-muted-foreground px-4">Okumaya devam etmek ve hikayenin sonunu öğrenmek için kilidi açın.</p>
               </div>
 
@@ -324,13 +418,81 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </section>
       </article>
 
-      {/* Floating Gift Button */}
-      <button 
-        onClick={() => setIsGiftsOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-[210] group"
-      >
-        <Gift className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-      </button>
+      {/* Floating Buttons Group */}
+      <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-[210]">
+        {/* Audio Player Toggle (If not open already) */}
+        {!isAudioPlayerOpen && (
+          <button 
+            onClick={() => setIsAudioPlayerOpen(true)}
+            className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group"
+          >
+            <Headphones className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+          </button>
+        )}
+        
+        <button 
+          onClick={() => setIsGiftsOpen(true)}
+          className="w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group"
+        >
+          <Gift className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+        </button>
+      </div>
+
+      {/* Docked Audio Player */}
+      {isAudioPlayerOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-[250] max-w-md mx-auto animate-in slide-in-from-bottom duration-500">
+          <div className="mx-6 mb-6 p-4 rounded-[2rem] glass-morphism border border-white/20 shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden relative shadow-md">
+                   <Image src={story.imageUrl} alt="cover" fill className="object-cover" />
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Sesli Okuma</span>
+                   <span className="text-xs font-bold text-accent truncate max-w-[120px]">{story.title}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={toggleSpeed}
+                  className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-bold hover:bg-primary/20 transition-colors"
+                >
+                  {playbackSpeed}x
+                </button>
+                <button 
+                  onClick={() => setIsAudioPlayerOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-black/5 text-muted-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Progress value={audioProgress} className="h-1.5 bg-primary/10" />
+              <div className="flex justify-between text-[8px] font-bold text-muted-foreground uppercase tracking-widest">
+                <span>02:15</span>
+                <span>08:45</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-8">
+               <button className="text-accent hover:text-primary transition-colors active:scale-90">
+                 <SkipBack className="w-5 h-5 fill-current" />
+               </button>
+               <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+               >
+                 {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
+               </button>
+               <button className="text-accent hover:text-primary transition-colors active:scale-90">
+                 <SkipForward className="w-5 h-5 fill-current" />
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
@@ -371,6 +533,89 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </div>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Typography Panel Sheet */}
+      <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Metin Ayarları</SheetTitle>
+            <SheetDescription>Yazı boyutu ve tema ayarları</SheetDescription>
+          </SheetHeader>
+          <div className="p-8 flex flex-col gap-8">
+            <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <span>Font Boyutu</span>
+                <span className="text-primary">{fontSize[0]}px</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-bold">A-</span>
+                <Slider 
+                  value={fontSize} 
+                  onValueChange={setFontSize} 
+                  min={14} 
+                  max={26} 
+                  step={1} 
+                  className="flex-1"
+                />
+                <span className="text-lg font-bold">A+</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Okuma Teması</span>
+              <div className="flex items-center justify-between gap-4">
+                <button 
+                  onClick={() => setReadingTheme('light')}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all",
+                    readingTheme === 'light' ? "border-primary bg-primary/5 shadow-md" : "border-border hover:bg-muted"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-full bg-white border border-border shadow-inner" />
+                  <span className="text-[10px] font-bold">Aydınlık</span>
+                </button>
+                <button 
+                  onClick={() => setReadingTheme('sepia')}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all",
+                    readingTheme === 'sepia' ? "border-primary bg-primary/5 shadow-md" : "border-border hover:bg-muted"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#f4ecd8] border border-border shadow-inner" />
+                  <span className="text-[10px] font-bold">Sepya</span>
+                </button>
+                <button 
+                  onClick={() => setReadingTheme('dark')}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all",
+                    readingTheme === 'dark' ? "border-primary bg-primary/5 shadow-md" : "border-border hover:bg-muted"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/10 shadow-inner" />
+                  <span className="text-[10px] font-bold">Karanlık</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl border border-border/50">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-bold text-accent">Disleksi Dostu Font</span>
+                <span className="text-[10px] text-muted-foreground">Okumayı kolaylaştıran özel düzen</span>
+              </div>
+              <Switch checked={isDyslexic} onCheckedChange={setIsDyslexic} />
+            </div>
+
+            <Button 
+              onClick={() => setIsTypographyOpen(false)}
+              className="w-full h-12 rounded-2xl bg-primary text-white font-bold"
+            >
+              Uygula
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -473,7 +718,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      <footer className="h-24 bg-background" />
+      <footer className="h-24" />
     </div>
   );
 }
