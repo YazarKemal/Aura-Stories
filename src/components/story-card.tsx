@@ -1,4 +1,6 @@
 
+'use client';
+
 import Image from 'next/image';
 import { Story } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -7,12 +9,20 @@ import { Eye } from 'lucide-react';
 interface StoryCardProps {
   story: Story;
   variant?: 'popular' | 'recommended';
+  onClick?: (story: Story) => void;
 }
 
-export function StoryCard({ story, variant = 'popular' }: StoryCardProps) {
+export function StoryCard({ story, variant = 'popular', onClick }: StoryCardProps) {
+  const handleClick = () => {
+    if (onClick) onClick(story);
+  };
+
   if (variant === 'popular') {
     return (
-      <div className="flex flex-col gap-2 min-w-[130px] group cursor-pointer">
+      <div 
+        className="flex flex-col gap-2 min-w-[130px] group cursor-pointer"
+        onClick={handleClick}
+      >
         <div className="relative aspect-[2/3] w-full rounded-xl overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
           <Image
             src={story.imageUrl}
@@ -31,7 +41,10 @@ export function StoryCard({ story, variant = 'popular' }: StoryCardProps) {
   }
 
   return (
-    <div className="flex gap-4 p-3 rounded-2xl glass-morphism shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+    <div 
+      className="flex gap-4 p-3 rounded-2xl glass-morphism shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+      onClick={handleClick}
+    >
       <div className="relative flex-shrink-0 aspect-[2/3] w-24 rounded-lg overflow-hidden shadow-md group-hover:scale-105 transition-transform">
         <Image
           src={story.imageUrl}

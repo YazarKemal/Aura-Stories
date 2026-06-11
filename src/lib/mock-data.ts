@@ -11,15 +11,20 @@ export const categories: Category[] = [
   { id: '6', name: 'Macera' },
 ];
 
+const DEFAULT_LONG_SYNOPSIS = "Kaderin cilvesiyle bir araya gelen iki yabancı, kendilerini beklemedikleri bir fırtınanın ortasında bulurlar. Geçmişin gölgeleri peşlerini bırakmazken, aralarındaki çekim her geçen gün daha da dayanılmaz bir hal alır.\n\nSırlar açığa çıktıkça, sadakatler test edilecek ve aşkın en saf hali ile en karanlık yüzü karşı karşıya gelecektir. Her sayfasında soluksuz kalacağınız bu hikayede, imkansızın sınırları zorlanıyor.\n\nİstanbul'un dar sokaklarından görkemli yalılara uzanan bu yolculukta, sadece hayatta kalmak değil, gerçekten yaşamak için savaşmaları gerekecek. Kalbinizin ritmini değiştirecek bir destan sizi bekliyor.";
+
 export const stories: Story[] = [
   {
     id: 's1',
     title: 'Gece Yarısı Güneşi',
     author: 'Elif Şafak',
     synopsis: 'Eski bir konağın tozlu rafları arasında başlayan imkansız bir aşk hikayesi.',
+    longSynopsis: "Eski bir konağın tozlu rafları arasında başlayan imkansız bir aşk hikayesi. Yıllardır kimsenin adım atmadığı kütüphane odasında bulunan gizemli bir mektup, iki ailenin on yıllardır süren düşmanlığını yeniden alevlendirir.\n\nGenç ve idealist bir araştırmacı olan Leyla, bu mektubun peşine düştüğünde konağın varisi Kerem ile tanışır. Başta birbirlerinden nefret eden bu iki genç, mektubun ardındaki trajik gerçeği öğrendikçe birbirlerine bağlanırlar.\n\nAncak geçmişin günahları, günümüzün mutluluğuna izin verecek mi? Gece yarısı doğan bir güneş gibi, karanlığın en koyu anında başlayan bu aşk, her şeyi yakıp kül mü edecek yoksa dünyayı mı aydınlatacak?",
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-1')?.imageUrl || '',
     readCount: 125400,
+    rating: 4.8,
     category: 'Romantik',
+    tags: ['Romantik', 'Tarihi', 'Gizem', 'Aşk'],
     isPopular: true,
     isFeatured: true,
   },
@@ -28,9 +33,12 @@ export const stories: Story[] = [
     title: 'Karanlık Lordun Varisi',
     author: 'Zeynep Sahra',
     synopsis: 'Büyülü bir krallığın yıkılışından sonra küllerinden doğan genç bir savaşçının destanı.',
+    longSynopsis: DEFAULT_LONG_SYNOPSIS,
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-2')?.imageUrl || '',
     readCount: 89000,
+    rating: 4.7,
     category: 'Fantastik',
+    tags: ['Fantastik', 'Aksiyon', 'Epik', 'Büyü'],
     isPopular: true,
   },
   {
@@ -38,9 +46,12 @@ export const stories: Story[] = [
     title: 'Sokakların Kanunu',
     author: 'Ahmet Ümit',
     synopsis: 'Yeraltı dünyasının acımasız kuralları arasında hayatta kalmaya çalışan bir dostluk.',
+    longSynopsis: DEFAULT_LONG_SYNOPSIS,
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-3')?.imageUrl || '',
     readCount: 210000,
+    rating: 4.9,
     category: 'Mafya',
+    tags: ['Mafya', 'Suç', 'İntikam', 'Dram'],
     isPopular: true,
     isFeatured: true,
   },
@@ -49,9 +60,12 @@ export const stories: Story[] = [
     title: 'Son Yaprak Dökümü',
     author: 'Reşat Nuri',
     synopsis: 'Parçalanan bir ailenin hüzünlü ve umut dolu yeniden birleşme çabası.',
+    longSynopsis: DEFAULT_LONG_SYNOPSIS,
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-4')?.imageUrl || '',
     readCount: 45000,
+    rating: 4.5,
     category: 'Dram',
+    tags: ['Dram', 'Aile', 'Hüzün', 'Klasik'],
     isPopular: false,
   },
   {
@@ -59,9 +73,12 @@ export const stories: Story[] = [
     title: 'Mühürlü Kapı',
     author: 'Peyami Safa',
     synopsis: 'İstanbul\'un gizli geçitlerinde saklı kalmış antik bir sırrın peşinde tehlikeli bir takip.',
+    longSynopsis: DEFAULT_LONG_SYNOPSIS,
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-5')?.imageUrl || '',
     readCount: 78000,
+    rating: 4.6,
     category: 'Gizem',
+    tags: ['Gizem', 'Gerilim', 'İstanbul', 'Antik'],
     isPopular: true,
   },
   {
@@ -69,9 +86,12 @@ export const stories: Story[] = [
     title: 'Zirve Yolcuları',
     author: 'Sabahattin Ali',
     synopsis: 'Doğanın kalbinde, insanın kendi sınırlarını keşfettiği unutulmaz bir tırmanış macerası.',
+    longSynopsis: DEFAULT_LONG_SYNOPSIS,
     imageUrl: PlaceHolderImages.find(img => img.id === 'book-6')?.imageUrl || '',
     readCount: 32000,
+    rating: 4.4,
     category: 'Macera',
+    tags: ['Macera', 'Doğa', 'Psikolojik', 'İnsan'],
     isPopular: false,
   }
 ];

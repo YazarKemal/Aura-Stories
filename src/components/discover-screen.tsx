@@ -5,9 +5,7 @@ import { useState, useEffect } from 'react';
 import { 
   Carousel, 
   CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
+  CarouselItem 
 } from '@/components/ui/carousel';
 import { stories, categories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
@@ -18,7 +16,11 @@ import { personalizeStoryRecommendations } from '@/ai/flows/personalized-story-r
 import { Story } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function DiscoverScreen() {
+interface DiscoverScreenProps {
+  onSelectStory: (story: Story) => void;
+}
+
+export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState('Hepsi');
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(true);
@@ -31,7 +33,6 @@ export function DiscoverScreen() {
           preferences: 'Aşk, Gizem ve Tarih kokan hikayeleri severim.'
         });
         
-        // Transform the AI output to our Story model
         const transformed: Story[] = result.recommendations.map((rec, index) => ({
           id: `ai-${index}`,
           title: rec.title,
@@ -40,6 +41,7 @@ export function DiscoverScreen() {
           imageUrl: rec.imageUrl || PlaceHolderImages.find(img => img.id === `book-${(index % 6) + 1}`)?.imageUrl || '',
           readCount: rec.readCount,
           category: 'Özel',
+          tags: ['AI Seçimi', 'Özel'],
         }));
         
         setAiRecommendations(transformed);
@@ -127,7 +129,7 @@ export function DiscoverScreen() {
           {stories
             .filter(s => s.isPopular)
             .map(story => (
-              <StoryCard key={story.id} story={story} variant="popular" />
+              <StoryCard key={story.id} story={story} variant="popular" onClick={onSelectStory} />
             ))
           }
         </div>
@@ -157,7 +159,7 @@ export function DiscoverScreen() {
             ))
           ) : (
             aiRecommendations.map(story => (
-              <StoryCard key={story.id} story={story} variant="recommended" />
+              <StoryCard key={story.id} story={story} variant="recommended" onClick={onSelectStory} />
             ))
           )}
         </div>

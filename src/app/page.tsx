@@ -5,22 +5,37 @@ import { useState } from 'react';
 import { DiscoverScreen } from '@/components/discover-screen';
 import { BottomNav } from '@/components/bottom-nav';
 import { Header } from '@/components/header';
+import { BookDetailView } from '@/components/book-detail-view';
+import { Story } from '@/lib/types';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('discover');
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+
+  const handleSelectStory = (story: Story) => {
+    setSelectedStory(story);
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden">
-      {/* App Header */}
-      <Header />
+      {/* Detail View Overlay */}
+      {selectedStory && (
+        <BookDetailView 
+          story={selectedStory} 
+          onBack={() => setSelectedStory(null)} 
+        />
+      )}
+
+      {/* App Header - Hidden when detail view is active */}
+      {!selectedStory && <Header />}
 
       {/* Tab Content */}
-      <div className="pt-24 pb-4">
-        {activeTab === 'discover' && <DiscoverScreen />}
+      <div className={`pt-24 pb-4 ${selectedStory ? 'hidden' : ''}`}>
+        {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
         {activeTab === 'library' && (
           <div className="px-4 flex flex-col items-center justify-center h-[60vh] text-center gap-4 animate-in fade-in zoom-in duration-500">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <DiscoverScreen /> {/* Just a placeholder to show something exists */}
+               <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
             </div>
             <h2 className="text-2xl font-headline font-bold text-accent">Kitaplığınız Boş</h2>
             <p className="text-muted-foreground">Keşfet sekmesinden yeni hikayeler ekleyerek okumaya başlayabilirsiniz.</p>
@@ -81,8 +96,8 @@ export default function Home() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Bottom Navigation - Hidden when detail view is active */}
+      {!selectedStory && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
     </main>
   );
 }
