@@ -121,9 +121,9 @@ export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeTog
         </div>
       </Card>
 
-      {/* Okuma Serüveni (Reading Journey) Section */}
+      {/* Reading Journey Section */}
       <section className="flex flex-col gap-4">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Okuma Serüveni</h3>
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Senin Aura'n</h3>
         
         <Card className="p-8 rounded-[2.5rem] border-none bg-gradient-to-br from-primary/10 via-background to-accent/5 shadow-sm overflow-hidden relative">
           <div className="flex flex-col items-center gap-8 relative z-10">

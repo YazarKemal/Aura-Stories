@@ -127,6 +127,16 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setSelectedQuote(text);
   };
 
+  const handleOpenTypography = () => {
+    setIsTypographyOpen(true);
+  };
+
+  const handleOpenShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsShareSheetOpen(true);
+  };
+
   const renderParagraph = (text: string, index: number) => {
     const hasComments = index === 1 || index === 4;
     const isSelected = selectedQuote === text;
@@ -187,7 +197,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             </button>
           )}
           <button 
-            onClick={(e) => { e.stopPropagation(); setSelectedQuote(text); setIsShareSheetOpen(true); }}
+            onClick={handleOpenShare}
             className="flex items-center gap-1 text-[10px] font-bold text-primary/40 hover:text-primary transition-all active:scale-90"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -197,7 +207,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         {isSelected && (
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20">
             <button 
-              onClick={(e) => { e.stopPropagation(); setIsShareSheetOpen(true); }}
+              onClick={handleOpenShare}
               className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
             >
               <Share2 className="w-3 h-3" />
@@ -294,7 +304,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
         <div className="flex items-center gap-1">
           <button 
-            onClick={() => setIsTypographyOpen(true)}
+            onClick={handleOpenTypography}
             className={cn(
               "p-2 -mr-2 rounded-full transition-colors active:scale-90",
               readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
@@ -513,7 +523,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Quote Share Sheet */}
       <Sheet open={isShareSheetOpen} onOpenChange={setIsShareSheetOpen}>
-        <SheetContent side="bottom" className="h-[650px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
+        <SheetContent side="bottom" className="h-[650px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <SheetHeader className="sr-only">
             <SheetTitle>Alıntı Paylaş</SheetTitle>
             <SheetDescription>Instagram Hikayesi Oluştur</SheetDescription>
@@ -580,7 +590,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
-        <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden">
+        <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden z-[600]">
           <SheetHeader className="sr-only">
             <SheetTitle>Karakter Bilgisi</SheetTitle>
             <SheetDescription>Lore Card</SheetDescription>
@@ -608,9 +618,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Typography Panel Sheet (Redesigned) */}
+      {/* Typography Panel Sheet */}
       <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <SheetHeader className="sr-only">
             <SheetTitle>Metin Ayarları</SheetTitle>
             <SheetDescription>Font ve Tema</SheetDescription>
@@ -670,7 +680,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Inline Comments Sheet */}
       <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
-        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
+        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <SheetHeader className="sr-only">
             <SheetTitle>Yorumlar</SheetTitle>
             <SheetDescription>Topluluk Tepkileri</SheetDescription>
@@ -703,7 +713,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Tipping / Gift Modal */}
       <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[500]">
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <SheetHeader className="sr-only">
             <SheetTitle>Hediye Gönder</SheetTitle>
             <SheetDescription>Yazarı Destekle</SheetDescription>
