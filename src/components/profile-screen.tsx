@@ -11,7 +11,13 @@ import {
   Star,
   Diamond,
   UserCircle,
-  Moon
+  Moon,
+  Sparkles,
+  Clock,
+  BookOpen,
+  Flame,
+  Heart,
+  Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +62,13 @@ export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeTog
       label: 'Ayarlar', 
       icon: Settings 
     },
+  ];
+
+  const badges = [
+    { id: 'owl', icon: Moon, label: 'Gece Kuşu', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
+    { id: 'heart', icon: Heart, label: 'Romantik', color: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' },
+    { id: 'book', icon: BookOpen, label: 'Kitap Kurdu', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    { id: 'trophy', icon: Trophy, label: 'Efsane', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
   ];
 
   return (
@@ -105,6 +118,66 @@ export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeTog
           </div>
         </div>
       </Card>
+
+      {/* Senin Aura'n Section */}
+      <section className="flex flex-col gap-4">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest ml-1">Senin Aura'n</h3>
+        
+        <Card className="p-6 rounded-[2.5rem] border-none bg-gradient-to-br from-primary/10 via-background to-accent/5 shadow-sm overflow-hidden relative">
+          <div className="flex flex-col items-center gap-6 relative z-10">
+            {/* Aura Crystal Central Graphic */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
+              <div className="relative w-32 h-32 rounded-full bg-white dark:bg-card flex items-center justify-center shadow-xl border-4 border-white/50 animate-float">
+                <Sparkles className="w-16 h-16 text-primary drop-shadow-[0_0_15px_rgba(155,103,212,0.5)]" />
+                <Badge className="absolute -bottom-2 bg-accent text-white border-white border-2 text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
+                  SEVİYE 5 OKUYUCU
+                </Badge>
+              </div>
+            </div>
+
+            {/* Statistics Grid */}
+            <div className="grid grid-cols-3 gap-3 w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/20">
+                <Clock className="w-4 h-4 text-blue-500" />
+                <span className="text-[10px] font-black text-accent text-center leading-tight">12 Saat<br/>Okuma</span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/20">
+                <BookOpen className="w-4 h-4 text-primary" />
+                <span className="text-[10px] font-black text-accent text-center leading-tight">45k<br/>Kelime</span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/20">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-[10px] font-black text-accent text-center leading-tight">7 Gün<br/>Serisi</span>
+              </div>
+            </div>
+
+            {/* Badges Section */}
+            <div className="w-full flex flex-col gap-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Kazanılan Rozetler</span>
+                <span className="text-[10px] font-bold text-primary">Tümü (12)</span>
+              </div>
+              <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-2 px-2 pb-1">
+                {badges.map((badge) => {
+                  const Icon = badge.icon;
+                  return (
+                    <div key={badge.id} className="flex flex-col items-center gap-2 flex-shrink-0">
+                      <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm transition-transform hover:scale-110",
+                        badge.color
+                      )}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground">{badge.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
 
       {/* Dark Mode Toggle Row */}
       <Card className="p-4 rounded-[1.5rem] border-none bg-white dark:bg-card shadow-sm flex items-center justify-between">
