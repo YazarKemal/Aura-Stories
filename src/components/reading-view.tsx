@@ -50,7 +50,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       >
         <button 
           onClick={onBack}
-          className="p-2 -ml-2 text-accent hover:bg-black/5 rounded-full transition-colors"
+          className="p-2 -ml-2 text-accent hover:bg-black/5 rounded-full transition-colors active:scale-90"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -58,7 +58,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Bölüm 1</span>
           <h2 className="text-sm font-headline font-bold text-accent truncate max-w-[200px]">Teslimiyet</h2>
         </div>
-        <button className="p-2 -mr-2 text-accent hover:bg-black/5 rounded-full transition-colors">
+        <button className="p-2 -mr-2 text-accent hover:bg-black/5 rounded-full transition-colors active:scale-90">
           <Type className="w-5 h-5" />
         </button>
       </header>
@@ -99,14 +99,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
               <div className="flex flex-col w-full gap-3">
                  <Button 
-                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 animate-pulse-subtle"
                  >
                    <Coins className="w-5 h-5" />
                    15 Jeton ile Aç
                  </Button>
                  <Button 
                    variant="outline"
-                   className="w-full h-12 rounded-2xl border-primary/20 text-primary font-bold hover:bg-primary/5 flex items-center justify-center gap-2"
+                   className="w-full h-12 rounded-2xl border-primary/20 text-primary font-bold hover:bg-primary/5 active:scale-95 transition-all flex items-center justify-center gap-2"
                  >
                    <Play className="w-4 h-4 fill-current" />
                    Reklam İzle ve Ücretsiz Aç

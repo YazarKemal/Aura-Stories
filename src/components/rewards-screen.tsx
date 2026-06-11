@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -71,7 +72,7 @@ export function RewardsScreen() {
   ];
 
   return (
-    <div className="flex flex-col gap-8 pb-24 px-4 animate-in slide-in-from-bottom-8 duration-500">
+    <div className="flex flex-col gap-8 pb-24 px-4">
       {/* Wallet Card */}
       <section>
         <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-primary via-accent to-primary p-8 shadow-2xl shadow-primary/20">
@@ -110,7 +111,7 @@ export function RewardsScreen() {
             </div>
           </div>
 
-          <Button className="w-full h-12 rounded-2xl bg-white text-primary font-bold shadow-lg hover:bg-white/90 active:scale-95 transition-all">
+          <Button className="w-full h-12 rounded-2xl bg-white text-primary font-bold shadow-lg hover:bg-white/90 active:scale-95 transition-all animate-pulse-subtle">
             Yükleme Yap
           </Button>
         </div>
@@ -146,7 +147,7 @@ export function RewardsScreen() {
             disabled={checkedIn}
             className={cn(
               "w-full h-12 rounded-2xl font-bold transition-all",
-              checkedIn ? "bg-muted text-muted-foreground" : "bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-200"
+              checkedIn ? "bg-muted text-muted-foreground" : "bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-200 active:scale-95"
             )}
           >
             {checkedIn ? 'Ödül Alındı' : 'Bugünkü Ödülü Al (1 Bonus)'}
@@ -164,7 +165,7 @@ export function RewardsScreen() {
             const isCompleted = task.progress >= task.total;
 
             return (
-              <div key={task.id} className="p-4 rounded-3xl bg-white border border-border/50 shadow-sm hover:shadow-md transition-shadow">
+              <div key={task.id} className="p-4 rounded-3xl bg-white border border-border/50 shadow-sm hover:shadow-md transition-shadow active:scale-[0.98] duration-200">
                 <div className="flex items-center gap-4">
                   <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-muted/30", task.color)}>
                     <Icon className="w-6 h-6" />

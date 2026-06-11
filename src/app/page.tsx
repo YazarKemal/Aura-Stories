@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -54,16 +55,18 @@ export default function Home() {
       {/* App Header - Hidden when overlays are active */}
       {!selectedStory && !isReading && !isWriterDashboardOpen && <Header />}
 
-      {/* Tab Content */}
+      {/* Tab Content with Soft Fade Transition */}
       <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen ? 'hidden' : ''}`}>
-        {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
-        {activeTab === 'library' && (
-          <LibraryScreen onNavigateToDiscover={() => setActiveTab('discover')} />
-        )}
-        {activeTab === 'rewards' && <RewardsScreen />}
-        {activeTab === 'profile' && (
-          <ProfileScreen onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)} />
-        )}
+        <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
+          {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
+          {activeTab === 'library' && (
+            <LibraryScreen onNavigateToDiscover={() => setActiveTab('discover')} />
+          )}
+          {activeTab === 'rewards' && <RewardsScreen />}
+          {activeTab === 'profile' && (
+            <ProfileScreen onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)} />
+          )}
+        </div>
       </div>
 
       {/* Bottom Navigation - Hidden when overlays are active */}

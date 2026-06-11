@@ -33,28 +33,28 @@ export function BookDetailView({ story, onBack, onStartReading }: BookDetailView
         <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10">
           <button 
             onClick={onBack}
-            className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent hover:bg-white transition-colors"
+            className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent hover:bg-white active:scale-90 transition-all"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex gap-3">
-            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent">
+            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               <Share2 className="w-5 h-5" />
             </button>
-            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent">
+            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               <Bookmark className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Book Cover */}
+        {/* Book Cover - Shared Element Simulation */}
         <div className="relative z-0 group animate-in zoom-in-95 fade-in duration-700 delay-200">
           <div className="relative aspect-[2/3] w-48 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] ring-1 ring-white/20">
             <Image
               src={story.imageUrl}
               alt={story.title}
               fill
-              className="object-cover"
+              className="object-cover transition-transform duration-700 hover:scale-105"
               data-ai-hint="book cover detail"
             />
           </div>
@@ -62,7 +62,7 @@ export function BookDetailView({ story, onBack, onStartReading }: BookDetailView
       </section>
 
       {/* Content Section */}
-      <section className="px-6 -mt-8 relative z-10 pb-32">
+      <section className="px-6 -mt-8 relative z-10 pb-32 animate-in slide-in-from-bottom-10 fade-in duration-1000 delay-300">
         <div className="flex flex-col items-center text-center gap-2 mb-6">
           <h1 className="text-3xl font-headline font-black text-accent leading-tight">
             {story.title}
@@ -115,7 +115,7 @@ export function BookDetailView({ story, onBack, onStartReading }: BookDetailView
       <div className="fixed bottom-0 left-0 right-0 p-6 pt-2 bg-gradient-to-t from-background via-background to-transparent z-[110]">
         <Button 
           onClick={onStartReading}
-          className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-lg font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+          className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 animate-pulse-subtle"
         >
           Okumaya Başla
         </Button>
