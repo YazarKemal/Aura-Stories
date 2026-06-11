@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Carousel, 
   CarouselContent, 
@@ -23,8 +24,13 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState('Hepsi');
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(true);
+  const fetchInitiated = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple concurrent fetches, especially in Strict Mode
+    if (fetchInitiated.current) return;
+    fetchInitiated.current = true;
+
     async function fetchAiRecommendations() {
       setIsLoadingAi(true);
       try {
@@ -46,8 +52,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
         
         setAiRecommendations(transformed);
       } catch (error) {
-        console.error('AI Recommendations failed even after retries:', error);
-        // Fallback to high-quality mock data if AI is down
+        // Silently handle quota or service errors by falling back to library data
         const fallback: Story[] = stories
           .filter(s => s.isPopular)
           .slice(0, 3)

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for generating personalized story recommendations.
@@ -93,15 +94,23 @@ const personalizedStoryRecommendationsFlow = ai.defineFlow(
       } catch (error: any) {
         lastError = error;
         attempts++;
-        // If we encounter a transient service error (like 503), wait and retry
-        if (attempts < maxAttempts) {
-          const delay = attempts * 1000; // 1s, 2s backoff
+        
+        const isQuotaError = error.message?.includes('429') || error.message?.includes('quota');
+        const isServiceError = error.message?.includes('503') || error.message?.includes('unavailable');
+
+        if (attempts < maxAttempts && (isQuotaError || isServiceError)) {
+          // Longer backoff for quota errors
+          const delay = isQuotaError ? attempts * 2000 : attempts * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          // If it's not a retryable error or we're out of attempts, stop
+          break;
         }
       }
     }
     
-    // If all attempts fail, we throw the last error to be handled by the UI
-    throw lastError || new Error('Failed to generate recommendations after multiple attempts.');
+    // Log the error for internal tracking but let the caller decide how to handle failure
+    console.warn('AI Recommendations flow failed. Attempts:', attempts, 'Error:', lastError?.message);
+    throw lastError || new Error('Failed to generate recommendations.');
   }
 );
