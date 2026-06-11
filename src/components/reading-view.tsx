@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -123,8 +124,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   ];
 
   const handleParaClick = (text: string) => {
-    // In a real app, this would be a selection handler. 
-    // For this prototype, tapping text selects the whole paragraph for sharing.
     setSelectedQuote(text);
   };
 
@@ -166,7 +165,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             letterSpacing: isDyslexic ? '0.05em' : 'normal'
           }}
           className={cn(
-            "text-lg leading-relaxed",
+            "text-lg leading-relaxed transition-all duration-500",
             isDyslexic ? "font-body" : "font-serif",
             readingTheme === 'light' && "text-foreground/90",
             readingTheme === 'sepia' && "text-[#5b4636]",
@@ -195,7 +194,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </button>
         </div>
 
-        {/* Floating Tooltip when selected */}
         {isSelected && (
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20">
             <button 
@@ -296,15 +294,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
         <div className="flex items-center gap-1">
           <button 
-            onClick={() => setIsAudioPlayerOpen(!isAudioPlayerOpen)}
-            className={cn(
-              "p-2 rounded-full transition-colors active:scale-90",
-              isAudioPlayerOpen ? "text-primary bg-primary/10" : (readingTheme === 'dark' ? "text-white" : "text-accent")
-            )}
-          >
-            <Headphones className="w-5 h-5" />
-          </button>
-          <button 
             onClick={() => setIsTypographyOpen(true)}
             className={cn(
               "p-2 -mr-2 rounded-full transition-colors active:scale-90",
@@ -318,7 +307,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <article className="pt-24 px-8 pb-40 max-w-md mx-auto">
         <h1 className={cn(
-          "text-3xl font-headline font-black mb-8 leading-tight",
+          "text-3xl font-headline font-black mb-8 leading-tight transition-colors duration-500",
           readingTheme === 'sepia' ? "text-[#4a3a2a]" : (readingTheme === 'dark' ? "text-white" : "text-accent")
         )}>
           Bölüm 1: Teslimiyet
@@ -330,7 +319,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <div className="relative h-24 overflow-hidden pointer-events-none">
              {renderParagraph(paragraphs[4], 4)}
              <div className={cn(
-               "absolute inset-0 bg-gradient-to-t via-transparent to-transparent",
+               "absolute inset-0 bg-gradient-to-t via-transparent to-transparent transition-colors duration-500",
                readingTheme === 'light' && "from-white",
                readingTheme === 'sepia' && "from-[#f4ecd8]",
                readingTheme === 'dark' && "from-[#1a1a1a]"
@@ -341,7 +330,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         {/* Community Choice (Sen Seç) Card */}
         <section className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700">
           <div className={cn(
-            "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-colors",
+            "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500",
             readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
           )}>
             <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
@@ -424,7 +413,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         {/* Paywall Card */}
         <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
            <div className={cn(
-             "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-colors",
+             "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500",
              readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
            )}>
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -539,13 +528,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
             {/* IG Story Preview Card */}
             <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group mx-2">
-              {/* Blurred Cover Background */}
               <div className="absolute inset-0">
                 <Image src={story.imageUrl} alt="preview" fill className="object-cover scale-110 blur-xl opacity-60" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
               </div>
 
-              {/* Card Content */}
               <div className="relative h-full p-10 flex flex-col justify-between text-white z-10">
                 <div className="flex justify-between items-start">
                    <div className="flex flex-col">
@@ -621,7 +608,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Typography Panel Sheet */}
+      {/* Typography Panel Sheet (Redesigned) */}
       <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
           <SheetHeader className="sr-only">
@@ -630,23 +617,51 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </SheetHeader>
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            
+            {/* Font Size Slider */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                <span>Font Boyutu</span>
-                <span className="text-primary">{fontSize[0]}px</span>
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <span className="flex items-center gap-1.5">A- <span className="text-[8px] opacity-50">KÜÇÜK</span></span>
+                <span className="text-primary font-black text-xs">{fontSize[0]}px</span>
+                <span className="flex items-center gap-1.5">A+ <span className="text-[8px] opacity-50">BÜYÜK</span></span>
               </div>
-              <Slider value={fontSize} onValueChange={setFontSize} min={14} max={26} step={1} />
+              <Slider value={fontSize} onValueChange={setFontSize} min={14} max={26} step={1} className="py-2" />
             </div>
+
+            {/* Reading Themes */}
             <div className="space-y-4">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Okuma Teması</span>
-              <div className="flex items-center justify-between gap-4">
-                <button onClick={() => setReadingTheme('light')} className={cn("flex-1 p-3 rounded-2xl border-2", readingTheme === 'light' ? "border-primary bg-primary/5" : "border-border")}>Aydınlık</button>
-                <button onClick={() => setReadingTheme('sepia')} className={cn("flex-1 p-3 rounded-2xl border-2", readingTheme === 'sepia' ? "border-primary bg-primary/5" : "border-border")}>Sepya</button>
-                <button onClick={() => setReadingTheme('dark')} className={cn("flex-1 p-3 rounded-2xl border-2", readingTheme === 'dark' ? "border-primary bg-primary/5" : "border-border")}>Karanlık</button>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Teması</span>
+              <div className="flex items-center justify-center gap-8">
+                <button 
+                  onClick={() => setReadingTheme('light')} 
+                  className={cn(
+                    "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-white shadow-sm hover:scale-110 active:scale-95",
+                    readingTheme === 'light' ? "border-primary ring-2 ring-primary/20" : "border-border"
+                  )}
+                />
+                <button 
+                  onClick={() => setReadingTheme('sepia')} 
+                  className={cn(
+                    "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#f4ecd8] shadow-sm hover:scale-110 active:scale-95",
+                    readingTheme === 'sepia' ? "border-primary ring-2 ring-primary/20" : "border-border"
+                  )}
+                />
+                <button 
+                  onClick={() => setReadingTheme('dark')} 
+                  className={cn(
+                    "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#1a1a1a] shadow-sm hover:scale-110 active:scale-95",
+                    readingTheme === 'dark' ? "border-primary ring-2 ring-primary/20" : "border-border"
+                  )}
+                />
               </div>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl border border-border/50">
-              <span className="text-sm font-bold text-accent">Disleksi Dostu Font</span>
+
+            {/* Dyslexia Mode Toggle */}
+            <div className="flex items-center justify-between p-5 bg-muted/20 rounded-[1.5rem] border border-border/40">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-accent">Disleksi Modu</span>
+                <span className="text-[10px] text-muted-foreground font-medium">Özel okuma fontu ve aralaması</span>
+              </div>
               <Switch checked={isDyslexic} onCheckedChange={setIsDyslexic} />
             </div>
           </div>
@@ -699,7 +714,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               {giftOptions.map((gift) => {
                 const Icon = gift.icon;
                 return (
-                  <button key={gift.id} onClick={() => handleSendGift(gift.id)} className="flex flex-col items-center gap-3 p-6 rounded-3xl border-2 border-border/50 active:scale-95 transition-all">
+                  <button key={gift.id} onClick={() => handleSendGift(gift.id)} className="flex flex-col items-center gap-3 p-6 rounded-3xl border-2 border-border/50 active:scale-95 transition-all hover:border-primary/40 hover:bg-primary/5">
                     <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center", gift.color)}>
                       <Icon className="w-7 h-7" />
                     </div>
