@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
 interface BookDetailViewProps {
   story: Story;
   onBack: () => void;
+  onStartReading: () => void;
 }
 
-export function BookDetailView({ story, onBack }: BookDetailViewProps) {
+export function BookDetailView({ story, onBack, onStartReading }: BookDetailViewProps) {
   return (
     <div className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
       {/* Hero Section */}
@@ -113,6 +114,7 @@ export function BookDetailView({ story, onBack }: BookDetailViewProps) {
       {/* Sticky Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 p-6 pt-2 bg-gradient-to-t from-background via-background to-transparent z-[110]">
         <Button 
+          onClick={onStartReading}
           className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-lg font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
         >
           Okumaya Başla

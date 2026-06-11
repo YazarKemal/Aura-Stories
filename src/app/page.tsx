@@ -6,31 +6,47 @@ import { DiscoverScreen } from '@/components/discover-screen';
 import { BottomNav } from '@/components/bottom-nav';
 import { Header } from '@/components/header';
 import { BookDetailView } from '@/components/book-detail-view';
+import { ReadingView } from '@/components/reading-view';
 import { Story } from '@/lib/types';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('discover');
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [isReading, setIsReading] = useState(false);
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
+    setIsReading(false);
+  };
+
+  const handleStartReading = () => {
+    setIsReading(true);
   };
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden">
-      {/* Detail View Overlay */}
-      {selectedStory && (
-        <BookDetailView 
+      {/* Reading View Overlay */}
+      {isReading && selectedStory && (
+        <ReadingView 
           story={selectedStory} 
-          onBack={() => setSelectedStory(null)} 
+          onBack={() => setIsReading(false)} 
         />
       )}
 
-      {/* App Header - Hidden when detail view is active */}
-      {!selectedStory && <Header />}
+      {/* Detail View Overlay */}
+      {selectedStory && !isReading && (
+        <BookDetailView 
+          story={selectedStory} 
+          onBack={() => setSelectedStory(null)} 
+          onStartReading={handleStartReading}
+        />
+      )}
+
+      {/* App Header - Hidden when overlays are active */}
+      {!selectedStory && !isReading && <Header />}
 
       {/* Tab Content */}
-      <div className={`pt-24 pb-4 ${selectedStory ? 'hidden' : ''}`}>
+      <div className={`pt-24 pb-4 ${selectedStory || isReading ? 'hidden' : ''}`}>
         {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
         {activeTab === 'library' && (
           <div className="px-4 flex flex-col items-center justify-center h-[60vh] text-center gap-4 animate-in fade-in zoom-in duration-500">
@@ -96,8 +112,8 @@ export default function Home() {
         )}
       </div>
 
-      {/* Bottom Navigation - Hidden when detail view is active */}
-      {!selectedStory && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
+      {/* Bottom Navigation - Hidden when overlays are active */}
+      {!selectedStory && !isReading && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
     </main>
   );
 }

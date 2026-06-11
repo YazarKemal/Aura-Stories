@@ -13,6 +13,7 @@ export default {
       fontFamily: {
         body: ['PT Sans', 'sans-serif'],
         headline: ['Playfair Display', 'serif'],
+        serif: ['PT Serif', 'serif'],
         code: ['monospace'],
       },
       colors: {
