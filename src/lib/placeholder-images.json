@@ -1,3 +1,58 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "banner-1",
+      "description": "Featured story banner - Enchanted forest",
+      "imageUrl": "https://picsum.photos/seed/aura1/800/400",
+      "imageHint": "mystical forest"
+    },
+    {
+      "id": "banner-2",
+      "description": "Featured story banner - Starry night romance",
+      "imageUrl": "https://picsum.photos/seed/aura2/800/400",
+      "imageHint": "starry night"
+    },
+    {
+      "id": "banner-3",
+      "description": "Featured story banner - Victorian manor",
+      "imageUrl": "https://picsum.photos/seed/aura3/800/400",
+      "imageHint": "victorian manor"
+    },
+    {
+      "id": "book-1",
+      "description": "Book cover - Romantik story",
+      "imageUrl": "https://picsum.photos/seed/book1/300/450",
+      "imageHint": "romantic flowers"
+    },
+    {
+      "id": "book-2",
+      "description": "Book cover - Fantastik story",
+      "imageUrl": "https://picsum.photos/seed/book2/300/450",
+      "imageHint": "fantasy sword"
+    },
+    {
+      "id": "book-3",
+      "description": "Book cover - Mafya story",
+      "imageUrl": "https://picsum.photos/seed/book3/300/450",
+      "imageHint": "city night"
+    },
+    {
+      "id": "book-4",
+      "description": "Book cover - Dram story",
+      "imageUrl": "https://picsum.photos/seed/book4/300/450",
+      "imageHint": "teardrop eye"
+    },
+    {
+      "id": "book-5",
+      "description": "Book cover - Gizem story",
+      "imageUrl": "https://picsum.photos/seed/book5/300/450",
+      "imageHint": "mysterious figure"
+    },
+    {
+      "id": "book-6",
+      "description": "Book cover - Macera story",
+      "imageUrl": "https://picsum.photos/seed/book6/300/450",
+      "imageHint": "mountain landscape"
+    }
+  ]
 }
