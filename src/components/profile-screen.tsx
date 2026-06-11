@@ -19,7 +19,8 @@ import {
   Flame,
   Heart,
   Trophy,
-  TreeDeciduous
+  TreeDeciduous,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,11 +32,12 @@ import { cn } from '@/lib/utils';
 
 interface ProfileScreenProps {
   onOpenWriterDashboard?: () => void;
+  onOpenVIP?: () => void;
   isDarkMode: boolean;
   onDarkModeToggle: (val: boolean) => void;
 }
 
-export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
+export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
   const menuItems = [
     { 
       id: 'writer', 
@@ -89,6 +91,28 @@ export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeTog
           </Badge>
         </div>
       </section>
+
+      {/* Aura VIP Banner */}
+      <Card 
+        onClick={onOpenVIP}
+        className="p-5 rounded-[2.5rem] bg-gradient-to-br from-[#1D1231] via-[#2D1B4E] to-[#1D1231] border-none shadow-[0_15px_35px_rgba(155,103,212,0.3)] cursor-pointer group active:scale-[0.98] transition-all overflow-hidden relative"
+      >
+        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:rotate-12 transition-transform">
+          <Crown className="w-20 h-20 text-amber-400" />
+        </div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-amber-400/20 backdrop-blur-md flex items-center justify-center text-amber-400 ring-1 ring-amber-400/30">
+            <Crown className="w-6 h-6" />
+          </div>
+          <div className="flex flex-col">
+            <h3 className="text-white font-black text-lg tracking-tight">Aura VIP'ye Yükselt</h3>
+            <p className="text-amber-400/80 text-[10px] font-bold uppercase tracking-widest">Ayrıcalıklı okuma dünyası</p>
+          </div>
+          <div className="ml-auto w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+      </Card>
 
       {/* Compact Wallet Card */}
       <Card className="p-4 rounded-[2rem] border-none bg-white dark:bg-card shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
@@ -193,7 +217,7 @@ export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeTog
       <Card className="p-4 rounded-[1.5rem] border-none bg-white dark:bg-card shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10 text-primary">
-            <Moon className="w-5 h-5" />
+            <span className="text-xl">🌙</span>
           </div>
           <Label htmlFor="dark-mode" className="text-sm font-bold text-accent cursor-pointer">Karanlık Tema</Label>
         </div>

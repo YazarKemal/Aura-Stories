@@ -13,6 +13,7 @@ import { LibraryScreen } from '@/components/library-screen';
 import { WriterDashboard } from '@/components/writer-dashboard';
 import { CharacterChatView } from '@/components/character-chat-view';
 import { SearchView } from '@/components/search-view';
+import { VIPScreen } from '@/components/vip-screen';
 import { Story } from '@/lib/types';
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
   const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isVIPOpen, setIsVIPOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -59,6 +61,10 @@ export default function Home() {
         />
       )}
 
+      {isVIPOpen && (
+        <VIPScreen onBack={() => setIsVIPOpen(false)} />
+      )}
+
       {isWriterDashboardOpen && (
         <WriterDashboard onBack={() => setIsWriterDashboardOpen(false)} />
       )}
@@ -87,12 +93,12 @@ export default function Home() {
       )}
 
       {/* App Header */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && (
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && !isVIPOpen && (
         <Header onSearchClick={() => setIsSearchOpen(true)} />
       )}
 
       {/* Tab Content */}
-      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen || isSearchOpen ? 'hidden' : ''}`}>
+      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen || isSearchOpen || isVIPOpen ? 'hidden' : ''}`}>
         <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
           {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
           {activeTab === 'library' && (
@@ -105,6 +111,7 @@ export default function Home() {
           {activeTab === 'profile' && (
             <ProfileScreen 
               onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)}
+              onOpenVIP={() => setIsVIPOpen(true)}
               isDarkMode={isDarkMode}
               onDarkModeToggle={setIsDarkMode}
             />
@@ -113,7 +120,7 @@ export default function Home() {
       </div>
 
       {/* Bottom Navigation */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && (
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && !isVIPOpen && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
     </main>
