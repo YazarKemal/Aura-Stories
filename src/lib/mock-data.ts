@@ -11,7 +11,7 @@ export const categories: Category[] = [
   { id: '6', name: 'Macera' },
 ];
 
-const DEFAULT_LONG_SYNOPSIS = "Kaderin cilvesiyle bir araya gelen iki yabancı, kendilerini beklemedikleri bir fırtınanın ortasında bulurlar. Geçmişin gölgeleri peşlerini bırakmazken, aralarındaki çekim her geçen gün daha da dayanılmaz bir hal alır.\n\nSırlar açığa çıktıkça, sadakatler test edilecek ve aşkın en saf hali ile en karanlık yüzü karşı karşıya gelecektir. Her sayfasında soluksuz kalacağınız bu hikayede, imkansızın sınırları zorlanıyor.\n\nİstanbul'un dar sokaklarından görkemli yalılara uzanan bu yolculukta, sadece hayatta kalmak değil, gerçekten yaşamak için savaşmaları gerekecek. Kalbinizin ritmini değiştirecek bir destan sizi bekliyor.";
+const DEFAULT_LONG_SYNOPSIS = "Kaderin cilvesiyle bir araya gelen iki yabancı, kendilerini beklemedikleri bir fırtınanın ortasında bulurlar. Geçmişin gölgeleri peşlerini bırakmazken, aralarındaki çekim her geçen gün daha da dayanılmaz bir hal alır.\n\nSırlar açığa çıktıkça, sadakatler test edilecek ve aşkın en sah hali ile en karanlık yüzü karşı karşıya gelecektir. Her sayfasında soluksuz kalacağınız bu hikayede, imkansızın sınırları zorlanıyor.\n\nİstanbul'un dar sokaklarından görkemli yalılara uzanan bu yolculukta, sadece hayatta kalmak değil, gerçekten yaşamak için savaşmaları gerekecek. Kalbinizin ritmini değiştirecek bir destan sizi bekliyor.";
 
 export const stories: Story[] = [
   {
@@ -27,6 +27,8 @@ export const stories: Story[] = [
     tags: ['Romantik', 'Tarihi', 'Gizem', 'Aşk'],
     isPopular: true,
     isFeatured: true,
+    wordCount: 85000,
+    status: 'completed',
   },
   {
     id: 's2',
@@ -40,6 +42,8 @@ export const stories: Story[] = [
     category: 'Fantastik',
     tags: ['Fantastik', 'Aksiyon', 'Epik', 'Büyü'],
     isPopular: true,
+    wordCount: 120000,
+    status: 'ongoing',
   },
   {
     id: 's3',
@@ -54,6 +58,8 @@ export const stories: Story[] = [
     tags: ['Mafya', 'Suç', 'İntikam', 'Dram'],
     isPopular: true,
     isFeatured: true,
+    wordCount: 150000,
+    status: 'completed',
   },
   {
     id: 's4',
@@ -67,6 +73,8 @@ export const stories: Story[] = [
     category: 'Dram',
     tags: ['Dram', 'Aile', 'Hüzün', 'Klasik'],
     isPopular: false,
+    wordCount: 65000,
+    status: 'completed',
   },
   {
     id: 's5',
@@ -80,6 +88,8 @@ export const stories: Story[] = [
     category: 'Gizem',
     tags: ['Gizem', 'Gerilim', 'İstanbul', 'Antik'],
     isPopular: true,
+    wordCount: 92000,
+    status: 'ongoing',
   },
   {
     id: 's6',
@@ -93,5 +103,7 @@ export const stories: Story[] = [
     category: 'Macera',
     tags: ['Macera', 'Doğa', 'Psikolojik', 'İnsan'],
     isPopular: false,
+    wordCount: 48000,
+    status: 'completed',
   }
 ];

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ import { ProfileScreen } from '@/components/profile-screen';
 import { LibraryScreen } from '@/components/library-screen';
 import { WriterDashboard } from '@/components/writer-dashboard';
 import { CharacterChatView } from '@/components/character-chat-view';
+import { SearchView } from '@/components/search-view';
 import { Story } from '@/lib/types';
 
 export default function Home() {
@@ -19,6 +21,7 @@ export default function Home() {
   const [isReading, setIsReading] = useState(false);
   const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -35,6 +38,7 @@ export default function Home() {
     setSelectedStory(story);
     setIsReading(false);
     setIsChatOpen(false);
+    setIsSearchOpen(false);
   };
 
   const handleStartReading = () => {
@@ -47,12 +51,18 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden transition-colors duration-500">
-      {/* Writer Dashboard Overlay */}
+      {/* Overlay Screens */}
+      {isSearchOpen && (
+        <SearchView 
+          onBack={() => setIsSearchOpen(false)} 
+          onSelectStory={handleSelectStory} 
+        />
+      )}
+
       {isWriterDashboardOpen && (
         <WriterDashboard onBack={() => setIsWriterDashboardOpen(false)} />
       )}
 
-      {/* Character Chat Overlay */}
       {isChatOpen && selectedStory && (
         <CharacterChatView 
           story={selectedStory} 
@@ -60,7 +70,6 @@ export default function Home() {
         />
       )}
 
-      {/* Reading View Overlay */}
       {isReading && selectedStory && (
         <ReadingView 
           story={selectedStory} 
@@ -68,7 +77,6 @@ export default function Home() {
         />
       )}
 
-      {/* Detail View Overlay */}
       {selectedStory && !isReading && !isChatOpen && (
         <BookDetailView 
           story={selectedStory} 
@@ -78,11 +86,13 @@ export default function Home() {
         />
       )}
 
-      {/* App Header - Hidden when overlays are active */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && <Header />}
+      {/* App Header */}
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && (
+        <Header onSearchClick={() => setIsSearchOpen(true)} />
+      )}
 
-      {/* Tab Content with Soft Fade Transition */}
-      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen ? 'hidden' : ''}`}>
+      {/* Tab Content */}
+      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen || isSearchOpen ? 'hidden' : ''}`}>
         <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
           {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
           {activeTab === 'library' && (
@@ -99,8 +109,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Bottom Navigation - Hidden when overlays are active */}
-      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && (
+      {/* Bottom Navigation */}
+      {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
     </main>

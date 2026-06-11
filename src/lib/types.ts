@@ -12,6 +12,8 @@ export interface Story {
   tags?: string[];
   isPopular?: boolean;
   isFeatured?: boolean;
+  wordCount: number;
+  status: 'ongoing' | 'completed';
 }
 
 export interface Category {
