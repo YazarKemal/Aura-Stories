@@ -1,11 +1,14 @@
+
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle, Trophy } from 'lucide-react';
+import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle, Trophy, CloudDownload, CheckCircle2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface BookDetailViewProps {
   story: Story;
@@ -15,6 +18,27 @@ interface BookDetailViewProps {
 }
 
 export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: BookDetailViewProps) {
+  const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'completed'>(
+    story.isDownloaded ? 'completed' : 'idle'
+  );
+  const [progress, setProgress] = useState(0);
+
+  const handleDownload = () => {
+    if (downloadState !== 'idle') return;
+    
+    setDownloadState('downloading');
+    let currentProgress = 0;
+    const interval = setInterval(() => {
+      currentProgress += Math.floor(Math.random() * 15) + 5;
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        setDownloadState('completed');
+        clearInterval(interval);
+      }
+      setProgress(currentProgress);
+    }, 400);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
       {/* Hero Section */}
@@ -96,16 +120,37 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           </div>
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          {(story.tags || [story.category, 'Popüler', 'Sürükleyici']).map((tag, i) => (
-            <Badge 
-              key={tag + i} 
-              className="bg-primary/10 text-primary border-none hover:bg-primary/20 transition-colors py-1.5 px-4 rounded-full text-xs font-bold"
-            >
-              {tag}
-            </Badge>
-          ))}
+        {/* Action Buttons Row */}
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          <Button 
+            onClick={handleDownload}
+            variant="outline"
+            className={cn(
+              "rounded-full px-6 h-12 font-bold transition-all border-2",
+              downloadState === 'completed' 
+                ? "border-green-500 text-green-600 bg-green-50" 
+                : "border-primary/20 text-primary hover:border-primary"
+            )}
+          >
+            {downloadState === 'idle' && (
+              <>
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Çevrimdışı İndir
+              </>
+            )}
+            {downloadState === 'downloading' && (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                İndiriliyor... %{progress}
+              </>
+            )}
+            {downloadState === 'completed' && (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                İndirildi
+              </>
+            )}
+          </Button>
         </div>
 
         {/* AI Character Chat Card */}

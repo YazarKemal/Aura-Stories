@@ -96,7 +96,10 @@ export default function Home() {
         <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
           {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
           {activeTab === 'library' && (
-            <LibraryScreen onNavigateToDiscover={() => setActiveTab('discover')} />
+            <LibraryScreen 
+              onNavigateToDiscover={() => setActiveTab('discover')} 
+              onSelectStory={handleSelectStory}
+            />
           )}
           {activeTab === 'rewards' && <RewardsScreen />}
           {activeTab === 'profile' && (

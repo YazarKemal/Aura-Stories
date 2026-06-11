@@ -4,7 +4,8 @@
 import Image from 'next/image';
 import { Story } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Eye } from 'lucide-react';
+import { Eye, CloudDownload, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StoryCardProps {
   story: Story;
@@ -31,6 +32,11 @@ export function StoryCard({ story, variant = 'popular', onClick }: StoryCardProp
             className="object-cover"
             data-ai-hint="book cover"
           />
+          {story.isDownloaded && (
+            <div className="absolute top-2 right-2 p-1 bg-green-500/80 backdrop-blur-sm rounded-full shadow-lg">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            </div>
+          )}
         </div>
         <div className="flex flex-col">
           <h4 className="font-headline text-sm font-semibold truncate leading-tight">{story.title}</h4>
@@ -53,10 +59,22 @@ export function StoryCard({ story, variant = 'popular', onClick }: StoryCardProp
           className="object-cover"
           data-ai-hint="book cover"
         />
+        {story.isDownloaded && (
+          <div className="absolute top-1.5 right-1.5 p-1 bg-green-500/80 backdrop-blur-sm rounded-full shadow-lg">
+            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+          </div>
+        )}
       </div>
       <div className="flex flex-col justify-between py-1 flex-1 min-w-0">
         <div>
-          <h4 className="font-headline text-lg font-bold leading-tight truncate text-accent">{story.title}</h4>
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="font-headline text-lg font-bold leading-tight truncate text-accent">{story.title}</h4>
+            {story.isDownloaded && (
+              <Badge variant="outline" className="border-green-500/30 text-green-600 bg-green-50 h-5 px-1.5 text-[8px] font-black shrink-0">
+                OFFLINE
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground mb-2">{story.author}</p>
           <p className="text-sm text-foreground/80 line-clamp-2 leading-snug">
             {story.synopsis}

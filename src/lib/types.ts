@@ -14,6 +14,7 @@ export interface Story {
   isFeatured?: boolean;
   wordCount: number;
   status: 'ongoing' | 'completed';
+  isDownloaded?: boolean;
 }
 
 export interface Category {

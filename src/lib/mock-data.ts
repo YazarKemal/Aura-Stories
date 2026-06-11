@@ -29,6 +29,7 @@ export const stories: Story[] = [
     isFeatured: true,
     wordCount: 85000,
     status: 'completed',
+    isDownloaded: true,
   },
   {
     id: 's2',
@@ -60,6 +61,7 @@ export const stories: Story[] = [
     isFeatured: true,
     wordCount: 150000,
     status: 'completed',
+    isDownloaded: true,
   },
   {
     id: 's4',
