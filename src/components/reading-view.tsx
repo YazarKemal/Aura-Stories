@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -99,6 +98,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [audioProgress, setAudioProgress] = useState(35);
   
   const lastScrollY = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -124,7 +124,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   ];
 
   const handleParaClick = (text: string) => {
-    setSelectedQuote(text);
+    // Toggle behavior: if already selected, deselect it
+    if (selectedQuote === text) {
+      setSelectedQuote(null);
+    } else {
+      setSelectedQuote(text);
+    }
   };
 
   const handleOpenTypography = () => {
@@ -149,7 +154,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         <>
           {parts[0]}
           <span 
-            onClick={(e) => { e.stopPropagation(); setSelectedLore(LORE_DATA['Demir Ağa']); }}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setSelectedLore(LORE_DATA['Demir Ağa']); 
+            }}
             className="text-primary font-bold underline decoration-primary/30 underline-offset-4 cursor-pointer hover:text-accent transition-colors"
           >
             Demir Ağa
@@ -166,7 +174,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           "relative group/para mb-6 cursor-pointer transition-all duration-300 rounded-xl px-2 -mx-2",
           isSelected ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted/30"
         )}
-        onClick={() => handleParaClick(text)}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleParaClick(text);
+        }}
       >
         <p 
           style={{ 
@@ -205,18 +216,24 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
 
         {isSelected && (
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20">
+          <div 
+            className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20"
+            onClick={(e) => e.stopPropagation()} // Prevent deselection when clicking inside tooltip
+          >
             <button 
               onClick={handleOpenShare}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-1"
             >
               <Share2 className="w-3 h-3" />
               Paylaş
             </button>
             <div className="w-px h-3 bg-white/20 mx-1" />
             <button 
-              onClick={(e) => { e.stopPropagation(); setSelectedQuote(null); }}
-              className="p-1"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setSelectedQuote(null); 
+              }}
+              className="p-1 hover:bg-white/10 rounded-full transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -259,10 +276,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   return (
-    <div className={cn(
-      "fixed inset-0 z-[200] overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500",
-      themeColors[readingTheme]
-    )}>
+    <div 
+      ref={containerRef}
+      className={cn(
+        "fixed inset-0 z-[200] overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500",
+        themeColors[readingTheme]
+      )}
+      onClick={() => setSelectedQuote(null)} // Dismiss quote tooltip when clicking empty space
+    >
       {/* Celebration Overlay */}
       {celebrationGift && (
         <div className="fixed inset-0 z-[1000] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
@@ -285,6 +306,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           !isVisible ? "-translate-y-full" : "translate-y-0",
           readingTheme === 'dark' ? "bg-black/80 border-white/10" : "bg-white/80 border-black/10"
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <button 
           onClick={onBack}
@@ -338,7 +360,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
 
         {/* Community Choice (Sen Seç) Card */}
-        <section className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700">
+        <section 
+          className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className={cn(
             "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500",
             readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
@@ -421,7 +446,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </section>
 
         {/* Paywall Card */}
-        <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
+        <section 
+          className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300"
+          onClick={(e) => e.stopPropagation()}
+        >
            <div className={cn(
              "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500",
              readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
@@ -451,7 +479,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       </article>
 
       {/* Floating Buttons Group */}
-      <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-[210]">
+      <div 
+        className="fixed bottom-8 right-8 flex flex-col gap-4 z-[210]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {!isAudioPlayerOpen && (
           <button 
             onClick={() => setIsAudioPlayerOpen(true)}
@@ -471,7 +502,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Docked Audio Player */}
       {isAudioPlayerOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-[250] max-w-md mx-auto animate-in slide-in-from-bottom duration-500">
+        <div 
+          className="fixed bottom-0 left-0 right-0 z-[250] max-w-md mx-auto animate-in slide-in-from-bottom duration-500"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="mx-6 mb-6 p-4 rounded-[2rem] glass-morphism border border-white/20 shadow-2xl flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
