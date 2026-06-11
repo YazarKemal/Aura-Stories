@@ -3,7 +3,26 @@
 
 import { useState, useEffect } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Type, Lock, Coins, Play, Info, User, Sparkles, Timer, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Type, 
+  Lock, 
+  Coins, 
+  Play, 
+  Info, 
+  User, 
+  Sparkles, 
+  Timer, 
+  CheckCircle2, 
+  MessageSquare, 
+  Gift, 
+  Heart,
+  Coffee,
+  Crown,
+  Flower2,
+  X,
+  Send
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -15,6 +34,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import Image from 'next/image';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ReadingViewProps {
   story: Story;
@@ -37,11 +57,20 @@ const LORE_DATA: Record<string, LoreInfo> = {
   }
 };
 
+const DUMMY_COMMENTS = [
+  { id: '1', user: 'Melis_92', text: 'İnanmıyorum! Defne bunu nasıl yapar?', time: '2d' },
+  { id: '2', user: 'KitapKurdu', text: 'Demir Ağa çok gizemli birine benziyor.', time: '5d' },
+  { id: '3', user: 'StoryLover', text: 'Bu oda kesinlikle bir şeyler saklıyor.', time: '12d' },
+];
+
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isGiftsOpen, setIsGiftsOpen] = useState(false);
+  const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -67,10 +96,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   ];
 
   const renderParagraph = (text: string, index: number) => {
+    const hasComments = index === 1 || index === 4;
+    
+    let content: React.ReactNode = text;
+
     if (text.includes('Demir Ağa')) {
       const parts = text.split('Demir Ağa');
-      return (
-        <p key={index} className="font-serif text-lg leading-relaxed text-foreground/90">
+      content = (
+        <>
           {parts[0]}
           <span 
             onClick={() => setSelectedLore(LORE_DATA['Demir Ağa'])}
@@ -79,14 +112,29 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             Demir Ağa
           </span>
           {parts[1]}
-        </p>
+        </>
       );
     }
 
     return (
-      <p key={index} className="font-serif text-lg leading-relaxed text-foreground/90 first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left">
-        {text}
-      </p>
+      <div key={index} className="relative group/para mb-6">
+        <p className={cn(
+          "font-serif text-lg leading-relaxed text-foreground/90",
+          index === 0 && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
+        )}>
+          {content}
+        </p>
+        
+        {hasComments && (
+          <button 
+            onClick={() => setIsCommentsOpen(true)}
+            className="absolute -right-6 top-0 flex items-center gap-1 text-[10px] font-bold text-primary/40 hover:text-primary transition-all active:scale-90"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>128</span>
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -94,8 +142,42 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setVotedOption(option);
   };
 
+  const handleSendGift = (giftType: string) => {
+    setCelebrationGift(giftType);
+    setTimeout(() => {
+      setCelebrationGift(null);
+      setIsGiftsOpen(false);
+    }, 2000);
+  };
+
+  const giftOptions = [
+    { id: 'rose', name: 'Gül', icon: Flower2, cost: 10, color: 'text-rose-500 bg-rose-50' },
+    { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-amber-700 bg-amber-50' },
+    { id: 'crown', name: 'Taç', icon: Crown, cost: 500, color: 'text-yellow-600 bg-yellow-50' },
+    { id: 'heart', name: 'Kalp', icon: Heart, cost: 5, color: 'text-pink-500 bg-pink-50' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[200] bg-[#FDFBF7] overflow-y-auto no-scrollbar animate-in fade-in duration-500">
+      {/* Celebration Overlay */}
+      {celebrationGift && (
+        <div className="fixed inset-0 z-[600] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px]" />
+          <div className="relative animate-bounce">
+             <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl shadow-primary/40 border-4 border-primary/20">
+               {celebrationGift === 'rose' && <Flower2 className="w-16 h-16 text-rose-500" />}
+               {celebrationGift === 'coffee' && <Coffee className="w-16 h-16 text-amber-700" />}
+               {celebrationGift === 'crown' && <Crown className="w-16 h-16 text-yellow-600" />}
+               {celebrationGift === 'heart' && <Heart className="w-16 h-16 text-pink-500 fill-current" />}
+             </div>
+             <div className="absolute -top-4 -right-4">
+                <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
+             </div>
+          </div>
+          <h2 className="text-2xl font-headline font-black text-white drop-shadow-lg mt-6 relative z-10">Harika Bir Hediye!</h2>
+        </div>
+      )}
+
       <header 
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 bg-[#FDFBF7]/90 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
@@ -122,7 +204,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           Bölüm 1: Teslimiyet
         </h1>
 
-        <div className="space-y-6 relative">
+        <div className="relative">
           {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
 
           <div className="relative h-24 overflow-hidden pointer-events-none">
@@ -243,6 +325,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </section>
       </article>
 
+      {/* Floating Gift Button */}
+      <button 
+        onClick={() => setIsGiftsOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-[210] group"
+      >
+        <Gift className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+      </button>
+
+      {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
         <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden animate-in slide-in-from-bottom duration-500">
           {selectedLore && (
@@ -274,24 +365,100 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <SheetDescription className="text-foreground/80 leading-relaxed italic text-base">
                   "{selectedLore.description}"
                 </SheetDescription>
-
-                <div className="flex gap-4 mt-2">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Görsel Hafıza</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                      <Info className="w-5 h-5" />
-                    </div>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Karakter Lore</span>
-                  </div>
-                </div>
               </div>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Inline Comments Sheet */}
+      <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
+        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+          <div className="p-8 flex flex-col h-full">
+            <div className="w-12 h-1.5 bg-muted rounded-full self-center mb-6" />
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-headline font-black text-accent">Satır İçi Yorumlar</h3>
+              <Badge variant="secondary" className="bg-primary/10 text-primary font-bold">128 Yorum</Badge>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar">
+              {DUMMY_COMMENTS.map((comment) => (
+                <div key={comment.id} className="flex gap-4">
+                  <Avatar className="w-10 h-10 ring-2 ring-primary/10">
+                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{comment.user[0]}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-accent">{comment.user}</span>
+                      <span className="text-[10px] text-muted-foreground">{comment.time} önce</span>
+                    </div>
+                    <p className="text-sm text-foreground/80 leading-relaxed bg-muted/30 p-3 rounded-2xl rounded-tl-none">{comment.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex items-center gap-3 bg-muted/30 p-2 rounded-2xl">
+              <input 
+                placeholder="Düşüncelerini paylaş..." 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-3"
+              />
+              <button className="p-2 bg-primary text-white rounded-xl active:scale-90 transition-transform">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Tipping / Gift Modal */}
+      <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+          <div className="p-8 flex flex-col gap-6">
+            <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            
+            <div className="flex flex-col items-center text-center gap-2">
+              <h3 className="text-2xl font-headline font-black text-accent">Yazara Destek Ol</h3>
+              <p className="text-sm text-muted-foreground">Bu hikayeyi sevdiysen yazara küçük bir hediye gönder!</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {giftOptions.map((gift) => {
+                const Icon = gift.icon;
+                return (
+                  <button 
+                    key={gift.id}
+                    onClick={() => handleSendGift(gift.id)}
+                    className="flex flex-col items-center gap-3 p-6 rounded-3xl border-2 border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all group active:scale-95"
+                  >
+                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", gift.color)}>
+                      <Icon className="w-7 h-7" />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm font-bold text-accent">{gift.name}</span>
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Coins className="w-3 h-3 fill-current" />
+                        <span className="text-xs font-black">{gift.cost}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Bakiyen</span>
+                  <span className="text-sm font-black text-accent">1,250 Jeton</span>
+                </div>
+              </div>
+              <Button variant="link" className="text-primary font-bold h-auto p-0">Yükle</Button>
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
 
