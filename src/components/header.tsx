@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Search, Bell } from 'lucide-react';
@@ -17,7 +16,7 @@ export function Header({ onSearchClick }: HeaderProps) {
       <div className="flex items-center gap-4">
         <button 
           onClick={onSearchClick}
-          className="p-2.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
+          className="p-3 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all active:scale-90 shadow-sm border border-primary/20"
         >
           <Search className="w-5 h-5" />
         </button>
