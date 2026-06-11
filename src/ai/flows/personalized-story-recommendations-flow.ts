@@ -79,10 +79,29 @@ const personalizedStoryRecommendationsFlow = ai.defineFlow(
     outputSchema: PersonalizedStoryRecommendationsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error('Failed to get story recommendations from prompt.');
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError;
+
+    while (attempts < maxAttempts) {
+      try {
+        const {output} = await prompt(input);
+        if (!output) {
+          throw new Error('Failed to get story recommendations from prompt.');
+        }
+        return output;
+      } catch (error: any) {
+        lastError = error;
+        attempts++;
+        // If we encounter a transient service error (like 503), wait and retry
+        if (attempts < maxAttempts) {
+          const delay = attempts * 1000; // 1s, 2s backoff
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
-    return output;
+    
+    // If all attempts fail, we throw the last error to be handled by the UI
+    throw lastError || new Error('Failed to generate recommendations after multiple attempts.');
   }
 );

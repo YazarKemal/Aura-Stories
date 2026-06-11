@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,6 +26,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
 
   useEffect(() => {
     async function fetchAiRecommendations() {
+      setIsLoadingAi(true);
       try {
         const result = await personalizeStoryRecommendations({
           readingHistory: ['Gece Yarısı Güneşi', 'Mühürlü Kapı'],
@@ -46,7 +46,17 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
         
         setAiRecommendations(transformed);
       } catch (error) {
-        console.error('AI Recommendations failed:', error);
+        console.error('AI Recommendations failed even after retries:', error);
+        // Fallback to high-quality mock data if AI is down
+        const fallback: Story[] = stories
+          .filter(s => s.isPopular)
+          .slice(0, 3)
+          .map((s, index) => ({
+            ...s,
+            id: `fallback-${index}`,
+            tags: [...(s.tags || []), 'Sizin İçin'],
+          }));
+        setAiRecommendations(fallback);
       } finally {
         setIsLoadingAi(false);
       }
@@ -127,7 +137,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
           {stories
-            .filter(s => s.isPopular)
+            .filter(s => (selectedCategory === 'Hepsi' || s.category === selectedCategory) && s.isPopular)
             .map(story => (
               <StoryCard key={story.id} story={story} variant="popular" onClick={onSelectStory} />
             ))
