@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -35,6 +34,7 @@ import {
 } from '@/components/ui/sheet';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 interface ReadingViewProps {
   story: Story;
@@ -293,6 +293,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </div>
         </section>
 
+        {/* Paywall Card */}
         <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
            <div className="p-8 rounded-3xl bg-white shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-primary/10 flex flex-col items-center text-center gap-6">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
