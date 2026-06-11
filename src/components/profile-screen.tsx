@@ -18,13 +18,18 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  onOpenWriterDashboard?: () => void;
+}
+
+export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
   const menuItems = [
     { 
       id: 'writer', 
       label: 'Aura Stories Yazarı Ol!', 
       icon: PenTool, 
-      highlight: true 
+      highlight: true,
+      onClick: onOpenWriterDashboard
     },
     { 
       id: 'coupons', 
@@ -103,9 +108,10 @@ export function ProfileScreen() {
           return (
             <div key={item.id}>
               <button 
+                onClick={item.onClick}
                 className={cn(
                   "w-full flex items-center justify-between py-4 px-2 group active:bg-muted/50 transition-colors rounded-xl",
-                  item.highlight && "text-primary"
+                  item.highlight && "text-primary bg-primary/5"
                 )}
               >
                 <div className="flex items-center gap-4">

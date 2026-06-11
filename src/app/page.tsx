@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,12 +9,14 @@ import { ReadingView } from '@/components/reading-view';
 import { RewardsScreen } from '@/components/rewards-screen';
 import { ProfileScreen } from '@/components/profile-screen';
 import { LibraryScreen } from '@/components/library-screen';
+import { WriterDashboard } from '@/components/writer-dashboard';
 import { Story } from '@/lib/types';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('discover');
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isReading, setIsReading] = useState(false);
+  const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
@@ -28,6 +29,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden">
+      {/* Writer Dashboard Overlay */}
+      {isWriterDashboardOpen && (
+        <WriterDashboard onBack={() => setIsWriterDashboardOpen(false)} />
+      )}
+
       {/* Reading View Overlay */}
       {isReading && selectedStory && (
         <ReadingView 
@@ -46,20 +52,24 @@ export default function Home() {
       )}
 
       {/* App Header - Hidden when overlays are active */}
-      {!selectedStory && !isReading && <Header />}
+      {!selectedStory && !isReading && !isWriterDashboardOpen && <Header />}
 
       {/* Tab Content */}
-      <div className={`pt-24 pb-4 ${selectedStory || isReading ? 'hidden' : ''}`}>
+      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen ? 'hidden' : ''}`}>
         {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
         {activeTab === 'library' && (
           <LibraryScreen onNavigateToDiscover={() => setActiveTab('discover')} />
         )}
         {activeTab === 'rewards' && <RewardsScreen />}
-        {activeTab === 'profile' && <ProfileScreen />}
+        {activeTab === 'profile' && (
+          <ProfileScreen onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)} />
+        )}
       </div>
 
       {/* Bottom Navigation - Hidden when overlays are active */}
-      {!selectedStory && !isReading && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
+      {!selectedStory && !isReading && !isWriterDashboardOpen && (
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
     </main>
   );
 }
