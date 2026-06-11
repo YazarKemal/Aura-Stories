@@ -3,18 +3,43 @@
 
 import { useState, useEffect } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Type, Lock, Coins, Play } from 'lucide-react';
+import { ArrowLeft, Type, Lock, Coins, Play, Info, User, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import Image from 'next/image';
 
 interface ReadingViewProps {
   story: Story;
   onBack: () => void;
 }
 
+interface LoreInfo {
+  name: string;
+  role: string;
+  description: string;
+  imageUrl: string;
+}
+
+const LORE_DATA: Record<string, LoreInfo> = {
+  'Demir Ağa': {
+    name: 'Demir Ağa',
+    role: 'Konağın Lideri',
+    description: 'Konağın en genç ve en gizemli lideri. Geçmişin karanlık sırlarını omuzlarında taşıyan, otoriter ama adaletli bir figür.',
+    imageUrl: 'https://picsum.photos/seed/demir/400/600',
+  }
+};
+
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,8 +61,33 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     "Adımını içeri attığında, zemindeki tahtaların gıcırtısı sessizliği bıçak gibi kesti. Kalbi göğüs kafesine sığmıyordu. Burası, dedesinin ona miras bıraktığı, ancak vasiyetinde 'asla açma' dediği o odaydı. Merak, korkudan her zaman daha ağır basardı.",
     "Masanın üzerindeki gaz lambasını yaktı. Işığın yayılmasıyla birlikte odanın köşelerinde saklanan gölgeler geri çekildi. Tam karşısında duran devasa yağlı boya tablo, sanki onu izliyordu. Tablodaki adamın gözleri, canlıymışçasına derin bir hüzün ve öfke barındırıyordu.",
     "Parmağını tablonun çerçevesinde gezdirdiğinde, eline sert bir çıkıntı çarptı. Bir düğme ya da bir kilit mekanizması olabilir miydi? Hafifçe bastırdığında, tablonun arkasındaki duvar yavaşça yana kaydı. Gizli bir bölme... Ve içinde deri ciltli, üzerinde gümüş bir mühür bulunan o defter.",
-    "Mühürü kırmak için elini uzattığında, dışarıdan gelen ani bir fren sesiyle irkildi. Siyah bir lüks araç konağın önünde durmuştu. İçinden çıkan uzun boylu, pardösülü adamın bakışları doğrudan bu odanın penceresine odaklanmıştı. O an anladı ki, bu defter sadece bir anı değil, tehlikeli bir oyunun ilk parçasıydı.",
+    "Mühürü kırmak için elini uzattığında, dışarıdan gelen ani bir fren sesiyle irkildi. Siyah bir lüks araç konağın önünde durmuştu. İçinden çıkan Demir Ağa, ağır adımlarla kapıya yöneldi. O an anladı ki, bu defter sadece bir anı değil, tehlikeli bir oyunun ilk parçasıydı.",
   ];
+
+  const renderParagraph = (text: string, index: number) => {
+    // Search for Demir Ağa in the text to make it interactive
+    if (text.includes('Demir Ağa')) {
+      const parts = text.split('Demir Ağa');
+      return (
+        <p key={index} className="font-serif text-lg leading-relaxed text-foreground/90">
+          {parts[0]}
+          <span 
+            onClick={() => setSelectedLore(LORE_DATA['Demir Ağa'])}
+            className="text-primary font-bold underline decoration-primary/30 underline-offset-4 cursor-pointer hover:text-accent transition-colors"
+          >
+            Demir Ağa
+          </span>
+          {parts[1]}
+        </p>
+      );
+    }
+
+    return (
+      <p key={index} className="font-serif text-lg leading-relaxed text-foreground/90 first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left">
+        {text}
+      </p>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-[200] bg-[#FDFBF7] overflow-y-auto no-scrollbar animate-in fade-in duration-500">
@@ -70,17 +120,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </h1>
 
         <div className="space-y-6 relative">
-          {paragraphs.slice(0, 4).map((p, i) => (
-            <p key={i} className="font-serif text-lg leading-relaxed text-foreground/90 first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left">
-              {p}
-            </p>
-          ))}
+          {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
 
           {/* Fade Out Effect */}
           <div className="relative h-24 overflow-hidden pointer-events-none">
-             <p className="font-serif text-lg leading-relaxed text-foreground/90">
-               {paragraphs[4]}
-             </p>
+             {renderParagraph(paragraphs[4], 4)}
              <div className="absolute inset-0 bg-gradient-to-t from-[#FDFBF7] via-[#FDFBF7]/80 to-transparent" />
           </div>
         </div>
@@ -117,6 +161,62 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
            </div>
         </section>
       </article>
+
+      {/* Lore Card Sheet */}
+      <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
+        <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden animate-in slide-in-from-bottom duration-500">
+          {selectedLore && (
+            <div className="h-full flex flex-col relative">
+              {/* Background Gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/5 pointer-events-none" />
+              
+              {/* Image Header */}
+              <div className="relative h-60 w-full">
+                <Image 
+                  src={selectedLore.imageUrl}
+                  alt={selectedLore.name}
+                  fill
+                  className="object-cover"
+                  data-ai-hint="character portrait"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/40 rounded-full" />
+              </div>
+
+              {/* Content */}
+              <div className="px-8 py-6 flex flex-col items-center text-center gap-4 relative z-10">
+                <div className="flex flex-col items-center">
+                  <Badge className="bg-primary/20 text-primary border-none mb-2 text-[10px] font-bold uppercase tracking-tighter">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Karakter Bilgisi
+                  </Badge>
+                  <SheetTitle className="text-3xl font-headline font-black text-accent">{selectedLore.name}</SheetTitle>
+                  <span className="text-primary font-bold text-sm tracking-wide">{selectedLore.role}</span>
+                </div>
+                
+                <SheetDescription className="text-foreground/80 leading-relaxed italic text-base">
+                  "{selectedLore.description}"
+                </SheetDescription>
+
+                <div className="flex gap-4 mt-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Görsel Hafıza</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                      <Info className="w-5 h-5" />
+                    </div>
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Karakter Lore</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Decorative footer */}
       <footer className="h-24 bg-[#FDFBF7]" />
