@@ -68,7 +68,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isGiftsOpen, setIsGiftsOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
   
-  // Use ref to track scroll position to avoid effect re-runs on every scroll
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -143,7 +142,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleSendGift = (giftType: string) => {
     setCelebrationGift(giftType);
-    // Auto-close overlay after animation
     setTimeout(() => {
       setCelebrationGift(null);
       setIsGiftsOpen(false);
@@ -151,20 +149,20 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   const giftOptions = [
-    { id: 'rose', name: 'Gül', icon: Flower2, cost: 10, color: 'text-rose-500 bg-rose-50' },
-    { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-amber-700 bg-amber-50' },
-    { id: 'crown', name: 'Taç', icon: Crown, cost: 500, color: 'text-yellow-600 bg-yellow-50' },
-    { id: 'heart', name: 'Kalp', icon: Heart, cost: 5, color: 'text-pink-500 bg-pink-50' },
+    { id: 'rose', name: 'Gül', icon: Flower2, cost: 10, color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' },
+    { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-amber-700 bg-amber-50 dark:bg-amber-900/20' },
+    { id: 'crown', name: 'Taç', icon: Crown, cost: 500, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20' },
+    { id: 'heart', name: 'Kalp', icon: Heart, cost: 5, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' },
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#FDFBF7] overflow-y-auto no-scrollbar animate-in fade-in duration-500">
-      {/* Celebration Overlay - High z-index for visibility */}
+    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500">
+      {/* Celebration Overlay */}
       {celebrationGift && (
         <div className="fixed inset-0 z-[1000] pointer-events-none flex flex-col items-center justify-center animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px]" />
           <div className="relative animate-bounce">
-             <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl shadow-primary/40 border-4 border-primary/20">
+             <div className="w-32 h-32 rounded-full bg-white dark:bg-card flex items-center justify-center shadow-2xl shadow-primary/40 border-4 border-primary/20">
                {celebrationGift === 'rose' && <Flower2 className="w-16 h-16 text-rose-500" />}
                {celebrationGift === 'coffee' && <Coffee className="w-16 h-16 text-amber-700" />}
                {celebrationGift === 'crown' && <Crown className="w-16 h-16 text-yellow-600" />}
@@ -174,13 +172,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
              </div>
           </div>
-          <h2 className="text-2xl font-headline font-black text-white drop-shadow-lg mt-6 relative z-10">Harika Bir Hediye!</h2>
+          <h2 className="text-2xl font-headline font-black text-white drop-shadow-lg mt-6 relative z-10 text-center">Harika Bir Hediye!</h2>
         </div>
       )}
 
       <header 
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 bg-[#FDFBF7]/90 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
+          "fixed top-0 left-0 right-0 z-50 h-16 bg-background/90 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
           !isVisible ? "-translate-y-full" : "translate-y-0"
         )}
       >
@@ -209,13 +207,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
           <div className="relative h-24 overflow-hidden pointer-events-none">
              {renderParagraph(paragraphs[4], 4)}
-             <div className="absolute inset-0 bg-gradient-to-t from-[#FDFBF7] via-[#FDFBF7]/80 to-transparent" />
+             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
           </div>
         </div>
 
         {/* Community Choice (Sen Seç) Card */}
         <section className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700">
-          <div className="relative p-6 rounded-[2.5rem] bg-white border-2 border-primary/20 shadow-xl overflow-hidden group">
+          <div className="relative p-6 rounded-[2.5rem] bg-card border-2 border-primary/20 shadow-xl overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
                <Sparkles className="w-20 h-20 text-primary" />
             </div>
@@ -295,7 +293,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
         {/* Paywall Card */}
         <section className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300">
-           <div className="p-8 rounded-3xl bg-white shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-primary/10 flex flex-col items-center text-center gap-6">
+           <div className="p-8 rounded-3xl bg-card shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-primary/10 flex flex-col items-center text-center gap-6">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                  <Lock className="w-8 h-8" />
               </div>
@@ -378,7 +376,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Inline Comments Sheet */}
       <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
-        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500">
+        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500">
           <SheetHeader className="sr-only">
             <SheetTitle>Satır İçi Yorumlar</SheetTitle>
             <SheetDescription>Topluluk tepkileri</SheetDescription>
@@ -410,7 +408,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             <div className="mt-6 flex items-center gap-3 bg-muted/30 p-2 rounded-2xl">
               <input 
                 placeholder="Düşüncelerini paylaş..." 
-                className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-3"
+                className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-3 dark:text-white"
               />
               <button className="p-2 bg-primary text-white rounded-xl active:scale-90 transition-transform">
                 <Send className="w-4 h-4" />
@@ -422,7 +420,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Tipping / Gift Modal */}
       <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-white p-0 border-none animate-in slide-in-from-bottom duration-500 z-[500]">
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[500]">
           <SheetHeader className="sr-only">
             <SheetTitle>Yazara Destek Ol</SheetTitle>
             <SheetDescription>Küçük bir hediye gönder</SheetDescription>
@@ -475,7 +473,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      <footer className="h-24 bg-[#FDFBF7]" />
+      <footer className="h-24 bg-background" />
     </div>
   );
 }

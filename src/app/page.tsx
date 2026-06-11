@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DiscoverScreen } from '@/components/discover-screen';
 import { BottomNav } from '@/components/bottom-nav';
 import { Header } from '@/components/header';
@@ -19,6 +19,17 @@ export default function Home() {
   const [isReading, setIsReading] = useState(false);
   const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+  }, [isDarkMode]);
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
@@ -35,7 +46,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden">
+    <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden transition-colors duration-500">
       {/* Writer Dashboard Overlay */}
       {isWriterDashboardOpen && (
         <WriterDashboard onBack={() => setIsWriterDashboardOpen(false)} />
@@ -79,7 +90,11 @@ export default function Home() {
           )}
           {activeTab === 'rewards' && <RewardsScreen />}
           {activeTab === 'profile' && (
-            <ProfileScreen onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)} />
+            <ProfileScreen 
+              onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)}
+              isDarkMode={isDarkMode}
+              onDarkModeToggle={setIsDarkMode}
+            />
           )}
         </div>
       </div>

@@ -10,19 +10,24 @@ import {
   Coins,
   Star,
   Diamond,
-  UserCircle
+  UserCircle,
+  Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 interface ProfileScreenProps {
   onOpenWriterDashboard?: () => void;
+  isDarkMode: boolean;
+  onDarkModeToggle: (val: boolean) => void;
 }
 
-export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
+export function ProfileScreen({ onOpenWriterDashboard, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
   const menuItems = [
     { 
       id: 'writer', 
@@ -58,20 +63,20 @@ export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
       {/* Profile Header */}
       <section className="flex items-center gap-4 py-4">
         <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
+          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-white dark:border-white/10 shadow-md">
             <UserCircle className="w-16 h-16 text-muted-foreground" />
           </div>
         </div>
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-headline font-black text-accent">Ziyaretçi_8357</h2>
-          <Badge className="bg-pink-100 text-pink-600 hover:bg-pink-100 border-none text-[10px] w-fit font-bold">
+          <Badge className="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 hover:bg-pink-100 border-none text-[10px] w-fit font-bold">
             İlk giriş ödülü
           </Badge>
         </div>
       </section>
 
       {/* Compact Wallet Card */}
-      <Card className="p-4 rounded-[2rem] border-none bg-white shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+      <Card className="p-4 rounded-[2rem] border-none bg-white dark:bg-card shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between mb-4 px-2">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Cüzdanım</span>
           <Button variant="link" className="text-xs font-bold text-primary h-auto p-0">Yükleme Yap</Button>
@@ -101,6 +106,21 @@ export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
         </div>
       </Card>
 
+      {/* Dark Mode Toggle Row */}
+      <Card className="p-4 rounded-[1.5rem] border-none bg-white dark:bg-card shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <Moon className="w-5 h-5" />
+          </div>
+          <Label htmlFor="dark-mode" className="text-sm font-bold text-accent cursor-pointer">Karanlık Tema</Label>
+        </div>
+        <Switch 
+          id="dark-mode" 
+          checked={isDarkMode} 
+          onCheckedChange={onDarkModeToggle}
+        />
+      </Card>
+
       {/* Menu List */}
       <section className="flex flex-col gap-1">
         {menuItems.map((item, index) => {
@@ -110,13 +130,13 @@ export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
               <button 
                 onClick={item.onClick}
                 className={cn(
-                  "w-full flex items-center justify-between py-4 px-2 group active:bg-muted/50 transition-colors rounded-xl",
+                  "w-full flex items-center justify-between py-4 px-2 group active:bg-muted/50 transition-colors rounded-xl text-left",
                   item.highlight && "text-primary bg-primary/5"
                 )}
               >
                 <div className="flex items-center gap-4">
                   <div className={cn(
-                    "p-2 rounded-lg bg-muted/30 group-hover:bg-primary/10 transition-colors",
+                    "p-2 rounded-lg bg-muted/30 dark:bg-white/5 group-hover:bg-primary/10 transition-colors",
                     item.highlight && "bg-primary/10"
                   )}>
                     <Icon className="w-5 h-5" />
@@ -138,7 +158,7 @@ export function ProfileScreen({ onOpenWriterDashboard }: ProfileScreenProps) {
 
       {/* Login CTA Card */}
       <div className="mt-4 px-2">
-        <Card className="p-6 rounded-[2.5rem] bg-[#2D2D2D] border-none shadow-xl flex flex-col items-center text-center gap-4">
+        <Card className="p-6 rounded-[2.5rem] bg-[#2D2D2D] dark:bg-[#1A1A1A] border-none shadow-xl flex flex-col items-center text-center gap-4">
           <div className="space-y-1">
             <h3 className="text-white font-bold text-lg">Hesabınıza Erişin</h3>
             <p className="text-white/60 text-xs">Hikayelerinizi kaydedin ve tüm cihazlarınızdan erişin.</p>

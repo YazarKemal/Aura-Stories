@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,25 +26,25 @@
     --radius: 1rem;
   }
   .dark {
-    --background: 268 40% 10%;
-    --foreground: 280 40% 98%;
-    --card: 268 40% 12%;
-    --card-foreground: 280 40% 98%;
-    --popover: 268 40% 12%;
-    --popover-foreground: 280 40% 98%;
-    --primary: 268 56% 62%;
-    --primary-foreground: 280 40% 98%;
-    --secondary: 236 40% 20%;
-    --secondary-foreground: 236 40% 98%;
-    --muted: 236 20% 20%;
-    --muted-foreground: 236 10% 70%;
-    --accent: 236 40% 60%;
+    --background: 268 40% 5%; /* Deep Midnight #0B070F */
+    --foreground: 280 40% 95%;
+    --card: 268 30% 10%;
+    --card-foreground: 280 40% 95%;
+    --popover: 268 30% 10%;
+    --popover-foreground: 280 40% 95%;
+    --primary: 268 60% 65%;
+    --primary-foreground: 268 40% 5%;
+    --secondary: 268 30% 15%;
+    --secondary-foreground: 268 40% 90%;
+    --muted: 268 30% 12%;
+    --muted-foreground: 268 10% 60%;
+    --accent: 236 50% 65%;
     --accent-foreground: 280 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 268 20% 20%;
-    --input: 268 20% 20%;
-    --ring: 268 56% 62%;
+    --border: 268 20% 15%;
+    --input: 268 20% 15%;
+    --ring: 268 60% 65%;
   }
 }
 
@@ -54,9 +53,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased;
-    background-image: linear-gradient(to bottom, #fcf8ff, #ffffff);
+    @apply bg-background text-foreground font-body antialiased transition-colors duration-500;
     min-height: 100vh;
+  }
+  .light body {
+    background-image: linear-gradient(to bottom, #fcf8ff, #ffffff);
+  }
+  .dark body {
+    background-image: linear-gradient(to bottom, #0b070f, #150e1c);
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
@@ -64,14 +68,13 @@
 }
 
 .glass-morphism {
-  @apply bg-white/70 backdrop-blur-md border border-white/20;
+  @apply bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/20 dark:border-white/10;
 }
 
 .active-nav-glow {
   box-shadow: 0 0 15px -2px hsl(var(--primary));
 }
 
-/* Hide scrollbar for category row */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
