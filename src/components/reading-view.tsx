@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -486,9 +487,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         {!isAudioPlayerOpen && (
           <button 
             onClick={() => setIsAudioPlayerOpen(true)}
-            className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group"
+            className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative"
           >
             <Headphones className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+            <span className="absolute -left-16 top-1/2 -translate-y-1/2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Dinle
+            </span>
           </button>
         )}
         
@@ -535,6 +539,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
             <div className="flex flex-col gap-2">
               <Progress value={audioProgress} className="h-1.5 bg-primary/10" />
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground px-1">
+                <span>02:15</span>
+                <span>14:30</span>
+              </div>
             </div>
 
             <div className="flex items-center justify-center gap-8">
