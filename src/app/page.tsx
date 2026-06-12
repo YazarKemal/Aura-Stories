@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,8 +19,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Sparkles } from 'lucide-react';
+import { SplashScreen } from '@/components/splash-screen';
+import { OnboardingView } from '@/components/onboarding-view';
 
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('discover');
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isReading, setIsReading] = useState(false);
@@ -32,8 +35,17 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Onboarding / Safety State
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(true);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAgeVerified, setIsAgeVerified] = useState(false);
+
+  useEffect(() => {
+    // Sequence: Splash -> Onboarding -> Age Gate (via Login Modal)
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+      setShowOnboarding(true);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -60,9 +72,18 @@ export default function Home() {
     setIsChatOpen(true);
   };
 
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setIsLoginModalOpen(true);
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden transition-colors duration-500">
       
+      {showSplash && <SplashScreen />}
+      
+      {showOnboarding && <OnboardingView onComplete={handleOnboardingComplete} />}
+
       {/* Age Gating & EULA Modal */}
       <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
         <DialogContent className="max-w-[90%] rounded-[2.5rem] p-8 border-none bg-background/95 backdrop-blur-xl shadow-2xl">
@@ -177,4 +198,3 @@ export default function Home() {
     </main>
   );
 }
-
