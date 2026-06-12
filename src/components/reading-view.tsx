@@ -44,7 +44,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter
 } from '@/components/ui/sheet';
 import {
   DropdownMenu,
@@ -149,13 +148,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }
   };
 
-  const handleOpenTypography = () => {
+  const handleOpenTypography = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsTypographyOpen(true);
   };
 
   const handleOpenShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     setIsShareSheetOpen(true);
   };
 
@@ -374,22 +373,22 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={cn(
-                "p-2 rounded-full transition-colors active:scale-90",
+                "p-2 rounded-full transition-colors active:scale-90 outline-none",
                 readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
               )}>
                 <MoreVertical className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px]">
+            <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px] z-[600]">
               <DropdownMenuItem 
-                onClick={() => setIsReportSheetOpen(true)}
+                onSelect={() => setIsReportSheetOpen(true)}
                 className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
               >
                 <Flag className="w-4 h-4" />
                 İçeriği Şikayet Et
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={handleBlockAuthor}
+                onSelect={handleBlockAuthor}
                 className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
               >
                 <UserX className="w-4 h-4" />
@@ -628,10 +627,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Quote Share Sheet */}
       <Sheet open={isShareSheetOpen} onOpenChange={setIsShareSheetOpen}>
         <SheetContent side="bottom" className="h-[650px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Alıntı Paylaş</SheetTitle>
-            <SheetDescription>Instagram Hikayesi Oluştur</SheetDescription>
-          </SheetHeader>
           <div className="p-8 flex flex-col h-full gap-6">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
@@ -695,17 +690,20 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       </Sheet>
 
       {/* UGC Report Sheet */}
-      <Sheet open={isReportSheetOpen} onOpenChange={setIsReportSheetOpen}>
+      <Sheet open={isReportSheetOpen} onOpenChange={(open) => {
+        setIsReportSheetOpen(open);
+        if (!open) setReportReason(null);
+      }}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <SheetHeader className="p-8 pb-4 flex flex-col items-center gap-2">
+          <div className="p-8 flex flex-col items-center gap-2">
             <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-2">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <SheetTitle className="text-xl font-headline font-black text-accent">İçeriği Şikayet Et</SheetTitle>
-            <SheetDescription className="text-center">
+            <h3 className="text-xl font-headline font-black text-accent">İçeriği Şikayet Et</h3>
+            <p className="text-center text-sm text-muted-foreground">
               Lütfen şikayet nedeninizi seçin. Aura Stories güvenli içerik politikasına önem verir.
-            </SheetDescription>
-          </SheetHeader>
+            </p>
+          </div>
           
           <div className="px-8 pb-8 flex flex-col gap-2">
             {["Yasa Dışı İçerik", "Aşırı Şiddet / Tehdit", "Telif Hakkı İhlali", "Spam", "Nefret Söylemi"].map((reason) => (
@@ -738,10 +736,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Lore Card Sheet */}
       <Sheet open={!!selectedLore} onOpenChange={(open) => !open && setSelectedLore(null)}>
         <SheetContent side="bottom" className="h-[480px] rounded-t-[3rem] p-0 border-none bg-background/95 backdrop-blur-xl overflow-hidden z-[600]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Karakter Bilgisi</SheetTitle>
-            <SheetDescription>Lore Card</SheetDescription>
-          </SheetHeader>
           {selectedLore && (
             <div className="h-full flex flex-col relative">
               <div className="relative h-60 w-full">
@@ -768,10 +762,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Typography Panel Sheet */}
       <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Metin Ayarları</SheetTitle>
-            <SheetDescription>Font ve Tema</SheetDescription>
-          </SheetHeader>
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
@@ -825,10 +815,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Inline Comments Sheet */}
       <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
         <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Yorumlar</SheetTitle>
-            <SheetDescription>Topluluk Tepkileri</SheetDescription>
-          </SheetHeader>
           <div className="p-8 flex flex-col h-full">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center mb-6" />
             <div className="flex items-center justify-between mb-8">
@@ -858,10 +844,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Tipping / Gift Modal */}
       <Sheet open={isGiftsOpen} onOpenChange={setIsGiftsOpen}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Hediye Gönder</SheetTitle>
-            <SheetDescription>Yazarı Destekle</SheetDescription>
-          </SheetHeader>
           <div className="p-8 flex flex-col gap-6">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             <div className="grid grid-cols-2 gap-4">
