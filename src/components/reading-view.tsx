@@ -55,6 +55,7 @@ import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 interface ReadingViewProps {
   story: Story;
@@ -78,9 +79,9 @@ const LORE_DATA: Record<string, LoreInfo> = {
 };
 
 const DUMMY_COMMENTS = [
-  { id: '1', user: 'Melis_92', text: 'İnanmıyorum! Defne bunu nasıl yapar?', time: '2d' },
-  { id: '2', user: 'KitapKurdu', text: 'Demir Ağa çok gizemli birine benziyor.', time: '5d' },
-  { id: '3', user: 'StoryLover', text: 'Bu oda kesinlikle bir şeyler saklıyor.', time: '12d' },
+  { id: '1', user: 'Melis_92', text: 'Bu sahne kalbimi durdurdu! 😭', time: '2d' },
+  { id: '2', user: 'KitapKurdu', text: 'Yazar burada ne demek istemiş acaba? Çok derin.', time: '5d' },
+  { id: '3', user: 'StoryLover', text: 'Demir Ağa\'nın bakışlarını resmen hissettim.', time: '12d' },
 ];
 
 type ReadingTheme = 'light' | 'sepia' | 'dark';
@@ -236,10 +237,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           {hasComments && (
             <button 
               onClick={(e) => { e.stopPropagation(); setIsCommentsOpen(true); }}
-              className="flex items-center gap-1 text-[10px] font-bold text-primary/40 hover:text-primary transition-all active:scale-90"
+              className="flex items-center gap-1 text-[10px] font-bold text-primary/60 hover:text-primary transition-all active:scale-90"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>128</span>
+              <span>24</span>
             </button>
           )}
           <button 
@@ -821,16 +822,16 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Inline Comments Sheet */}
       <Sheet open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
-        <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
-          <div className="p-8 flex flex-col h-full">
+        <SheetContent side="bottom" className="h-[600px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
+          <div className="p-8 flex flex-col h-full relative">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center mb-6" />
             <SheetHeader className="flex items-center justify-between mb-8 flex-row space-y-0">
-              <SheetTitle className="text-xl font-headline font-black text-accent">Satır İçi Yorumlar</SheetTitle>
-              <Badge variant="secondary" className="bg-primary/10 text-primary font-bold">128 Yorum</Badge>
+              <SheetTitle className="text-xl font-headline font-black text-accent">Satır Arası Yorumlar</SheetTitle>
+              <Badge variant="secondary" className="bg-primary/10 text-primary font-bold">24 Yorum</Badge>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar">
+            <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar pb-24">
               {DUMMY_COMMENTS.map((comment) => (
-                <div key={comment.id} className="flex gap-4">
+                <div key={comment.id} className="flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <Avatar className="w-10 h-10 ring-2 ring-primary/10">
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{comment.user[0]}</AvatarFallback>
                   </Avatar>
@@ -843,6 +844,19 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Sticky Input for Comments */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-card via-card to-transparent pt-12">
+              <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-[2rem] border border-border shadow-sm">
+                <Input 
+                  placeholder="Sen ne düşünüyorsun?..." 
+                  className="border-none bg-transparent focus-visible:ring-0 text-sm h-12 rounded-full px-4"
+                />
+                <Button className="w-12 h-12 rounded-full bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all p-0">
+                   <Send className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
         </SheetContent>

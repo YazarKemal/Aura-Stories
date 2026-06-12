@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import { 
   Settings, 
   ChevronRight, 
@@ -22,7 +23,8 @@ import {
   TreeDeciduous,
   Crown,
   LayoutDashboard,
-  LogIn
+  LogIn,
+  Gift
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfileScreenProps {
   onOpenWriterDashboard?: () => void;
@@ -41,6 +44,9 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
+  const { toast } = useToast();
+  const [dailyGiftClaimed, setDailyGiftClaimed] = useState(false);
+  
   const menuItems = [
     { 
       id: 'writer', 
@@ -78,6 +84,15 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
     { id: 'trophy', icon: Trophy, label: 'Efsane', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
   ];
 
+  const handleClaimDailyGift = () => {
+    if (dailyGiftClaimed) return;
+    setDailyGiftClaimed(true);
+    toast({
+      title: "Hediye Alındı!",
+      description: "Günlük Aura Hediyen olarak 50🪙 hesabına eklendi.",
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6 pb-40 px-6 animate-in fade-in duration-500">
       {/* Profile Header */}
@@ -105,6 +120,44 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
           <span className="hidden sm:inline">Yazar Paneli</span>
         </Button>
       </section>
+
+      {/* Daily Reward Card */}
+      <Card className="p-6 rounded-[2.5rem] bg-gradient-to-br from-amber-400/20 via-primary/5 to-accent/10 border-none shadow-xl relative overflow-hidden group">
+         <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-400/10 rounded-full blur-3xl animate-pulse" />
+         <div className="flex flex-col items-center gap-4 relative z-10 text-center">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-xl font-headline font-black text-accent leading-none">Günlük Aura Hediyen</h3>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Seni özledik, işte bugünkü hediyen!</p>
+            </div>
+            
+            <div className="relative">
+               <div className={cn(
+                 "absolute inset-0 bg-amber-400 blur-2xl rounded-full opacity-0 transition-opacity duration-500",
+                 !dailyGiftClaimed && "opacity-30 group-hover:opacity-50"
+               )} />
+               <div className={cn(
+                 "relative w-24 h-24 rounded-3xl bg-white dark:bg-card flex items-center justify-center shadow-lg border-2 border-amber-200 transition-transform duration-500",
+                 !dailyGiftClaimed ? "animate-float" : "grayscale opacity-50"
+               )}>
+                  <Gift className={cn("w-12 h-12 text-amber-500", !dailyGiftClaimed && "animate-pulse")} />
+                  {!dailyGiftClaimed && <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-amber-400 animate-pulse" />}
+               </div>
+            </div>
+
+            <Button 
+              onClick={handleClaimDailyGift}
+              disabled={dailyGiftClaimed}
+              className={cn(
+                "w-full h-12 rounded-2xl font-black text-sm transition-all shadow-lg",
+                dailyGiftClaimed 
+                  ? "bg-muted text-muted-foreground shadow-none" 
+                  : "bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-amber-200 hover:scale-[1.02] active:scale-95 animate-pulse-subtle"
+              )}
+            >
+              {dailyGiftClaimed ? "Alındı! (+50🪙)" : "Hediyeni Al"}
+            </Button>
+         </div>
+      </Card>
 
       {/* Aura VIP Banner */}
       <Card 
@@ -296,4 +349,3 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
     </div>
   );
 }
-
