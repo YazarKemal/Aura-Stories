@@ -21,7 +21,8 @@ import {
   Trophy,
   TreeDeciduous,
   Crown,
-  LayoutDashboard
+  LayoutDashboard,
+  LogIn
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,11 +35,12 @@ import { cn } from '@/lib/utils';
 interface ProfileScreenProps {
   onOpenWriterDashboard?: () => void;
   onOpenVIP?: () => void;
+  onOpenLogin?: () => void;
   isDarkMode: boolean;
   onDarkModeToggle: (val: boolean) => void;
 }
 
-export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
+export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
   const menuItems = [
     { 
       id: 'writer', 
@@ -282,7 +284,11 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, isDarkMode, on
             <h3 className="text-white font-bold text-lg">Hesabınıza Erişin</h3>
             <p className="text-white/60 text-xs">Hikayelerinizi kaydedin ve tüm cihazlarınızdan erişin.</p>
           </div>
-          <Button className="w-full h-12 rounded-2xl bg-primary text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
+          <Button 
+            onClick={onOpenLogin}
+            className="w-full h-12 rounded-2xl bg-primary text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+          >
+            <LogIn className="w-4 h-4" />
             Giriş Yap / Kayıt Ol
           </Button>
         </Card>
@@ -290,3 +296,4 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, isDarkMode, on
     </div>
   );
 }
+

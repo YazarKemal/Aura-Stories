@@ -15,6 +15,11 @@ import { CharacterChatView } from '@/components/character-chat-view';
 import { SearchView } from '@/components/search-view';
 import { VIPScreen } from '@/components/vip-screen';
 import { Story } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Sparkles } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('discover');
@@ -25,6 +30,10 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVIPOpen, setIsVIPOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Onboarding / Safety State
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(true);
+  const [isAgeVerified, setIsAgeVerified] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -53,6 +62,47 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto relative overflow-hidden transition-colors duration-500">
+      
+      {/* Age Gating & EULA Modal */}
+      <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+        <DialogContent className="max-w-[90%] rounded-[2.5rem] p-8 border-none bg-background/95 backdrop-blur-xl shadow-2xl">
+          <DialogHeader className="flex flex-col items-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <Sparkles className="w-8 h-8" />
+            </div>
+            <DialogTitle className="text-2xl font-headline font-black text-accent">Hoş Geldiniz</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Aura Stories topluluğuna katılmak ve hikayeleri keşfetmek için lütfen onaylayın.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-start space-x-3 p-4 bg-muted/30 rounded-2xl border border-border/50 my-4">
+            <Checkbox 
+              id="age-check" 
+              checked={isAgeVerified} 
+              onCheckedChange={(checked) => setIsAgeVerified(checked as boolean)}
+              className="mt-1 border-primary data-[state=checked]:bg-primary"
+            />
+            <Label htmlFor="age-check" className="text-xs font-medium leading-normal cursor-pointer text-foreground/80">
+              18 yaşından büyük olduğumu ve <span className="text-primary font-bold underline">Kullanıcı Sözleşmesini (EULA)</span> okuyup kabul ettiğimi onaylıyorum.
+            </Label>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-col gap-3">
+            <Button 
+              disabled={!isAgeVerified}
+              onClick={() => setIsLoginModalOpen(false)}
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:grayscale transition-all"
+            >
+              Devam Et
+            </Button>
+            <p className="text-[10px] text-center text-muted-foreground px-4">
+              Aura Stories, güvenli bir okuma ortamı sunmak için UGC içeriklerini denetler.
+            </p>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Overlay Screens */}
       {isSearchOpen && (
         <SearchView 
@@ -112,6 +162,7 @@ export default function Home() {
             <ProfileScreen 
               onOpenWriterDashboard={() => setIsWriterDashboardOpen(true)}
               onOpenVIP={() => setIsVIPOpen(true)}
+              onOpenLogin={() => setIsLoginModalOpen(true)}
               isDarkMode={isDarkMode}
               onDarkModeToggle={setIsDarkMode}
             />
@@ -126,3 +177,4 @@ export default function Home() {
     </main>
   );
 }
+

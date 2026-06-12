@@ -26,7 +26,11 @@ import {
   X,
   Share2,
   Instagram,
-  Quote
+  Quote,
+  MoreVertical,
+  Flag,
+  UserX,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -40,10 +44,18 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetFooter
 } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReadingViewProps {
   story: Story;
@@ -75,6 +87,7 @@ const DUMMY_COMMENTS = [
 type ReadingTheme = 'light' | 'sepia' | 'dark';
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
+  const { toast } = useToast();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -82,6 +95,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isGiftsOpen, setIsGiftsOpen] = useState(false);
   const [isTypographyOpen, setIsTypographyOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
+  
+  // UGC Safety State
+  const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<string | null>(null);
   
   // Quote Sharing State
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
@@ -125,7 +142,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   ];
 
   const handleParaClick = (text: string) => {
-    // Toggle behavior: if already selected, deselect it
     if (selectedQuote === text) {
       setSelectedQuote(null);
     } else {
@@ -141,6 +157,25 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     e.stopPropagation();
     e.preventDefault();
     setIsShareSheetOpen(true);
+  };
+
+  const handleReportSubmit = () => {
+    if (!reportReason) return;
+    setIsReportSheetOpen(false);
+    toast({
+      title: "Rapor İletildi",
+      description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
+      variant: "default",
+    });
+    setReportReason(null);
+  };
+
+  const handleBlockAuthor = () => {
+    toast({
+      title: "Yazar Engellendi",
+      description: `${story.author} içeriği artık size gösterilmeyecek.`,
+      variant: "destructive",
+    });
   };
 
   const renderParagraph = (text: string, index: number) => {
@@ -219,7 +254,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         {isSelected && (
           <div 
             className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20"
-            onClick={(e) => e.stopPropagation()} // Prevent deselection when clicking inside tooltip
+            onClick={(e) => e.stopPropagation()} 
           >
             <button 
               onClick={handleOpenShare}
@@ -283,7 +318,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         "fixed inset-0 z-[200] overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500",
         themeColors[readingTheme]
       )}
-      onClick={() => setSelectedQuote(null)} // Dismiss quote tooltip when clicking empty space
+      onClick={() => setSelectedQuote(null)} 
     >
       {/* Celebration Overlay */}
       {celebrationGift && (
@@ -329,12 +364,39 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <button 
             onClick={handleOpenTypography}
             className={cn(
-              "p-2 -mr-2 rounded-full transition-colors active:scale-90",
+              "p-2 rounded-full transition-colors active:scale-90",
               readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
             )}
           >
             <Type className="w-5 h-5" />
           </button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn(
+                "p-2 rounded-full transition-colors active:scale-90",
+                readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+              )}>
+                <MoreVertical className="w-5 h-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px]">
+              <DropdownMenuItem 
+                onClick={() => setIsReportSheetOpen(true)}
+                className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
+              >
+                <Flag className="w-4 h-4" />
+                İçeriği Şikayet Et
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={handleBlockAuthor}
+                className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
+              >
+                <UserX className="w-4 h-4" />
+                Yazarı Engelle
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -578,7 +640,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               <p className="text-xs text-muted-foreground">Favori alıntını takipçilerinle paylaş!</p>
             </div>
 
-            {/* IG Story Preview Card */}
             <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group mx-2 bg-black">
               <div className="absolute inset-0">
                 <Image src={story.imageUrl} alt="preview" fill className="object-cover scale-110 blur-xl opacity-60" />
@@ -586,7 +647,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </div>
 
               <div className="relative h-full p-8 flex flex-col text-white z-10">
-                {/* Header */}
                 <div className="flex justify-between items-start mb-4">
                    <div className="flex flex-col">
                       <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Aura Stories</h4>
@@ -595,14 +655,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                    <Quote className="w-8 h-8 text-primary/40 rotate-12" />
                 </div>
 
-                {/* Quote (Flexible area) */}
                 <div className="flex-1 flex items-center justify-center py-4">
                    <p className="text-lg sm:text-xl font-serif font-bold italic leading-relaxed drop-shadow-md text-center line-clamp-[10]">
                     "{selectedQuote || 'Alıntı metni buraya gelecek...'}"
                   </p>
                 </div>
 
-                {/* Book Details (Sticky to bottom) */}
                 <div className="mt-auto space-y-6">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl overflow-hidden relative border-2 border-white/20 shadow-lg shrink-0">
@@ -632,6 +690,47 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 Vazgeç
               </Button>
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* UGC Report Sheet */}
+      <Sheet open={isReportSheetOpen} onOpenChange={setIsReportSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
+          <SheetHeader className="p-8 pb-4 flex flex-col items-center gap-2">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-2">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <SheetTitle className="text-xl font-headline font-black text-accent">İçeriği Şikayet Et</SheetTitle>
+            <SheetDescription className="text-center">
+              Lütfen şikayet nedeninizi seçin. Aura Stories güvenli içerik politikasına önem verir.
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="px-8 pb-8 flex flex-col gap-2">
+            {["Yasa Dışı İçerik", "Aşırı Şiddet / Tehdit", "Telif Hakkı İhlali", "Spam", "Nefret Söylemi"].map((reason) => (
+              <button
+                key={reason}
+                onClick={() => setReportReason(reason)}
+                className={cn(
+                  "w-full p-4 rounded-2xl text-sm font-bold transition-all text-left flex items-center justify-between",
+                  reportReason === reason 
+                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                    : "bg-muted/30 text-accent hover:bg-muted/50"
+                )}
+              >
+                {reason}
+                {reportReason === reason && <CheckCircle2 className="w-4 h-4" />}
+              </button>
+            ))}
+            
+            <Button 
+              disabled={!reportReason}
+              onClick={handleReportSubmit}
+              className="mt-6 w-full h-14 rounded-2xl bg-destructive text-white font-bold shadow-lg shadow-destructive/20 hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              Şikayeti Gönder
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -676,7 +775,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
-            {/* Font Size Slider */}
             <div className="space-y-4">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span className="flex items-center gap-1.5">A- <span className="text-[8px] opacity-50">KÜÇÜK</span></span>
@@ -686,7 +784,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               <Slider value={fontSize} onValueChange={setFontSize} min={14} max={26} step={1} className="py-2" />
             </div>
 
-            {/* Reading Themes */}
             <div className="space-y-4">
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Teması</span>
               <div className="flex items-center justify-center gap-8">
@@ -714,7 +811,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </div>
             </div>
 
-            {/* Dyslexia Mode Toggle */}
             <div className="flex items-center justify-between p-5 bg-muted/20 rounded-[1.5rem] border border-border/40">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-accent">Disleksi Modu</span>
@@ -793,3 +889,4 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     </div>
   );
 }
+
