@@ -30,7 +30,8 @@ import {
   MoreVertical,
   Flag,
   UserX,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -45,6 +46,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +104,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isTypographyOpen, setIsTypographyOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
   
+  // Aura Vision State
+  const [isAuraVisionOpen, setIsAuraVisionOpen] = useState(false);
+  const [auraVisionImage, setAuraVisionImage] = useState('https://picsum.photos/seed/vision1/600/900');
+  const [auraVisionQuote, setAuraVisionQuote] = useState('');
+
+  // Parallax Header State
+  const [headerOpacity, setHeaderOpacity] = useState(1);
+  const [headerScale, setHeaderScale] = useState(1);
+  
   // UGC Safety State
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string | null>(null);
@@ -119,18 +136,30 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLDivElement;
+      const scrollY = target.scrollTop;
+      
+      // Top Bar Visibility
+      if (scrollY > lastScrollY.current && scrollY > 50) {
         setIsVisible(false);
       } else {
         setIsVisible(true);
       }
-      lastScrollY.current = currentScrollY;
+      lastScrollY.current = scrollY;
+
+      // Header Parallax/Fade
+      if (scrollY < 300) {
+        setHeaderOpacity(Math.max(0, 1 - scrollY / 250));
+        setHeaderScale(1 + scrollY / 1000);
+      }
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    return () => container?.removeEventListener('scroll', handleScroll);
   }, []);
 
   const paragraphs = [
@@ -178,9 +207,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     });
   };
 
+  const handleOpenAuraVision = (text: string) => {
+    setAuraVisionQuote(text);
+    setIsAuraVisionOpen(true);
+  };
+
   const renderParagraph = (text: string, index: number) => {
     const hasComments = index === 1 || index === 4;
     const isSelected = selectedQuote === text;
+    const isAuraVisionTrigger = index === 2; // Middle dramatic paragraph
     
     let content: React.ReactNode = text;
 
@@ -227,7 +262,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             readingTheme === 'light' && "text-foreground/90",
             readingTheme === 'sepia' && "text-[#5b4636]",
             readingTheme === 'dark' && "text-gray-300",
-            index === 0 && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
+            index === 0 && !isAuraVisionTrigger && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
           )}
         >
           {content}
@@ -241,6 +276,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>24</span>
+            </button>
+          )}
+          {isAuraVisionTrigger && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleOpenAuraVision(text); }}
+              className="flex items-center gap-1 text-primary animate-pulse"
+            >
+              <Sparkles className="w-5 h-5" />
             </button>
           )}
           <button 
@@ -336,6 +379,37 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
       )}
 
+      {/* Aura Vision Lightbox */}
+      <Dialog open={isAuraVisionOpen} onOpenChange={setIsAuraVisionOpen}>
+        <DialogContent className="max-w-[90%] p-0 border-none bg-black/40 backdrop-blur-3xl rounded-[3rem] overflow-hidden shadow-2xl z-[700]">
+          <div className="relative aspect-[2/3] w-full">
+            <Image 
+              src={auraVisionImage} 
+              alt="Aura Vision Scene" 
+              fill 
+              className="object-cover"
+              data-ai-hint="dramatic scene"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            <button 
+              onClick={() => setIsAuraVisionOpen(false)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">AURA VISION</span>
+              </div>
+              <p className="text-lg font-serif italic text-white leading-relaxed line-clamp-4">
+                "{auraVisionQuote}"
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <header 
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
@@ -400,145 +474,165 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
       </header>
 
-      <article className="pt-24 px-8 pb-40 max-w-md mx-auto">
-        <h1 className={cn(
-          "text-3xl font-headline font-black mb-8 leading-tight transition-colors duration-500",
-          readingTheme === 'sepia' ? "text-[#4a3a2a]" : (readingTheme === 'dark' ? "text-white" : "text-accent")
-        )}>
-          Bölüm 1: Teslimiyet
-        </h1>
-
-        <div className="relative">
-          {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
-
-          <div className="relative h-24 overflow-hidden pointer-events-none">
-             {renderParagraph(paragraphs[4], 4)}
-             <div className={cn(
-               "absolute inset-0 bg-gradient-to-t via-transparent to-transparent transition-colors duration-500",
-               readingTheme === 'light' && "from-white",
-               readingTheme === 'sepia' && "from-[#f4ecd8]",
-               readingTheme === 'dark' && "from-[#1a1a1a]"
-             )} />
+      <article className="pb-40 max-w-md mx-auto relative">
+        {/* Parallax Cinematic Header */}
+        <div 
+          className="relative h-[250px] w-full overflow-hidden"
+          style={{ opacity: headerOpacity }}
+        >
+          <div 
+            className="absolute inset-0 w-full h-full transition-transform duration-100 ease-out"
+            style={{ transform: `scale(${headerScale})` }}
+          >
+            <Image 
+              src="https://picsum.photos/seed/header1/1200/800"
+              alt="Chapter Header"
+              fill
+              className="object-cover"
+              data-ai-hint="cinematic interior"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-background" />
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center p-8">
+            <h1 className="text-4xl font-headline font-black text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)] leading-tight animate-in slide-in-from-top-4 duration-1000">
+              Bölüm 1: Teslimiyet
+            </h1>
           </div>
         </div>
 
-        {/* Community Choice (Sen Seç) Card */}
-        <section 
-          className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className={cn(
-            "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500",
-            readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
-          )}>
-            <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
-               <Sparkles className="w-20 h-20 text-primary" />
-            </div>
+        <div className="px-8 mt-12">
+          <div className="relative">
+            {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
 
-            <div className="flex flex-col gap-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
-                  <Timer className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-black uppercase tracking-tighter">Kapanışa: 12S 45D</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Kaderini Belirle</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className={cn(
-                  "text-xl font-headline font-black leading-tight",
-                  readingTheme === 'dark' ? "text-white" : "text-accent"
-                )}>
-                  Hikayenin Kaderini Belirle!
-                </h3>
-                <p className="text-sm text-muted-foreground font-medium italic">
-                  "Sizce Defne gerçeği Demir'e itiraf etmeli mi?"
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {!votedOption ? (
-                  <>
-                    <Button 
-                      onClick={() => handleVote('A')}
-                      variant="outline"
-                      className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
-                    >
-                      <span>Gerçeği İtiraf Etsin</span>
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Coins className="w-3 h-3 fill-current" />
-                        <span className="text-[10px]">10</span>
-                      </div>
-                    </Button>
-                    <Button 
-                      onClick={() => handleVote('B')}
-                      variant="outline"
-                      className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
-                    >
-                      <span>Sırrını Saklasın</span>
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Coins className="w-3 h-3 fill-current" />
-                        <span className="text-[10px]">10</span>
-                      </div>
-                    </Button>
-                  </>
-                ) : (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
-                        <span>Gerçeği İtiraf Etsin</span>
-                        <span className={cn(votedOption === 'A' ? "text-primary" : "text-muted-foreground")}>65%</span>
-                      </div>
-                      <Progress value={65} className={cn("h-3 rounded-full", votedOption === 'A' ? "bg-primary/10" : "bg-muted")} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
-                        <span>Sırrını Saklasın</span>
-                        <span className={cn(votedOption === 'B' ? "text-primary" : "text-muted-foreground")}>35%</span>
-                      </div>
-                      <Progress value={35} className={cn("h-3 rounded-full", votedOption === 'B' ? "bg-primary/10" : "bg-muted")} />
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="relative h-24 overflow-hidden pointer-events-none">
+               {renderParagraph(paragraphs[4], 4)}
+               <div className={cn(
+                 "absolute inset-0 bg-gradient-to-t via-transparent to-transparent transition-colors duration-500",
+                 readingTheme === 'light' && "from-white",
+                 readingTheme === 'sepia' && "from-[#f4ecd8]",
+                 readingTheme === 'dark' && "from-[#1a1a1a]"
+               )} />
             </div>
           </div>
-        </section>
 
-        {/* Paywall Card */}
-        <section 
-          className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300"
-          onClick={(e) => e.stopPropagation()}
-        >
-           <div className={cn(
-             "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500",
-             readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
-           )}>
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                 <Lock className="w-8 h-8" />
-              </div>
-              
-              <div className="space-y-2">
-                 <h3 className={cn(
-                   "text-xl font-headline font-bold",
-                   readingTheme === 'dark' ? "text-white" : "text-accent"
-                 )}>Bu bölüm kilitli</h3>
-                 <p className="text-sm text-muted-foreground px-4">Okumaya devam etmek için kilidi açın.</p>
+          {/* Community Choice (Sen Seç) Card */}
+          <section 
+            className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={cn(
+              "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500",
+              readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
+            )}>
+              <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
+                 <Sparkles className="w-20 h-20 text-primary" />
               </div>
 
-              <div className="flex flex-col w-full gap-3">
-                 <Button 
-                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 animate-pulse-subtle"
-                 >
-                   <Coins className="w-5 h-5" />
-                   15 Jeton ile Aç
-                 </Button>
+              <div className="flex flex-col gap-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
+                    <Timer className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Kapanışa: 12S 45D</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Kaderini Belirle</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className={cn(
+                    "text-xl font-headline font-black leading-tight",
+                    readingTheme === 'dark' ? "text-white" : "text-accent"
+                  )}>
+                    Hikayenin Kaderini Belirle!
+                  </h3>
+                  <p className="text-sm text-muted-foreground font-medium italic">
+                    "Sizce Defne gerçeği Demir'e itiraf etmeli mi?"
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {!votedOption ? (
+                    <>
+                      <Button 
+                        onClick={() => handleVote('A')}
+                        variant="outline"
+                        className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
+                      >
+                        <span>Gerçeği İtiraf Etsin</span>
+                        <div className="flex items-center gap-1 text-amber-500">
+                          <Coins className="w-3 h-3 fill-current" />
+                          <span className="text-[10px]">10</span>
+                        </div>
+                      </Button>
+                      <Button 
+                        onClick={() => handleVote('B')}
+                        variant="outline"
+                        className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
+                      >
+                        <span>Sırrını Saklasın</span>
+                        <div className="flex items-center gap-1 text-amber-500">
+                          <Coins className="w-3 h-3 fill-current" />
+                          <span className="text-[10px]">10</span>
+                        </div>
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
+                          <span>Gerçeği İtiraf Etsin</span>
+                          <span className={cn(votedOption === 'A' ? "text-primary" : "text-muted-foreground")}>65%</span>
+                        </div>
+                        <Progress value={65} className={cn("h-3 rounded-full", votedOption === 'A' ? "bg-primary/10" : "bg-muted")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
+                          <span>Sırrını Saklasın</span>
+                          <span className={cn(votedOption === 'B' ? "text-primary" : "text-muted-foreground")}>35%</span>
+                        </div>
+                        <Progress value={35} className={cn("h-3 rounded-full", votedOption === 'B' ? "bg-primary/10" : "bg-muted")} />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-           </div>
-        </section>
+            </div>
+          </section>
+
+          {/* Paywall Card */}
+          <section 
+            className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+             <div className={cn(
+               "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500",
+               readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
+             )}>
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                   <Lock className="w-8 h-8" />
+                </div>
+                
+                <div className="space-y-2">
+                   <h3 className={cn(
+                     "text-xl font-headline font-bold",
+                     readingTheme === 'dark' ? "text-white" : "text-accent"
+                   )}>Bu bölüm kilitli</h3>
+                   <p className="text-sm text-muted-foreground px-4">Okumaya devam etmek için kilidi açın.</p>
+                </div>
+
+                <div className="flex flex-col w-full gap-3">
+                   <Button 
+                     className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 animate-pulse-subtle"
+                   >
+                     <Coins className="w-5 h-5" />
+                     15 Jeton ile Aç
+                   </Button>
+                </div>
+             </div>
+          </section>
+        </div>
       </article>
 
       {/* Floating Buttons Group */}
