@@ -630,10 +630,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <div className="p-8 flex flex-col h-full gap-6">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
-            <div className="flex flex-col items-center text-center">
-              <h3 className="text-xl font-headline font-black text-accent">Instagram Hikayesi Oluştur</h3>
-              <p className="text-xs text-muted-foreground">Favori alıntını takipçilerinle paylaş!</p>
-            </div>
+            <SheetHeader className="flex flex-col items-center text-center">
+              <SheetTitle className="text-xl font-headline font-black text-accent">Instagram Hikayesi Oluştur</SheetTitle>
+              <SheetDescription className="text-xs text-muted-foreground">Favori alıntını takipçilerinle paylaş!</SheetDescription>
+            </SheetHeader>
 
             <div className="relative flex-1 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group mx-2 bg-black">
               <div className="absolute inset-0">
@@ -699,10 +699,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-2">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-headline font-black text-accent">İçeriği Şikayet Et</h3>
-            <p className="text-center text-sm text-muted-foreground">
-              Lütfen şikayet nedeninizi seçin. Aura Stories güvenli içerik politikasına önem verir.
-            </p>
+            <SheetHeader className="flex flex-col items-center gap-1">
+              <SheetTitle className="text-xl font-headline font-black text-accent">İçeriği Şikayet Et</SheetTitle>
+              <SheetDescription className="text-center text-sm text-muted-foreground">
+                Lütfen şikayet nedeninizi seçin. Aura Stories güvenli içerik politikasına önem verir.
+              </SheetDescription>
+            </SheetHeader>
           </div>
           
           <div className="px-8 pb-8 flex flex-col gap-2">
@@ -744,14 +746,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/40 rounded-full" />
               </div>
               <div className="px-8 py-6 flex flex-col items-center text-center gap-4 relative z-10">
-                <div className="flex flex-col items-center">
-                  <Badge className="bg-primary/20 text-primary border-none mb-2 text-[10px] font-bold uppercase tracking-tighter">
+                <SheetHeader className="flex flex-col items-center">
+                  <Badge className="bg-primary/20 text-primary border-none mb-2 text-[10px] font-bold uppercase tracking-tighter w-fit">
                     <Sparkles className="w-3 h-3 mr-1" />
                     Karakter Bilgisi
                   </Badge>
-                  <h3 className="text-3xl font-headline font-black text-accent">{selectedLore.name}</h3>
-                  <span className="text-primary font-bold text-sm tracking-wide">{selectedLore.role}</span>
-                </div>
+                  <SheetTitle className="text-3xl font-headline font-black text-accent">{selectedLore.name}</SheetTitle>
+                  <SheetDescription className="text-primary font-bold text-sm tracking-wide">{selectedLore.role}</SheetDescription>
+                </SheetHeader>
                 <p className="text-foreground/80 leading-relaxed italic text-base">"{selectedLore.description}"</p>
               </div>
             </div>
@@ -765,6 +767,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
             
+            <SheetHeader className="hidden">
+              <SheetTitle>Okuma Ayarları</SheetTitle>
+              <SheetDescription>Yazı boyutu ve tema tercihlerini değiştirin.</SheetDescription>
+            </SheetHeader>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span className="flex items-center gap-1.5">A- <span className="text-[8px] opacity-50">KÜÇÜK</span></span>
@@ -817,10 +824,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         <SheetContent side="bottom" className="h-[500px] rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <div className="p-8 flex flex-col h-full">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center mb-6" />
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-headline font-black text-accent">Satır İçi Yorumlar</h3>
+            <SheetHeader className="flex items-center justify-between mb-8 flex-row space-y-0">
+              <SheetTitle className="text-xl font-headline font-black text-accent">Satır İçi Yorumlar</SheetTitle>
               <Badge variant="secondary" className="bg-primary/10 text-primary font-bold">128 Yorum</Badge>
-            </div>
+            </SheetHeader>
             <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar">
               {DUMMY_COMMENTS.map((comment) => (
                 <div key={comment.id} className="flex gap-4">
@@ -846,6 +853,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <div className="p-8 flex flex-col gap-6">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            <SheetHeader className="hidden">
+              <SheetTitle>Hediye Gönder</SheetTitle>
+              <SheetDescription>Yazara destek olmak için bir hediye seçin.</SheetDescription>
+            </SheetHeader>
             <div className="grid grid-cols-2 gap-4">
               {giftOptions.map((gift) => {
                 const Icon = gift.icon;
@@ -871,4 +882,3 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     </div>
   );
 }
-
