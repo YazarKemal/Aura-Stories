@@ -133,6 +133,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // Quote Sharing State
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [editableQuote, setEditableQuote] = useState('');
 
   // Typography State
   const [fontSize, setFontSize] = useState([18]);
@@ -199,6 +200,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleOpenShare = (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    setEditableQuote(selectedQuote || '');
     setIsShareSheetOpen(true);
   };
 
@@ -1015,7 +1017,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/90" />
               </div>
 
-              <div className="relative h-full p-8 flex flex-col text-white z-10">
+              <div className="relative h-full p-6 sm:p-8 flex flex-col text-white z-10">
                 <div className="flex justify-between items-start mb-4">
                    <div className="flex flex-col">
                       <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Aura Stories</h4>
@@ -1024,10 +1026,29 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                    <Quote className="w-8 h-8 text-primary/40 rotate-12" />
                 </div>
 
-                <div className="flex-1 flex items-center justify-center py-4">
-                   <p className="text-lg sm:text-xl font-serif font-bold italic leading-relaxed drop-shadow-md text-center line-clamp-[10]">
-                    "{selectedQuote || 'Alıntı metni buraya gelecek...'}"
-                  </p>
+                <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4">
+                   {/* Düzenleme ipucu */}
+                   <span className="text-[9px] text-white/30 font-medium tracking-wider flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     ✎ Düzenlemek için dokunun
+                   </span>
+                   <textarea
+                     value={editableQuote}
+                     onChange={(e) => setEditableQuote(e.target.value)}
+                     maxLength={280}
+                     rows={3}
+                     className={cn(
+                       "w-full bg-transparent border-none outline-none resize-none text-center font-serif font-bold italic leading-relaxed drop-shadow-md placeholder:text-white/30",
+                       !editableQuote || editableQuote.length < 100
+                         ? "text-2xl sm:text-3xl"
+                         : editableQuote.length < 200
+                           ? "text-lg sm:text-xl"
+                           : "text-sm sm:text-base"
+                     )}
+                     placeholder="Alıntı metni buraya gelecek..."
+                   />
+                   <span className="text-[9px] text-white/20 font-mono">
+                     {editableQuote.length}/280
+                   </span>
                 </div>
 
                 <div className="mt-auto space-y-6">

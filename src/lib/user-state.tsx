@@ -586,7 +586,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       typeof window !== 'undefined' &&
       window.location.protocol.startsWith('http')
     ) {
-      console.log(
+      console.warn(
         '[AdMob] HTTP protokolü algılandı — web/tarayıcı ortamı, simülasyon başlatılıyor.'
       );
       const reward = await simulateAdReward();
@@ -598,7 +598,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       const isNative = await isCapacitorAvailable();
 
       if (!isNative) {
-        console.log(
+        console.warn(
           '[AdMob] Native platform algılanmadı, simülasyon başlatılıyor.'
         );
         const reward = await simulateAdReward();

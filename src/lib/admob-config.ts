@@ -125,14 +125,13 @@ export async function initializeAdMob(): Promise<void> {
     //   initializeForTesting: !prod,
     // });
     //
-    // console.log('[AdMob] Başarıyla başlatıldı.',
     //   prod ? '🚀 PROD modu — gerçek reklamlar' : '🧪 TEST modu — test reklamları',
     //   '| Test cihazları:', TEST_DEVICE_IDS,
     //   '| Ad Unit ID:', getRewardedAdUnitId());
     // ─────────────────────────────────────────────────────────
 
     // Simülasyon: Capacitor yoksa sessizce devam et
-    console.log(
+    console.warn(
       `[AdMob] Simülasyon modunda (${prod ? 'PROD' : 'TEST'}). Capacitor kurulu değil — simüle reklamlar kullanılacak. Ad Unit ID: ${getRewardedAdUnitId()}`
     );
   } catch (error) {

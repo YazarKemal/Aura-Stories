@@ -75,15 +75,17 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     inputRef.current?.focus();
   }, []);
 
-  // Firestore'dan sohbet geçmişini yükle
+  // Firestore'dan sohbet geçmişini yükle (cleanup ile memory leak önlenir)
   useEffect(() => {
     const uid = userState.user?.uid;
     if (!uid) return;
+    let cancelled = false;
     loadChatHistory(uid, story.id, char.id).then(history => {
-      if (history.length > 0) {
+      if (!cancelled && history.length > 0) {
         setMessages(history.map(m => ({ ...m, timestamp: new Date(m.timestamp) })));
       }
     });
+    return () => { cancelled = true; };
   }, [userState.user?.uid, story.id, char.id]);
 
   const sendToAPI = useCallback(

@@ -2,13 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Search, CloudDownload } from 'lucide-react';
+import { BookOpen, Search, CloudDownload, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { stories as mockStories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
 import { Story } from '@/lib/types';
 import { getStories, onStoriesSnapshot } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface LibraryScreenProps {
   onNavigateToDiscover: () => void;
@@ -17,11 +18,13 @@ interface LibraryScreenProps {
 
 export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibraryScreenProps) {
   const [activeSubTab, setActiveSubTab] = useState('Varsayılan');
-  const [stories, setStories] = useState<Story[]>(mockStories);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onStoriesSnapshot((fs) => {
-      if (fs.length > 0) setStories(fs);
+      setStories(fs.length > 0 ? fs : mockStories);
+      setIsLoading(false);
     });
     return () => unsub();
   }, []);
@@ -65,9 +68,20 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-bold text-accent">{activeSubTab} Kitaplarım</h3>
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{displayStories.length} Kitap</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{isLoading ? '...' : `${displayStories.length} Kitap`}</span>
             </div>
-            {displayStories.map(story => (
+            {isLoading ? (
+              Array(3).fill(0).map((_, i) => (
+                <div key={i} className="flex gap-4 p-3 rounded-2xl bg-white dark:bg-zinc-900/80 border border-border animate-pulse">
+                  <Skeleton className="h-32 w-24 rounded-lg" />
+                  <div className="flex flex-col gap-2 flex-1">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+              ))
+            ) : displayStories.map(story => (
               <StoryCard 
                 key={story.id} 
                 story={story} 
@@ -95,10 +109,19 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
                 {activeSubTab === 'İndirilenler' ? 'Henüz İndirme Yok' : 'Kitaplığınız Boş'}
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {activeSubTab === 'İndirilenler' 
+                {activeSubTab === 'İndirilenler'
                   ? 'Çevrimdışı okumak için hikayelerin detay sayfasından indirme yapabilirsiniz.'
-                  : 'Kitaplığınıza henüz hikaye eklemediniz. Keşfetmeye ne dersiniz?'}
+                  : 'Kitaplığınıza henüz hikaye eklemediniz.'}
               </p>
+              <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground/50 mt-2">
+                <Library className="w-8 h-8" />
+              </div>
+              <Button
+                onClick={onNavigateToDiscover}
+                className="mt-4 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold active:scale-95 transition-all"
+              >
+                Keşfet'e Git
+              </Button>
             </div>
 
             <Button 
