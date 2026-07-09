@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Aura Stories</string>
+    <string name="title_activity_main">Aura Stories</string>
+    <string name="package_name">com.prompthavenstudio.aurastories</string>
+    <string name="custom_url_scheme">com.prompthavenstudio.aurastories</string>
+</resources>
