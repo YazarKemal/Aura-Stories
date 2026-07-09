@@ -18,7 +18,7 @@ const tabs = [
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 glass-morphism border-t border-white/20 px-6 pb-2 z-50 flex items-center justify-between rounded-t-[2.5rem] shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+    <div className="fixed bottom-0 left-0 right-0 h-20 glass-morphism dark:bg-brand-card dark:border-zinc-800 border-t border-white/20 px-6 pt-2 pb-6 z-50 flex items-center justify-between rounded-t-[2.5rem] shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;

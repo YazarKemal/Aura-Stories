@@ -1,13 +1,14 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, Search, CloudDownload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { stories } from '@/lib/mock-data';
+import { stories as mockStories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
 import { Story } from '@/lib/types';
+import { getStories, onStoriesSnapshot } from '@/lib/firebase';
 
 interface LibraryScreenProps {
   onNavigateToDiscover: () => void;
@@ -16,6 +17,14 @@ interface LibraryScreenProps {
 
 export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibraryScreenProps) {
   const [activeSubTab, setActiveSubTab] = useState('Varsayılan');
+  const [stories, setStories] = useState<Story[]>(mockStories);
+
+  useEffect(() => {
+    const unsub = onStoriesSnapshot((fs) => {
+      if (fs.length > 0) setStories(fs);
+    });
+    return () => unsub();
+  }, []);
   const subTabs = ['Varsayılan', 'Yeni', 'İlerleme', 'İndirilenler'];
 
   const filteredStories = stories.filter(story => {
@@ -40,8 +49,8 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
               className={cn(
                 "flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-300 whitespace-nowrap",
                 activeSubTab === tab 
-                  ? "bg-white text-primary shadow-sm" 
-                  : "text-muted-foreground hover:text-accent"
+                  ? "bg-white dark:bg-zinc-800 text-primary shadow-sm"
+                  : "text-muted-foreground dark:text-zinc-400 hover:text-accent dark:hover:text-zinc-200"
               )}
             >
               {tab}
@@ -76,7 +85,7 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
                   <BookOpen className="w-10 h-10 text-primary opacity-60" />
                 </div>
               </div>
-              <div className="absolute -top-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md animate-bounce">
+              <div className="absolute -top-2 -right-2 w-10 h-10 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-md animate-bounce">
                 <span className="text-xl">💜</span>
               </div>
             </div>

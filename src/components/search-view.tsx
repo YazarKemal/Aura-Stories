@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, X, BookOpen, Check } from 'lucide-react';
-import { stories } from '@/lib/mock-data';
+import { stories as mockStories } from '@/lib/mock-data';
 import { Story } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { onStoriesSnapshot } from '@/lib/firebase';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoryCard } from './story-card';
@@ -18,6 +19,14 @@ interface SearchViewProps {
 
 export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [stories, setStories] = useState<Story[]>(mockStories);
+
+  useEffect(() => {
+    const unsub = onStoriesSnapshot((fs) => {
+      if (fs.length > 0) setStories(fs);
+    });
+    return () => unsub();
+  }, []);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'ongoing' | 'completed'>('all');
   const [wordCount, setWordCount] = useState([100000]);
@@ -54,7 +63,7 @@ export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
   return (
     <div className="fixed inset-0 z-[400] bg-background flex flex-col animate-in fade-in zoom-in-95 duration-300">
       {/* Search Header */}
-      <header className="px-6 pt-8 pb-6 flex flex-col gap-6 bg-white dark:bg-card border-b border-border/50 shadow-sm relative">
+      <header className="px-6 pt-8 pb-6 flex flex-col gap-6 bg-white dark:bg-zinc-900/80 dark:border-zinc-800 border-b border-border/50 shadow-sm relative">
         <button 
           onClick={onBack}
           className="absolute right-6 top-8 p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"
@@ -100,7 +109,7 @@ export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
                       "px-5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5",
                       isActive
                         ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
-                        : "bg-white dark:bg-card border-border text-muted-foreground hover:border-primary/50"
+                        : "bg-white dark:bg-zinc-800 border-border dark:border-zinc-700 text-muted-foreground dark:text-zinc-400 hover:border-primary/50"
                     )}
                   >
                     {isActive && <Check className="w-3 h-3" />}
@@ -122,8 +131,8 @@ export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
                     className={cn(
                       "flex-1 py-2 text-[10px] font-black rounded-xl transition-all uppercase tracking-tighter",
                       selectedStatus === status 
-                        ? "bg-white dark:bg-card text-primary shadow-sm" 
-                        : "text-muted-foreground"
+                        ? "bg-white dark:bg-zinc-800 text-primary shadow-sm"
+                        : "text-muted-foreground dark:text-zinc-400"
                     )}
                   >
                     {status === 'ongoing' ? 'Devam Ediyor' : 'Tamamlandı'}

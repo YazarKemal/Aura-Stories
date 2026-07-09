@@ -7,14 +7,15 @@ import {
   CarouselContent, 
   CarouselItem 
 } from '@/components/ui/carousel';
-import { stories, categories } from '@/lib/mock-data';
+import { stories as mockStories, categories as mockCategories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { personalizeStoryRecommendations } from '@/ai/flows/personalized-story-recommendations-flow';
-import { Story } from '@/lib/types';
+import { Story, Category } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getStories, getCategories, seedStoriesToFirestore, onStoriesSnapshot } from '@/lib/firebase';
 
 interface DiscoverScreenProps {
   onSelectStory: (story: Story) => void;
@@ -22,12 +23,34 @@ interface DiscoverScreenProps {
 
 export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState('Hepsi');
+  const [stories, setStories] = useState<Story[]>(mockStories);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(true);
   const fetchInitiated = useRef(false);
 
+  // Firestore canlı veri + seed (ilk kullanımda mock veriyi Firestore'a yazar)
   useEffect(() => {
-    // Prevent multiple concurrent fetches, especially in Strict Mode
+    const unsub = onStoriesSnapshot((firestoreStories) => {
+      if (firestoreStories.length > 0) {
+        setStories(firestoreStories);
+      } else {
+        // Firestore boş → seed'le
+        seedStoriesToFirestore(mockStories, mockCategories).then(() => {
+          setStories(mockStories);
+        }).catch(() => {
+          setStories(mockStories);
+        });
+      }
+    });
+    // Kategorileri Firestore'dan çek, yoksa mock kullan
+    getCategories().then(cats => {
+      if (cats.length > 0) setCategories(cats);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     if (fetchInitiated.current) return;
     fetchInitiated.current = true;
 
@@ -38,7 +61,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
           readingHistory: ['Gece Yarısı Güneşi', 'Mühürlü Kapı'],
           preferences: 'Aşk, Gizem ve Tarih kokan hikayeleri severim.'
         });
-        
+
         const transformed: Story[] = result.recommendations.map((rec, index) => ({
           id: `ai-${index}`,
           title: rec.title,
@@ -49,10 +72,9 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
           category: 'Özel',
           tags: ['AI Seçimi', 'Özel'],
         }));
-        
+
         setAiRecommendations(transformed);
       } catch (error) {
-        // Silently handle quota or service errors by falling back to library data
         const fallback: Story[] = stories
           .filter(s => s.isPopular)
           .slice(0, 3)
@@ -84,7 +106,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
           <CarouselContent>
             {featuredBanners.map((banner) => (
               <CarouselItem key={banner.id}>
-                <div className="relative h-[220px] mx-4 rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5">
+                <div className="relative aspect-[16/10] mx-4 rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
                   <Image
                     src={banner.img}
                     alt="Featured Story"
@@ -106,14 +128,14 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
       </section>
 
       {/* Categories Row */}
-      <section className="px-4">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+      <section>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-4">
           <button 
             onClick={() => setSelectedCategory('Hepsi')}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
               selectedCategory === 'Hepsi' 
                 ? 'bg-primary text-primary-foreground shadow-md scale-105' 
-                : 'bg-white text-muted-foreground border border-border hover:bg-muted'
+                : 'bg-white dark:bg-zinc-900/80 dark:border-zinc-700/50 dark:text-zinc-400 text-muted-foreground border border-border hover:bg-muted dark:hover:bg-zinc-800'
             }`}
           >
             Hepsi
@@ -125,7 +147,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
                 selectedCategory === cat.name 
                   ? 'bg-primary text-primary-foreground shadow-md scale-105' 
-                  : 'bg-white text-muted-foreground border border-border hover:bg-muted'
+                  : 'bg-white dark:bg-zinc-900/80 dark:border-zinc-700/50 dark:text-zinc-400 text-muted-foreground border border-border hover:bg-muted dark:hover:bg-zinc-800'
               }`}
             >
               {cat.name}
@@ -135,7 +157,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
       </section>
 
       {/* Popular Section */}
-      <section className="px-4">
+      <section className="px-4 animate-in fade-in slide-in-from-bottom-2 duration-500" key={selectedCategory}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-headline font-bold text-accent">Popüler</h3>
           <span className="text-xs font-medium text-primary cursor-pointer hover:underline">Tümünü Gör</span>
@@ -163,12 +185,12 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
         <div className="flex flex-col gap-4">
           {isLoadingAi ? (
             Array(3).fill(0).map((_, i) => (
-              <div key={i} className="flex gap-4 p-3 rounded-2xl bg-white border border-border shadow-sm">
-                <Skeleton className="h-32 w-24 rounded-lg" />
+              <div key={i} className="flex gap-4 p-3 rounded-2xl bg-white dark:bg-zinc-900/80 dark:border-zinc-800 border border-border shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}>
+                <Skeleton className="h-32 w-24 rounded-lg bg-gradient-to-br from-muted/50 via-muted to-muted/30 animate-pulse" />
                 <div className="flex flex-col gap-2 flex-1">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-1/4" />
-                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-5 w-3/4 bg-gradient-to-r from-muted/50 to-muted/30 animate-pulse" />
+                  <Skeleton className="h-3 w-1/4 bg-gradient-to-r from-muted/50 to-muted/30 animate-pulse" />
+                  <Skeleton className="h-10 w-full bg-gradient-to-r from-muted/40 to-muted/20 animate-pulse" />
                 </div>
               </div>
             ))

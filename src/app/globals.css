@@ -26,31 +26,38 @@
     --radius: 1rem;
   }
   .dark {
-    --background: 268 40% 5%; /* Deep Midnight #0B070F */
-    --foreground: 280 40% 95%;
-    --card: 268 30% 10%;
-    --card-foreground: 280 40% 95%;
-    --popover: 268 30% 10%;
-    --popover-foreground: 280 40% 95%;
-    --primary: 268 60% 65%;
-    --primary-foreground: 268 40% 5%;
-    --secondary: 268 30% 15%;
-    --secondary-foreground: 268 40% 90%;
-    --muted: 268 30% 12%;
-    --muted-foreground: 268 10% 60%;
-    --accent: 236 50% 65%;
-    --accent-foreground: 280 40% 98%;
+    /* ── Premium Cinematic Dark Theme ───────────────────── */
+    --background: 228 19% 5%;        /* Deep cinematic black #0B0C10 */
+    --foreground: 240 10% 92%;       /* Clean near-white */
+    --card: 228 22% 10%;             /* Frosted glass base #141620 */
+    --card-foreground: 240 10% 92%;
+    --popover: 228 22% 10%;
+    --popover-foreground: 240 10% 92%;
+    --primary: 271 91% 65%;          /* Neon lilac #A855F7 */
+    --primary-foreground: 228 19% 5%;
+    --secondary: 228 19% 14%;        /* Deep charcoal */
+    --secondary-foreground: 240 10% 88%;
+    --muted: 228 15% 14%;
+    --muted-foreground: 240 5% 70%;  /* zinc-300/400 — high readability */
+    --accent: 43 96% 58%;            /* Soft gold/amber */
+    --accent-foreground: 228 19% 5%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 268 20% 15%;
-    --input: 268 20% 15%;
-    --ring: 268 60% 65%;
+    --border: 228 15% 16%;           /* Subtle borders */
+    --input: 228 15% 16%;
+    --ring: 271 91% 65%;             /* Match primary glow */
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  html {
+    @apply bg-[#0D0E12];
+  }
+  html.light {
+    @apply bg-[#fcf8ff];
   }
   body {
     @apply bg-background text-foreground font-body antialiased transition-colors duration-500;
@@ -60,7 +67,7 @@
     background-image: linear-gradient(to bottom, #fcf8ff, #ffffff);
   }
   .dark body {
-    background-image: linear-gradient(to bottom, #0b070f, #150e1c);
+    background-image: linear-gradient(to bottom, #0B0C10, #141620);
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
@@ -68,7 +75,7 @@
 }
 
 .glass-morphism {
-  @apply bg-white/70 dark:bg-black/40 backdrop-blur-md border border-white/20 dark:border-white/10;
+  @apply bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-lg;
 }
 
 .active-nav-glow {

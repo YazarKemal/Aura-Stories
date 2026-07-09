@@ -81,7 +81,7 @@ export function StoryCard({ story, variant = 'popular', onClick }: StoryCardProp
           </p>
         </div>
         <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
             <Eye className="w-3.5 h-3.5 text-primary" />
             <span>{(story.readCount / 1000).toFixed(1)}k okuma</span>
           </div>

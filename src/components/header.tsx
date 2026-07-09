@@ -28,7 +28,7 @@ const NOTIFICATIONS = [
     title: "Hediye Alındı",
     message: "Bir okuyucu hikayene 50🪙 Kahve hediye etti!",
     icon: Coins,
-    color: "text-amber-500 bg-amber-50",
+    color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10",
     time: "5s önce"
   },
   {
@@ -43,7 +43,7 @@ const NOTIFICATIONS = [
 
 export function Header({ onSearchClick }: HeaderProps) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between max-w-md mx-auto glass-morphism rounded-b-[2rem] shadow-sm">
+    <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between max-w-md mx-auto glass-morphism dark:bg-brand-card dark:border-zinc-800 rounded-b-[2rem] shadow-sm">
       <div className="flex flex-col">
         <h1 className="text-2xl font-headline font-black text-primary tracking-tighter leading-none">Aura</h1>
         <span className="text-[10px] uppercase font-bold tracking-widest text-accent opacity-60">Stories</span>
@@ -62,11 +62,11 @@ export function Header({ onSearchClick }: HeaderProps) {
               <button className="p-2.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all active:scale-95">
                 <Bell className="w-5 h-5" />
               </button>
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-white" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-white dark:ring-zinc-800" />
             </div>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0 rounded-[2rem] border-none shadow-2xl bg-white/95 backdrop-blur-md overflow-hidden" align="end" sideOffset={12}>
-            <div className="p-6 bg-gradient-to-br from-primary to-accent">
+          <PopoverContent className="w-80 p-0 rounded-[2rem] border-none shadow-2xl bg-white/95 dark:bg-zinc-900/95 dark:border-zinc-800 backdrop-blur-md overflow-hidden" align="end" sideOffset={12}>
+            <div className="p-6 bg-gradient-to-br from-primary to-accent dark:from-zinc-800 dark:to-zinc-900">
               <div className="flex items-center justify-between">
                 <h3 className="text-white font-bold text-lg">Bildirimler</h3>
                 <Badge className="bg-white/20 text-white border-none text-[10px]">3 Yeni</Badge>

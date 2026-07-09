@@ -50,6 +50,14 @@ export default {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        // ── Kurumsal Karanlık Tema Paleti ──────────────────
+        brand: {
+          dark: '#0D0E12',
+          card: '#161823',
+          primary: '#A855F7',
+          secondary: '#6366F1',
+          text: '#F4F4F5',
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

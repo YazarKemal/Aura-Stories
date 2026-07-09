@@ -28,6 +28,7 @@ import {
   Instagram,
   Quote,
   MoreVertical,
+  MoreHorizontal,
   Flag,
   UserX,
   AlertCircle,
@@ -63,7 +64,10 @@ import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useUserState, FORCE_FATE_COST } from '@/lib/user-state';
+import { AdRewardModal } from '@/components/ad-reward-modal';
 import { Input } from '@/components/ui/input';
+import { useNetwork, fetchWithTimeout } from '@/hooks/use-network';
 
 interface ReadingViewProps {
   story: Story;
@@ -96,6 +100,8 @@ type ReadingTheme = 'light' | 'sepia' | 'dark';
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
+  const { online } = useNetwork();
+  const { userState, unlockWithVote, forceFateChoice, saveGeneratedChapter, getStoryEngine } = useUserState();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -103,6 +109,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isGiftsOpen, setIsGiftsOpen] = useState(false);
   const [isTypographyOpen, setIsTypographyOpen] = useState(false);
   const [celebrationGift, setCelebrationGift] = useState<string | null>(null);
+
+  // ── AI Story Engine State ──────────────────────────────────
+  const [isGeneratingStory, setIsGeneratingStory] = useState(false);
+  const [forceChoiceLabel, setForceChoiceLabel] = useState<string | null>(null);
+  const engine = getStoryEngine(story.id);
+  // All generated chapters from the story engine (persisted across re-renders)
+  const generatedChapters = engine.generatedChapters;
   
   // Aura Vision State
   const [isAuraVisionOpen, setIsAuraVisionOpen] = useState(false);
@@ -123,7 +136,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   // Typography State
   const [fontSize, setFontSize] = useState([18]);
-  const [readingTheme, setReadingTheme] = useState<ReadingTheme>('light');
+  const [readingTheme, setReadingTheme] = useState<ReadingTheme>('dark');
   const [isDyslexic, setIsDyslexic] = useState(false);
 
   // Audio Player State
@@ -131,6 +144,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [audioProgress, setAudioProgress] = useState(35);
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   
   const lastScrollY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -183,8 +197,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setIsTypographyOpen(true);
   };
 
-  const handleOpenShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleOpenShare = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setIsShareSheetOpen(true);
   };
 
@@ -326,6 +340,94 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setVotedOption(option);
   };
 
+  // ── AI Story Generation ──────────────────────────────────
+  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean) => {
+    if (!online) {
+      toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
+      return;
+    }
+
+    const chapterNum = engine.activeChapter + 1;
+    setIsGeneratingStory(true);
+    setForceChoiceLabel(isForce ? optionText : null);
+
+    try {
+      const res = await fetchWithTimeout('/api/generate-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyTitle: story.title,
+          storyAuthor: story.author,
+          storySynopsis: story.synopsis,
+          storyTags: story.tags,
+          previousChapters: engine.generatedChapters.map(gc => ({
+            chapterNumber: gc.chapterNumber,
+            title: gc.title,
+            content: gc.content,
+            chosenOption: gc.triggeredBy?.optionText,
+          })),
+          chosenFate: { option, text: optionText, isForceChoice: isForce },
+          chapterNumber: chapterNum,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Hikaye üretilemedi');
+      }
+
+      const chapter = {
+        chapterNumber: chapterNum,
+        title: data.title,
+        content: data.content,
+        optionA: data.optionA,
+        optionB: data.optionB,
+        triggeredBy: { chapterNumber: chapterNum - 1, selectedOption: option as 'A' | 'B', optionText, isForceChoice: isForce },
+        generatedAt: new Date().toISOString(),
+      };
+
+      saveGeneratedChapter(story.id, chapter);
+      setVotedOption(null);
+
+      toast({
+        title: `✨ ${data.title}`,
+        description: 'Yeni bölüm hazır! Hikaye devam ediyor...',
+      });
+    } catch (err: any) {
+      const msg = err.name === 'AbortError'
+        ? 'Hikaye üretimi zaman aşımına uğradı. Lütfen tekrar deneyin.'
+        : err.message || 'Hikaye üretilirken bir hata oluştu.';
+      toast({
+        title: err.name === 'AbortError' ? '⏱️ Zaman Aşımı' : '⚠️ Hata',
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingStory(false);
+      setForceChoiceLabel(null);
+    }
+  };
+
+  const handleUnlockAndGenerate = () => {
+    if (userState.credits < 15) {
+      toast({ title: '⚠️ Yetersiz Kredi', description: 'Bu işlem için 15 jetona ihtiyacın var.', variant: 'destructive' });
+      return;
+    }
+    unlockWithVote(story.id);
+    // After unlock, auto-vote for the leading option
+    handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false);
+  };
+
+  const handleForceFate = (option: 'A' | 'B', optionText: string) => {
+    if (userState.credits < FORCE_FATE_COST) {
+      toast({ title: '⚠️ Yetersiz Kredi', description: `Bu işlem için ${FORCE_FATE_COST} jetona ihtiyacın var.`, variant: 'destructive' });
+      return;
+    }
+    forceFateChoice(story.id, engine.activeChapter, option, optionText);
+    handleGenerateStory(option, optionText, true);
+  };
+
   const handleSendGift = (giftType: string) => {
     setCelebrationGift(giftType);
     setTimeout(() => {
@@ -343,13 +445,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const giftOptions = [
     { id: 'rose', name: 'Gül', icon: Flower2, cost: 10, color: 'text-rose-500 bg-rose-50 dark:bg-rose-900/20' },
-    { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-amber-700 bg-amber-50 dark:bg-amber-900/20' },
-    { id: 'crown', name: 'Taç', icon: Crown, cost: 500, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20' },
+    { id: 'coffee', name: 'Kahve', icon: Coffee, cost: 50, color: 'text-purple-700 dark:text-purple-300 bg-amber-50 dark:bg-amber-900/20' },
+    { id: 'crown', name: 'Taç', icon: Crown, cost: 500, color: 'text-brand-primary bg-yellow-50 dark:bg-yellow-900/20' },
     { id: 'heart', name: 'Kalp', icon: Heart, cost: 5, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' },
   ];
 
   const themeColors = {
-    light: "bg-white",
+    light: "bg-white dark:bg-brand-dark",
     sepia: "bg-[#f4ecd8]",
     dark: "bg-[#1a1a1a]"
   };
@@ -370,8 +472,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <div className="relative animate-bounce">
              <div className="w-32 h-32 rounded-full bg-white dark:bg-card flex items-center justify-center shadow-2xl shadow-primary/40 border-4 border-primary/20">
                {celebrationGift === 'rose' && <Flower2 className="w-16 h-16 text-rose-500" />}
-               {celebrationGift === 'coffee' && <Coffee className="w-16 h-16 text-amber-700" />}
-               {celebrationGift === 'crown' && <Crown className="w-16 h-16 text-yellow-600" />}
+               {celebrationGift === 'coffee' && <Coffee className="w-16 h-16 text-purple-700 dark:text-purple-300" />}
+               {celebrationGift === 'crown' && <Crown className="w-16 h-16 text-brand-primary" />}
                {celebrationGift === 'heart' && <Heart className="w-16 h-16 text-pink-500 fill-current" />}
              </div>
           </div>
@@ -382,6 +484,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Aura Vision Lightbox */}
       <Dialog open={isAuraVisionOpen} onOpenChange={setIsAuraVisionOpen}>
         <DialogContent className="max-w-[90%] p-0 border-none bg-black/40 backdrop-blur-3xl rounded-[3rem] overflow-hidden shadow-2xl z-[700]">
+          <DialogTitle className="sr-only">Aura Vision Sahnesi</DialogTitle>
           <div className="relative aspect-[2/3] w-full">
             <Image 
               src={auraVisionImage} 
@@ -397,12 +500,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-4">
+            <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-4 px-6 pt-6 pb-10 max-h-[160px] overflow-y-auto">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                <Sparkles className="w-5 h-5 text-primary animate-pulse flex-shrink-0" />
                 <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">AURA VISION</span>
               </div>
-              <p className="text-lg font-serif italic text-white leading-relaxed line-clamp-4">
+              <p className="text-sm md:text-base font-serif italic text-zinc-200 leading-relaxed">
                 "{auraVisionQuote}"
               </p>
             </div>
@@ -410,19 +513,19 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </DialogContent>
       </Dialog>
 
-      <header 
+      <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b border-border/20 px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
+          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
           !isVisible ? "-translate-y-full" : "translate-y-0",
-          readingTheme === 'dark' ? "bg-black/80 border-white/10" : "bg-white/80 border-black/10"
+          readingTheme === 'dark' ? "bg-[#161823]/90 border-zinc-800" : "bg-white/80 border-black/10"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button 
+        <button
           onClick={onBack}
           className={cn(
             "p-2 -ml-2 rounded-full transition-colors active:scale-90",
-            readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+            readingTheme === 'dark' ? "text-zinc-100 hover:bg-white/10" : "text-accent hover:bg-black/5"
           )}
         >
           <ArrowLeft className="w-5 h-5" />
@@ -439,7 +542,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             onClick={handleOpenTypography}
             className={cn(
               "p-2 rounded-full transition-colors active:scale-90",
-              readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+              readingTheme === 'dark' ? "text-zinc-100 hover:bg-white/10" : "text-accent hover:bg-black/5"
             )}
           >
             <Type className="w-5 h-5" />
@@ -449,7 +552,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             <DropdownMenuTrigger asChild>
               <button className={cn(
                 "p-2 rounded-full transition-colors active:scale-90 outline-none",
-                readingTheme === 'dark' ? "text-white hover:bg-white/10" : "text-accent hover:bg-black/5"
+                readingTheme === 'dark' ? "text-zinc-100 hover:bg-white/10" : "text-accent hover:bg-black/5"
               )}>
                 <MoreVertical className="w-5 h-5" />
               </button>
@@ -500,138 +603,314 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </div>
         </div>
 
-        <div className="px-8 mt-12">
-          <div className="relative">
-            {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
-
-            <div className="relative h-24 overflow-hidden pointer-events-none">
-               {renderParagraph(paragraphs[4], 4)}
-               <div className={cn(
-                 "absolute inset-0 bg-gradient-to-t via-transparent to-transparent transition-colors duration-500",
-                 readingTheme === 'light' && "from-white",
-                 readingTheme === 'sepia' && "from-[#f4ecd8]",
-                 readingTheme === 'dark' && "from-[#1a1a1a]"
-               )} />
-            </div>
-          </div>
-
-          {/* Community Choice (Sen Seç) Card */}
-          <section 
-            className="mt-12 mb-8 animate-in slide-in-from-bottom-5 duration-700"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={cn(
-              "relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500",
-              readingTheme === 'dark' ? "bg-card border-primary/40" : "bg-white border-primary/20"
-            )}>
-              <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12">
-                 <Sparkles className="w-20 h-20 text-primary" />
+        <div className="px-8 mt-12 flex flex-col">
+          {/* ═══════════════════════════════════════════════ */}
+          {/* BÖLÜM 1: Orijinal (hardcoded)                  */}
+          {/* ═══════════════════════════════════════════════ */}
+          <section className="mb-10">
+            <div className="relative">
+              {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
+              <div className="relative h-24 overflow-hidden pointer-events-none">
+                 {renderParagraph(paragraphs[4], 4)}
+                 <div className={cn(
+                   "absolute inset-0 bg-gradient-to-t via-transparent to-transparent transition-colors duration-500",
+                   readingTheme === 'light' && "from-white",
+                   readingTheme === 'sepia' && "from-[#f4ecd8]",
+                   readingTheme === 'dark' && "from-[#1a1a1a]"
+                 )} />
               </div>
+            </div>
+            {/* Bölüm 1 alt etiketi */}
+            <div className="flex items-center gap-2 mt-3 mb-1">
+              <Badge className="bg-muted/50 text-muted-foreground border-none text-[9px]">Bölüm 1</Badge>
+              <button
+                onClick={handleOpenShare}
+                className="flex items-center gap-1 text-[10px] text-primary/60 hover:text-primary font-bold transition-colors"
+              >
+                <Share2 className="w-3 h-3" /> Paylaş
+              </button>
+            </div>
+          </section>
 
-              <div className="flex flex-col gap-6 relative z-10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
-                    <Timer className="w-3.5 h-3.5" />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Kapanışa: 12S 45D</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Kaderini Belirle</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className={cn(
-                    "text-xl font-headline font-black leading-tight",
-                    readingTheme === 'dark' ? "text-white" : "text-accent"
-                  )}>
-                    Hikayenin Kaderini Belirle!
-                  </h3>
-                  <p className="text-sm text-muted-foreground font-medium italic">
-                    "Sizce Defne gerçeği Demir'e itiraf etmeli mi?"
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {!votedOption ? (
-                    <>
-                      <Button 
-                        onClick={() => handleVote('A')}
-                        variant="outline"
-                        className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
-                      >
-                        <span>Gerçeği İtiraf Etsin</span>
-                        <div className="flex items-center gap-1 text-amber-500">
-                          <Coins className="w-3 h-3 fill-current" />
-                          <span className="text-[10px]">10</span>
-                        </div>
-                      </Button>
-                      <Button 
-                        onClick={() => handleVote('B')}
-                        variant="outline"
-                        className="w-full h-14 rounded-2xl border-primary/30 text-accent font-bold hover:bg-primary/5 hover:border-primary transition-all flex justify-between px-6"
-                      >
-                        <span>Sırrını Saklasın</span>
-                        <div className="flex items-center gap-1 text-amber-500">
-                          <Coins className="w-3 h-3 fill-current" />
-                          <span className="text-[10px]">10</span>
-                        </div>
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
-                          <span>Gerçeği İtiraf Etsin</span>
-                          <span className={cn(votedOption === 'A' ? "text-primary" : "text-muted-foreground")}>65%</span>
-                        </div>
-                        <Progress value={65} className={cn("h-3 rounded-full", votedOption === 'A' ? "bg-primary/10" : "bg-muted")} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-bold text-accent mb-1 px-1">
-                          <span>Sırrını Saklasın</span>
-                          <span className={cn(votedOption === 'B' ? "text-primary" : "text-muted-foreground")}>35%</span>
-                        </div>
-                        <Progress value={35} className={cn("h-3 rounded-full", votedOption === 'B' ? "bg-primary/10" : "bg-muted")} />
-                      </div>
-                    </div>
+          {/* ═══════════════════════════════════════════════ */}
+          {/* AI-GENERATED CHAPTERS (history preserved)      */}
+          {/* ═══════════════════════════════════════════════ */}
+          {generatedChapters.map((chapter, chIdx) => {
+            const isLatest = chIdx === generatedChapters.length - 1;
+            return (
+              <section
+                key={`ch-${chapter.chapterNumber}`}
+                className="mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Chapter Header */}
+                <div className="flex items-center gap-2 mb-4">
+                  <Badge className="bg-primary/10 text-primary border-none text-[10px] font-bold gap-1">
+                    <Sparkles className="w-3 h-3" /> AI
+                  </Badge>
+                  <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-bold">
+                    Bölüm {chapter.chapterNumber}
+                  </Badge>
+                  {chapter.triggeredBy && (
+                    <span className="text-[9px] text-muted-foreground italic ml-1">
+                      "{chapter.triggeredBy.optionText}"
+                    </span>
                   )}
                 </div>
-              </div>
-            </div>
-          </section>
 
-          {/* Paywall Card */}
-          <section 
-            className="mt-8 mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-             <div className={cn(
-               "p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500",
-               readingTheme === 'dark' ? "bg-card border-white/5" : "bg-white border-primary/10"
-             )}>
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                   <Lock className="w-8 h-8" />
-                </div>
-                
-                <div className="space-y-2">
-                   <h3 className={cn(
-                     "text-xl font-headline font-bold",
-                     readingTheme === 'dark' ? "text-white" : "text-accent"
-                   )}>Bu bölüm kilitli</h3>
-                   <p className="text-sm text-muted-foreground px-4">Okumaya devam etmek için kilidi açın.</p>
+                {/* Chapter Title */}
+                <h2 className={cn(
+                  "text-xl font-headline font-black mb-4 leading-tight",
+                  readingTheme === 'dark' ? "text-white" : "text-accent"
+                )}>
+                  {chapter.title}
+                </h2>
+
+                {/* Chapter Content — rich paragraphs with interaction */}
+                <div className="space-y-3">
+                  {chapter.content.split('\n\n').filter(p => p.trim()).map((para, pIdx) => {
+                    const isSelected = selectedQuote === para;
+                    return (
+                      <div
+                        key={pIdx}
+                        className={cn(
+                          "relative group/para cursor-pointer transition-all duration-300 rounded-xl px-2 -mx-2",
+                          isSelected ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted/30"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedQuote(isSelected ? null : para);
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: `${fontSize[0]}px`,
+                            lineHeight: isDyslexic ? '2' : '1.6',
+                            letterSpacing: isDyslexic ? '0.05em' : 'normal'
+                          }}
+                          className={cn(
+                            "text-lg leading-relaxed transition-all duration-500",
+                            isDyslexic ? "font-body" : "font-serif",
+                            readingTheme === 'light' && "text-foreground/90",
+                            readingTheme === 'sepia' && "text-[#5b4636]",
+                            readingTheme === 'dark' && "text-gray-300",
+                            pIdx === 0 && "first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left"
+                          )}
+                        >
+                          {para.trim()}
+                        </p>
+
+                        {/* Hover share button */}
+                        <div className="absolute -right-10 top-0 opacity-0 group-hover/para:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedQuote(para); handleOpenShare(); }}
+                            className="flex items-center gap-1 text-[10px] font-bold text-primary/40 hover:text-primary transition-all active:scale-90"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Selected quote toolbar */}
+                        {isSelected && (
+                          <div
+                            className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-accent text-white px-3 py-1.5 rounded-full shadow-xl animate-in fade-in slide-in-from-bottom-2 z-20"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button onClick={handleOpenShare} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-1">
+                              <Share2 className="w-3 h-3" /> Paylaş
+                            </button>
+                            <div className="w-px h-3 bg-white/20 mx-1" />
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedQuote(null); }} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="flex flex-col w-full gap-3">
-                   <Button 
-                     className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 animate-pulse-subtle"
-                   >
-                     <Coins className="w-5 h-5" />
-                     15 Jeton ile Aç
-                   </Button>
+                {/* Chapter footer: share + chapter badge */}
+                <div className="flex items-center gap-2 mt-3">
+                  <Badge className="bg-muted/50 text-muted-foreground border-none text-[9px]">
+                    Bölüm {chapter.chapterNumber}
+                  </Badge>
+                  <button
+                    onClick={handleOpenShare}
+                    className="flex items-center gap-1 text-[10px] text-primary/60 hover:text-primary font-bold transition-colors"
+                  >
+                    <Share2 className="w-3 h-3" /> Paylaş
+                  </button>
                 </div>
-             </div>
-          </section>
+
+                {/* Fate panel — only on the LATEST chapter */}
+                {isLatest && (
+                  <div className="mt-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">Kaderini Belirle</span>
+                    </div>
+
+                    <div className="flex flex-col gap-3 p-6 rounded-[2rem] border-2 border-primary/20 dark:border-zinc-700 bg-white/60 dark:bg-[#161823]/80 backdrop-blur-sm shadow-lg w-full max-w-full overflow-hidden">
+                      {isGeneratingStory ? (
+                        <div className="flex flex-col items-center gap-4 py-6 animate-in fade-in zoom-in-95 duration-300">
+                          <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+                          <p className="text-sm font-bold text-zinc-800 dark:text-zinc-300 text-center">✍️ Yapay Zeka Hikayeni Yazıyor...</p>
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 text-center">
+                            {forceChoiceLabel ? `"${forceChoiceLabel}" yolunda ilerleniyor...` : 'Topluluk kararına göre hikaye şekilleniyor...'}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Fate option A */}
+                          <button onClick={() => handleGenerateStory('A', chapter.optionA, false)} disabled={isGeneratingStory}
+                            className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-primary/30 dark:border-zinc-600 text-accent dark:text-zinc-200 font-bold hover:bg-primary/5 dark:hover:bg-white/5 hover:border-primary dark:hover:border-zinc-400 transition-all flex items-start gap-3 text-left bg-transparent disabled:opacity-50">
+                            <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal">A — {chapter.optionA}</span>
+                            <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-current" />15</span>
+                          </button>
+                          {/* Fate option B */}
+                          <button onClick={() => handleGenerateStory('B', chapter.optionB, false)} disabled={isGeneratingStory}
+                            className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-primary/30 dark:border-zinc-600 text-accent dark:text-zinc-200 font-bold hover:bg-primary/5 dark:hover:bg-white/5 hover:border-primary dark:hover:border-zinc-400 transition-all flex items-start gap-3 text-left bg-transparent disabled:opacity-50">
+                            <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal">B — {chapter.optionB}</span>
+                            <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-current" />15</span>
+                          </button>
+                          <div className="flex items-center gap-3 py-1">
+                            <div className="flex-1 h-px bg-border/50" />
+                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">ya da</span>
+                            <div className="flex-1 h-px bg-border/50" />
+                          </div>
+                          {/* Force fate A */}
+                          <button onClick={() => handleForceFate('A', chapter.optionA)} disabled={isGeneratingStory}
+                            className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-brand-primary/40 dark:border-purple-500/30 bg-brand-primary/5 dark:bg-[#0D0E12]/60 text-accent dark:text-zinc-100 font-bold hover:border-brand-primary dark:hover:border-purple-400 transition-all flex items-start gap-3 text-left disabled:opacity-50">
+                            <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal flex items-center gap-1.5"><Crown className="w-4 h-4 text-brand-primary flex-shrink-0" />Kendi Kaderini Belirle — A</span>
+                            <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-brand-primary" />{FORCE_FATE_COST}</span>
+                          </button>
+                          {/* Force fate B */}
+                          <button onClick={() => handleForceFate('B', chapter.optionB)} disabled={isGeneratingStory}
+                            className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-brand-primary/40 dark:border-purple-500/30 bg-brand-primary/5 dark:bg-[#0D0E12]/60 text-accent dark:text-zinc-100 font-bold hover:border-brand-primary dark:hover:border-purple-400 transition-all flex items-start gap-3 text-left disabled:opacity-50">
+                            <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal flex items-center gap-1.5"><Crown className="w-4 h-4 text-brand-primary flex-shrink-0" />Kendi Kaderini Belirle — B</span>
+                            <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-brand-primary" />{FORCE_FATE_COST}</span>
+                          </button>
+
+                          {/* ── Ad Reward Button ── */}
+                          <div className="flex items-center gap-3 pt-1">
+                            <div className="flex-1 h-px bg-border/30" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsAdModalOpen(true); }}
+                              className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-50 to-brand-primary/10 dark:bg-purple-900/30 dark:from-purple-900/20 dark:to-purple-800/20 border border-brand-primary/30 dark:border-purple-700/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold hover:scale-105 active:scale-95 transition-all shadow-sm whitespace-nowrap"
+                            >
+                              <Gift className="w-4 h-4" />
+                              🎁 Ücretsiz Jeton Kazan (Reklam İzle)
+                            </button>
+                            <div className="flex-1 h-px bg-border/30" />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* FIRST-TIME PAYWALL (no generated chapters yet) */}
+          {/* ═══════════════════════════════════════════════ */}
+          {generatedChapters.length === 0 && (
+            <>
+              {/* Community Choice Card — only before first generation */}
+              <section className="mb-8 animate-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className={cn("relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500 w-full max-w-full",
+                  readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/20")}>
+                  <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12"><Sparkles className="w-20 h-20 text-primary" /></div>
+                  <div className="flex flex-col gap-6 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
+                        <Timer className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-black uppercase tracking-tighter">Kapanışa: 12S 45D</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-brand-primary font-bold text-[10px] uppercase">
+                        <CheckCircle2 className="w-3.5 h-3.5" /><span>Kaderini Belirle</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className={cn("text-xl font-headline font-black leading-tight", readingTheme === 'dark' ? "text-white" : "text-accent")}>
+                        Hikayenin Kaderini Belirle!
+                      </h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium italic">"Sizce Defne gerçeği Demir'e itiraf etmeli mi?"</p>
+                    </div>
+
+                    {isGeneratingStory ? (
+                      <div className="flex flex-col items-center gap-4 py-6 animate-in fade-in zoom-in-95 duration-300">
+                        <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+                        <p className="text-sm font-bold text-zinc-800 dark:text-zinc-300 text-center">✍️ Yapay Zeka Hikayeni Yazıyor...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 w-full max-w-full">
+                        <button onClick={() => handleGenerateStory('A', 'Gerçeği İtiraf Etsin', false)} disabled={isGeneratingStory}
+                          className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-primary/30 dark:border-zinc-600 text-accent dark:text-zinc-200 font-bold hover:bg-primary/5 dark:hover:bg-white/5 hover:border-primary dark:hover:border-zinc-400 transition-all flex items-start gap-3 text-left bg-transparent disabled:opacity-50">
+                          <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal">A — Gerçeği İtiraf Etsin</span>
+                          <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-current" />15</span>
+                        </button>
+                        <button onClick={() => handleGenerateStory('B', 'Sırrını Saklasın', false)} disabled={isGeneratingStory}
+                          className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-primary/30 dark:border-zinc-600 text-accent dark:text-zinc-200 font-bold hover:bg-primary/5 dark:hover:bg-white/5 hover:border-primary dark:hover:border-zinc-400 transition-all flex items-start gap-3 text-left bg-transparent disabled:opacity-50">
+                          <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal">B — Sırrını Saklasın</span>
+                          <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-current" />15</span>
+                        </button>
+                        <div className="flex items-center gap-3 py-1"><div className="flex-1 h-px bg-border/50" /><span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">ya da</span><div className="flex-1 h-px bg-border/50" /></div>
+                        <button onClick={() => handleForceFate('A', 'Gerçeği İtiraf Etsin')} disabled={isGeneratingStory}
+                          className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-brand-primary/40 dark:border-purple-500/30 bg-brand-primary/5 dark:bg-[#0D0E12]/60 text-accent dark:text-zinc-100 font-bold hover:border-brand-primary dark:hover:border-purple-400 transition-all flex items-start gap-3 text-left disabled:opacity-50">
+                          <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal flex items-center gap-1.5"><Crown className="w-4 h-4 text-brand-primary flex-shrink-0" />Kendi Kaderini Belirle — A</span>
+                          <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-brand-primary" />{FORCE_FATE_COST}</span>
+                        </button>
+                        <button onClick={() => handleForceFate('B', 'Sırrını Saklasın')} disabled={isGeneratingStory}
+                          className="w-full max-w-full h-auto py-4 px-5 rounded-2xl border border-brand-primary/40 dark:border-purple-500/30 bg-brand-primary/5 dark:bg-[#0D0E12]/60 text-accent dark:text-zinc-100 font-bold hover:border-brand-primary dark:hover:border-purple-400 transition-all flex items-start gap-3 text-left disabled:opacity-50">
+                          <span className="flex-1 min-w-0 text-sm leading-relaxed break-words whitespace-normal flex items-center gap-1.5"><Crown className="w-4 h-4 text-brand-primary flex-shrink-0" />Kendi Kaderini Belirle — B</span>
+                          <span className="flex items-center gap-1 text-brand-primary flex-shrink-0 pt-0.5"><Coins className="w-3.5 h-3.5 fill-brand-primary" />{FORCE_FATE_COST}</span>
+                        </button>
+
+                        {/* ── Ad Reward Button ── */}
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="flex-1 h-px bg-border/30" />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setIsAdModalOpen(true); }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-50 to-brand-primary/10 dark:bg-purple-900/30 dark:from-purple-900/20 dark:to-purple-800/20 border border-brand-primary/30 dark:border-purple-700/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold hover:scale-105 active:scale-95 transition-all shadow-sm whitespace-nowrap"
+                          >
+                            <Gift className="w-4 h-4" />
+                            🎁 Ücretsiz Jeton Kazan (Reklam İzle)
+                          </button>
+                          <div className="flex-1 h-px bg-border/30" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* Paywall */}
+              <section className="mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300 w-full max-w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className={cn("p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500 w-full max-w-full",
+                  readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/10")}>
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    {isGeneratingStory ? <Sparkles className="w-8 h-8 animate-pulse" /> : <Lock className="w-8 h-8" />}
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className={cn("text-xl font-headline font-bold", readingTheme === 'dark' ? "text-white" : "text-accent")}>
+                      {isGeneratingStory ? '✍️ Yapay Zeka Yazıyor...' : 'Bu bölüm kilitli'}
+                    </h3>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 px-4">
+                      {isGeneratingStory ? 'Hikayenin devamı hazırlanıyor...' : 'Okumaya devam etmek için kilidi aç. AI bir sonraki bölümü senin için yazacak.'}
+                    </p>
+                  </div>
+                  <Button onClick={handleUnlockAndGenerate} disabled={isGeneratingStory}
+                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 animate-pulse-subtle disabled:opacity-50">
+                    {isGeneratingStory ? <Sparkles className="w-5 h-5 animate-spin" /> : <Coins className="w-5 h-5" />}
+                    {isGeneratingStory ? 'Hikaye Üretiliyor...' : '15 Jeton ile Aç'}
+                  </Button>
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </article>
 
@@ -882,7 +1161,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 <button 
                   onClick={() => setReadingTheme('light')} 
                   className={cn(
-                    "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-white shadow-sm hover:scale-110 active:scale-95",
+                    "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-white dark:bg-brand-dark shadow-sm hover:scale-110 active:scale-95",
                     readingTheme === 'light' ? "border-primary ring-2 ring-primary/20" : "border-border"
                   )}
                 />
@@ -925,14 +1204,43 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             </SheetHeader>
             <div className="flex-1 overflow-y-auto space-y-6 no-scrollbar pb-24">
               {DUMMY_COMMENTS.map((comment) => (
-                <div key={comment.id} className="flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div key={comment.id} className="flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 group/comment">
                   <Avatar className="w-10 h-10 ring-2 ring-primary/10">
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{comment.user[0]}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col gap-1 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-accent">{comment.user}</span>
-                      <span className="text-[10px] text-muted-foreground">{comment.time}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{comment.time}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1 rounded-full opacity-0 group-hover/comment:opacity-100 transition-opacity hover:bg-muted/50 text-muted-foreground">
+                              <MoreHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[160px] z-[650]">
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                toast({ title: "Yorum Rapor Edildi", description: `"${comment.user}" kullanıcısının yorumu incelenmek üzere ekibimize iletildi.` });
+                              }}
+                              className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer text-xs"
+                            >
+                              <Flag className="w-3.5 h-3.5" />
+                              Yorumu Rapor Et
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                toast({ title: "Kullanıcı Engellendi", description: `"${comment.user}" kullanıcısının yorumları artık size gösterilmeyecek.`, variant: "destructive" });
+                              }}
+                              className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer text-xs"
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                              Kullanıcıyı Engelle
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                     <p className="text-sm text-foreground/80 leading-relaxed bg-muted/30 p-3 rounded-2xl">{comment.text}</p>
                   </div>
@@ -974,7 +1282,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                       <Icon className="w-7 h-7" />
                     </div>
                     <span className="text-sm font-bold text-accent">{gift.name}</span>
-                    <div className="flex items-center gap-1 text-amber-500 font-black">
+                    <div className="flex items-center gap-1 text-brand-primary font-black">
                       <Coins className="w-3 h-3 fill-current" />
                       <span className="text-xs">{gift.cost}</span>
                     </div>
@@ -987,6 +1295,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       </Sheet>
 
       <footer className="h-24" />
+
+      {/* ── Ad Reward Modal ── */}
+      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} />
     </div>
   );
 }

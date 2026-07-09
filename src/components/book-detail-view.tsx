@@ -95,7 +95,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           
           <div className="flex items-center gap-2">
             <p className="text-primary font-bold text-lg">{story.author}</p>
-            <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white border-none text-[8px] font-black px-1.5 h-4 flex items-center gap-1 shadow-sm">
+            <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white border-none text-[8px] font-black px-1.5 h-4 flex items-center gap-1 shadow-sm">
               <Trophy className="w-2.5 h-2.5" />
               ALTIN YAZAR
             </Badge>
@@ -103,7 +103,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           
           <div className="flex items-center gap-6 mt-2">
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1 text-amber-500">
+              <div className="flex items-center gap-1 text-brand-primary">
                 <Star className="w-4 h-4 fill-current" />
                 <span className="font-bold">{story.rating || 4.8}</span>
               </div>
@@ -168,7 +168,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">
                 <h3 className="text-white font-bold text-lg">Karakter Odası</h3>
-                <Badge className="bg-amber-400 text-amber-900 border-none text-[8px] font-black px-1.5 h-3.5">YENİ</Badge>
+                <Badge className="bg-brand-primary text-white border-none text-[8px] font-black px-1.5 h-3.5">YENİ</Badge>
               </div>
               <p className="text-white/70 text-xs font-medium">Başrol karakteriyle hemen sohbete başla!</p>
             </div>
