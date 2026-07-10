@@ -71,7 +71,7 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[90%] rounded-[2.5rem] p-0 border-none bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+      <DialogContent className="max-w-[90%] rounded-[2.5rem] p-0 border-none bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden z-[250]" overlayClassName="z-[250]">
         <DialogTitle className="sr-only">Reklam Ödülü</DialogTitle>
         {/* Header — dark mode: deep zinc, no cream */}
         <div className={cn(
