@@ -63,8 +63,11 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
     }
   };
 
-  const handleClose = () => {
-    if (phase === 'watching') return; // don't close during ad
+  const handleClose = (open: boolean) => {
+    // Radix Dialog, kontrollü open prop değiştiğinde de onOpenChange'i
+    // tetikler. Sadece kapatma isteğinde (open=false) işlem yap.
+    if (open) return;
+    if (phase === 'watching') return; // reklam izlenirken kapatılamaz
     setCelebration(false);
     onClose();
   };
