@@ -37,8 +37,7 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
     return true;
   });
 
-  // Since mock data is static, let's assume "Varsayılan" starts with something if we want to test
-  const displayStories = activeSubTab === 'Varsayılan' ? [] : filteredStories;
+  const displayStories = filteredStories;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">

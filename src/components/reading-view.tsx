@@ -68,6 +68,7 @@ import { useUserState, FORCE_FATE_COST } from '@/lib/user-state';
 import { AdRewardModal } from '@/components/ad-reward-modal';
 import { Input } from '@/components/ui/input';
 import { useNetwork, fetchWithTimeout } from '@/hooks/use-network';
+import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
 
 interface ReadingViewProps {
   story: Story;
@@ -146,6 +147,71 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [audioProgress, setAudioProgress] = useState(35);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+
+  // ── Cinematic Ambient Sound ──────────────────────────────
+  const ambientOptions = [
+    { id: 'none', label: 'Sessiz', emoji: '🔇' },
+    { id: 'rain', label: 'Yağmur', emoji: '🌧️' },
+    { id: 'fireplace', label: 'Şömine', emoji: '🔥' },
+    { id: 'wind', label: 'Rüzgar', emoji: '🌬️' },
+    { id: 'city', label: 'Şehir', emoji: '🌃' },
+    { id: 'forest', label: 'Orman', emoji: '🌲' },
+  ];
+  const [ambientSound, setAmbientSound] = useState<string>('none');
+  const [showAmbientPicker, setShowAmbientPicker] = useState(false);
+  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [ambientVolume, setAmbientVolume] = useState(0.3);
+
+  // ── Reading Journal ──────────────────────────────────────
+  const readingStartRef = useRef(Date.now());
+  const [readingMinutes, setReadingMinutes] = useState(0);
+  const [showJournalPrompt, setShowJournalPrompt] = useState(false);
+  const [journalEmotion, setJournalEmotion] = useState('');
+  const [journalQuote, setJournalQuote] = useState('');
+
+  const emotions = [
+    { emoji: '😍', label: 'Aşık' }, { emoji: '😢', label: 'Hüzünlü' },
+    { emoji: '🤯', label: 'Şaşkın' }, { emoji: '😱', label: 'Gerilim' },
+    { emoji: '🤩', label: 'Heyecanlı' }, { emoji: '😌', label: 'Huzurlu' },
+    { emoji: '😤', label: 'Öfkeli' }, { emoji: '🧐', label: 'Meraklı' },
+  ];
+
+  // Okuma süresi sayacı (dakika)
+  useEffect(() => {
+    readingStartRef.current = Date.now();
+    const timer = setInterval(() => {
+      setReadingMinutes(Math.floor((Date.now() - readingStartRef.current) / 60000));
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Ambient ses değişince oynat
+  useEffect(() => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.pause();
+    }
+    if (ambientSound === 'none') return;
+    // Ambient ses URL'leri (ücretsiz, royalty-free)
+    const sounds: Record<string, string> = {
+      rain: 'https://assets.mixkit.co/active_storage/sfx/2514/2514.wav',
+      fireplace: 'https://assets.mixkit.co/active_storage/sfx/2656/2656.wav',
+      wind: 'https://assets.mixkit.co/active_storage/sfx/2505/2505.wav',
+      city: 'https://assets.mixkit.co/active_storage/sfx/1141/1141.wav',
+      forest: 'https://assets.mixkit.co/active_storage/sfx/2463/2463.wav',
+    };
+    const audio = new Audio(sounds[ambientSound] || '');
+    audio.loop = true;
+    audio.volume = ambientVolume;
+    audio.play().catch(() => {});
+    ambientAudioRef.current = audio;
+    return () => { audio.pause(); };
+  }, [ambientSound]);
+
+  useEffect(() => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.volume = ambientVolume;
+    }
+  }, [ambientVolume]);
   
   const lastScrollY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -392,6 +458,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       saveGeneratedChapter(story.id, chapter);
       setVotedOption(null);
 
+      // Okuma günlüğü prompt'u
+      setJournalQuote('');
+      setJournalEmotion('');
+      setShowJournalPrompt(true);
+
       toast({
         title: `✨ ${data.title}`,
         description: 'Yeni bölüm hazır! Hikaye devam ediyor...',
@@ -578,6 +649,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </DropdownMenu>
         </div>
       </header>
+
+      {/* Cinematic Parallax Background Layer */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.03] dark:opacity-[0.06] transition-opacity duration-1000"
+        style={{
+          backgroundImage: 'radial-gradient(ellipse at 50% 30%, hsl(var(--primary)) 0%, transparent 70%)',
+          transform: `translateY(${-(headerOpacity || 0) * 40}px) scale(${1 + (headerOpacity || 0) * 0.1})`,
+        }}
+      />
 
       <article className="pb-40 max-w-md mx-auto relative">
         {/* Parallax Cinematic Header */}
@@ -917,12 +997,67 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       </article>
 
       {/* Floating Buttons Group */}
-      <div 
+      <div
         className="fixed bottom-8 right-8 flex flex-col gap-4 z-[210]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Ambient Sound Button */}
+        <button
+          onClick={() => setShowAmbientPicker(!showAmbientPicker)}
+          className={cn(
+            "w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative",
+            ambientSound !== 'none'
+              ? "bg-amber-500 text-white shadow-amber-500/40"
+              : "bg-white/80 dark:bg-zinc-800 text-muted-foreground shadow-black/10"
+          )}
+        >
+          <span className="text-xl">{ambientOptions.find(a => a.id === ambientSound)?.emoji || '🎵'}</span>
+          <span className="absolute -left-20 top-1/2 -translate-y-1/2 bg-white dark:bg-zinc-800 text-accent dark:text-zinc-100 text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+            {ambientSound === 'none' ? 'Ortam Sesi' : ambientOptions.find(a => a.id === ambientSound)?.label}
+          </span>
+        </button>
+
+        {/* Ambient Picker Panel */}
+        {showAmbientPicker && (
+          <div className="absolute right-16 bottom-0 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-border/20 dark:border-zinc-700 p-3 flex flex-col gap-1 animate-in fade-in slide-in-from-right-2 duration-200 z-[220]">
+            {ambientOptions.map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => {
+                  setAmbientSound(opt.id);
+                  setShowAmbientPicker(false);
+                }}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all active:scale-95",
+                  ambientSound === opt.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/30"
+                )}
+              >
+                <span className="text-lg">{opt.emoji}</span>
+                <span>{opt.label}</span>
+                {ambientSound === opt.id && <span className="w-2 h-2 rounded-full bg-primary ml-auto" />}
+              </button>
+            ))}
+            {/* Volume slider */}
+            {ambientSound !== 'none' && (
+              <div className="px-2 pt-2 mt-1 border-t border-border/20 dark:border-zinc-700">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={ambientVolume}
+                  onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                  className="w-full h-1 accent-primary"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {!isAudioPlayerOpen && (
-          <button 
+          <button
             onClick={() => setIsAudioPlayerOpen(true)}
             className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative"
           >
@@ -932,8 +1067,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             </span>
           </button>
         )}
-        
-        <button 
+
+        <button
           onClick={() => setIsGiftsOpen(true)}
           className="w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group"
         >
@@ -1318,6 +1453,85 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       <footer className="h-24" />
 
       {/* ── Ad Reward Modal ── */}
+      {/* ── Reading Journal Sheet ── */}
+      <Sheet open={showJournalPrompt} onOpenChange={setShowJournalPrompt}>
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
+          <div className="p-8 flex flex-col gap-6">
+            <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            <SheetHeader className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2 text-3xl">📖</div>
+              <SheetTitle className="text-xl font-headline font-black text-accent">Okuma Günlüğü</SheetTitle>
+              <SheetDescription className="text-sm text-muted-foreground">
+                Bu bölümü okurken neler hissettin? {readingMinutes > 0 && `(${readingMinutes} dk okudun)`}
+              </SheetDescription>
+            </SheetHeader>
+
+            {/* Emotion picker */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Hislerin</span>
+              <div className="grid grid-cols-4 gap-2">
+                {emotions.map(e => (
+                  <button
+                    key={e.emoji}
+                    onClick={() => setJournalEmotion(e.emoji)}
+                    className={cn(
+                      "p-3 rounded-2xl flex flex-col items-center gap-1 transition-all active:scale-95 border-2",
+                      journalEmotion === e.emoji
+                        ? "border-primary bg-primary/10 scale-105"
+                        : "border-transparent bg-muted/30 hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="text-2xl">{e.emoji}</span>
+                    <span className="text-[9px] font-bold text-muted-foreground">{e.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quote input */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Favori Alıntın (isteğe bağlı)</span>
+              <Input
+                value={journalQuote}
+                onChange={(e) => setJournalQuote(e.target.value)}
+                placeholder="Bu bölümden aklında kalan bir cümle..."
+                className="h-12 rounded-2xl border-border/50 dark:border-zinc-700 bg-muted/30 dark:bg-zinc-800 text-sm"
+              />
+            </div>
+
+            {/* Save button */}
+            <Button
+              disabled={!journalEmotion}
+              onClick={async () => {
+                const uid = userState.user?.uid;
+                const entry: JournalEntry = {
+                  date: new Date().toISOString(),
+                  storyId: story.id,
+                  storyTitle: story.title,
+                  chapterNumber: engine.activeChapter,
+                  minutesRead: readingMinutes,
+                  emotion: journalEmotion,
+                  quote: journalQuote,
+                };
+                if (uid) {
+                  await saveJournalEntry(uid, entry);
+                } else {
+                  // Misafir kullanıcı — localStorage
+                  const existing = JSON.parse(localStorage.getItem('aura-journal') || '[]');
+                  existing.unshift(entry);
+                  localStorage.setItem('aura-journal', JSON.stringify(existing.slice(0, 50)));
+                }
+                setShowJournalPrompt(false);
+                toast({ title: '📖 Günlüğe Kaydedildi!', description: 'Okuma anın ölümsüzleşti.' });
+              }}
+              className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-black shadow-lg disabled:opacity-40 active:scale-95 transition-all"
+            >
+              {journalEmotion ? 'Günlüğe Kaydet' : 'Bir his seç...'}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} />
     </div>
   );

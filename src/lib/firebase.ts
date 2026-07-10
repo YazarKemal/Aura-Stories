@@ -251,4 +251,30 @@ export async function saveChatMessage(
   } catch (err) { console.warn('[Firestore] Mesaj kaydedilemedi:', err); }
 }
 
+// ── Reading Journal (Firestore) ─────────────────────────────
+
+export interface JournalEntry {
+  date: string;
+  storyId: string;
+  storyTitle: string;
+  chapterNumber: number;
+  minutesRead: number;
+  emotion: string;
+  quote: string;
+}
+
+export async function saveJournalEntry(uid: string, entry: JournalEntry): Promise<void> {
+  try {
+    await setDoc(firestoreDoc(db, 'users', uid, 'journal', entry.date), entry);
+  } catch (err) { console.warn('[Firestore] Günlük kaydedilemedi:', err); }
+}
+
+export async function getJournalEntries(uid: string): Promise<JournalEntry[]> {
+  try {
+    const snap = await getDocs(collection(db, 'users', uid, 'journal'));
+    return snap.docs.map(d => d.data() as JournalEntry)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  } catch { return []; }
+}
+
 export { auth, db };
