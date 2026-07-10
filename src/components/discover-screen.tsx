@@ -19,10 +19,11 @@ import { getStories, getCategories, seedStoriesToFirestore, onStoriesSnapshot } 
 
 interface DiscoverScreenProps {
   onSelectStory: (story: Story) => void;
+  selectedCategory: string;
+  onCategoryChange: (category: string) => void;
 }
 
-export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState('Hepsi');
+export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChange }: DiscoverScreenProps) {
   const [stories, setStories] = useState<Story[]>(mockStories);
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
@@ -130,8 +131,8 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
       {/* Categories Row */}
       <section>
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-4">
-          <button 
-            onClick={() => setSelectedCategory('Hepsi')}
+          <button
+            onClick={() => onCategoryChange('Hepsi')}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
               selectedCategory === 'Hepsi' 
                 ? 'bg-primary text-primary-foreground shadow-md scale-105' 
@@ -143,7 +144,7 @@ export function DiscoverScreen({ onSelectStory }: DiscoverScreenProps) {
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setSelectedCategory(cat.name)}
+              onClick={() => onCategoryChange(cat.name)}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
                 selectedCategory === cat.name 
                   ? 'bg-primary text-primary-foreground shadow-md scale-105' 

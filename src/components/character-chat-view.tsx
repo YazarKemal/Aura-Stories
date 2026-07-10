@@ -45,6 +45,31 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Mobile keyboard handling (visualViewport API) ──────────
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const adjustForKeyboard = () => {
+      if (!containerRef.current) return;
+      const keyboardHeight = window.innerHeight - vv.height;
+      if (keyboardHeight > 100) {
+        // Klavye açık — input alanını klavyenin üstüne taşı
+        containerRef.current.style.paddingBottom = `${keyboardHeight}px`;
+      } else {
+        containerRef.current.style.paddingBottom = '0px';
+      }
+    };
+
+    vv.addEventListener('resize', adjustForKeyboard);
+    vv.addEventListener('scroll', adjustForKeyboard);
+    return () => {
+      vv.removeEventListener('resize', adjustForKeyboard);
+      vv.removeEventListener('scroll', adjustForKeyboard);
+    };
+  }, []);
 
   // Reset messages when character switches
   useEffect(() => {
@@ -230,7 +255,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     .slice(0, 2);
 
   return (
-    <div className="fixed inset-0 z-[300] bg-background flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
+    <div ref={containerRef} className="fixed inset-0 z-[300] bg-background flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
       {/* Immersive Blurred Background */}
       <div className="absolute inset-0 z-0">
         <Image

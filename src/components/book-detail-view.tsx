@@ -1,14 +1,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Star, Eye, Share2, Bookmark, Sparkles, MessageCircle, Trophy, CloudDownload, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Star, Eye, Share2, Bookmark, BookmarkCheck, Sparkles, MessageCircle, Trophy, CloudDownload, CheckCircle2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface BookDetailViewProps {
   story: Story;
@@ -18,10 +19,54 @@ interface BookDetailViewProps {
 }
 
 export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: BookDetailViewProps) {
+  const { toast } = useToast();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'completed'>(
     story.isDownloaded ? 'completed' : 'idle'
   );
   const [progress, setProgress] = useState(0);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  // Scroll to top when story changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [story.id]);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: story.title,
+      text: `${story.title} — ${story.author}\n\n${story.synopsis.slice(0, 120)}...`,
+      url: `${window.location.origin}/story/${story.id}`,
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        toast({ title: 'Paylaşıldı!', description: 'Hikaye başarıyla paylaşıldı.' });
+      } catch {
+        // User cancelled — no toast needed
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+        toast({ title: 'Link Kopyalandı!', description: 'Hikaye linki panoya kopyalandı.' });
+      } catch {
+        toast({ title: 'Paylaşılamadı', description: 'Paylaşım bu cihazda desteklenmiyor.', variant: 'destructive' });
+      }
+    }
+  };
+
+  const handleBookmark = () => {
+    setIsBookmarked(prev => !prev);
+    toast({
+      title: isBookmarked ? 'Yer İmi Kaldırıldı' : 'Yer İmi Eklendi!',
+      description: isBookmarked
+        ? `${story.title} kitaplığınızdan çıkarıldı.`
+        : `${story.title} kitaplığınıza kaydedildi.`,
+    });
+  };
 
   const handleDownload = () => {
     if (downloadState !== 'idle') return;
@@ -40,7 +85,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
+    <div ref={containerRef} className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
       {/* Hero Section */}
       <section className="relative h-[420px] w-full flex items-center justify-center pt-12">
         {/* Blurred Background */}
@@ -63,11 +108,15 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex gap-3">
-            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
+            <button onClick={handleShare} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               <Share2 className="w-5 h-5" />
             </button>
-            <button className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
-              <Bookmark className="w-5 h-5" />
+            <button onClick={handleBookmark} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
+              {isBookmarked ? (
+                <BookmarkCheck className="w-5 h-5 text-primary fill-current" />
+              ) : (
+                <Bookmark className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>
@@ -89,7 +138,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
       {/* Content Section */}
       <section className="px-6 -mt-8 relative z-10 pb-40 animate-in slide-in-from-bottom-10 fade-in duration-1000 delay-300">
         <div className="flex flex-col items-center text-center gap-2 mb-6">
-          <h1 className="text-3xl font-headline font-black text-accent leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-headline font-black text-accent leading-tight break-words hyphens-auto text-center px-2 max-w-full">
             {story.title}
           </h1>
           

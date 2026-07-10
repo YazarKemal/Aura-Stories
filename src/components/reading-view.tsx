@@ -603,10 +603,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center min-w-0 flex-1 mx-2">
           <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Bölüm 1</span>
           <h2 className={cn(
-            "text-sm font-headline font-bold truncate max-w-[200px]",
+            "text-sm font-headline font-bold truncate max-w-[160px]",
             readingTheme === 'dark' ? "text-white" : "text-accent"
           )}>Teslimiyet</h2>
         </div>
@@ -679,7 +679,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-background" />
           </div>
           <div className="absolute inset-0 flex items-center justify-center p-8">
-            <h1 className="text-4xl font-headline font-black text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)] leading-tight animate-in slide-in-from-top-4 duration-1000">
+            <h1 className="text-3xl sm:text-4xl font-headline font-black text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)] leading-tight animate-in slide-in-from-top-4 duration-1000 px-4 break-words hyphens-auto">
               Bölüm 1: Teslimiyet
             </h1>
           </div>
@@ -742,7 +742,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
                 {/* Chapter Title */}
                 <h2 className={cn(
-                  "text-xl font-headline font-black mb-4 leading-tight",
+                  "text-xl font-headline font-black mb-4 leading-tight break-words hyphens-auto",
                   readingTheme === 'dark' ? "text-white" : "text-accent"
                 )}>
                   {chapter.title}

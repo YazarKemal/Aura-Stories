@@ -31,6 +31,7 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('discover');
+  const [selectedCategory, setSelectedCategory] = useState('Hepsi');
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [isWriterDashboardOpen, setIsWriterDashboardOpen] = useState(false);
@@ -368,9 +369,9 @@ export default function Home() {
       )}
 
       {/* Tab Content */}
-      <div className={`pt-24 pb-4 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen || isSearchOpen || isVIPOpen ? 'hidden' : ''}`}>
+      <div className={`pt-24 pb-28 ${selectedStory || isReading || isWriterDashboardOpen || isChatOpen || isSearchOpen || isVIPOpen ? 'hidden' : ''}`}>
         <div key={activeTab} className="animate-in fade-in duration-500 fill-mode-both">
-          {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} />}
+          {activeTab === 'discover' && <DiscoverScreen onSelectStory={handleSelectStory} selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />}
           {activeTab === 'library' && (
             <LibraryScreen 
               onNavigateToDiscover={() => setActiveTab('discover')} 
