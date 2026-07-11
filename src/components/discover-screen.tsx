@@ -2,11 +2,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem 
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
 } from '@/components/ui/carousel';
+import { cn } from '@/lib/utils';
 import { stories as mockStories, categories as mockCategories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +31,12 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(true);
   const fetchInitiated = useRef(false);
+
+  // ── Carousel autoplay + pagination state ──────────────
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [totalSlides, setTotalSlides] = useState(0);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
 
   // Firestore canlı veri + seed (ilk kullanımda mock veriyi Firestore'a yazar)
   useEffect(() => {
@@ -93,6 +101,59 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
     fetchAiRecommendations();
   }, []);
 
+  // ── Carousel: slide tracking ─────────────────────────
+  useEffect(() => {
+    if (!carouselApi) return;
+
+    const onSelect = () => {
+      setCurrentSlide(carouselApi.selectedScrollSnap());
+    };
+
+    carouselApi.on('select', onSelect);
+    carouselApi.on('reInit', () => {
+      setTotalSlides(carouselApi.scrollSnapList().length);
+      onSelect();
+    });
+
+    // init
+    setTotalSlides(carouselApi.scrollSnapList().length);
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+
+    return () => {
+      carouselApi.off('select', onSelect);
+    };
+  }, [carouselApi]);
+
+  // ── Carousel: autoplay (3.5s, pause on touch) ────────
+  useEffect(() => {
+    if (!carouselApi) return;
+
+    const start = () => {
+      stop();
+      autoplayRef.current = setInterval(() => {
+        carouselApi.scrollNext();
+      }, 3500);
+    };
+
+    const stop = () => {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current);
+        autoplayRef.current = null;
+      }
+    };
+
+    start();
+
+    carouselApi.on('pointerDown', stop);
+    carouselApi.on('pointerUp', start);
+
+    return () => {
+      stop();
+      carouselApi.off('pointerDown', stop);
+      carouselApi.off('pointerUp', start);
+    };
+  }, [carouselApi]);
+
   const featuredBanners = [
     { id: 1, img: PlaceHolderImages.find(i => i.id === 'banner-1')?.imageUrl || '' },
     { id: 2, img: PlaceHolderImages.find(i => i.id === 'banner-2')?.imageUrl || '' },
@@ -103,28 +164,44 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
     <div className="flex flex-col gap-8 pb-24 animate-in fade-in duration-700">
       {/* Featured Carousel */}
       <section className="px-0">
-        <Carousel className="w-full" opts={{ loop: true }}>
+        <Carousel className="w-full" opts={{ loop: true }} setApi={setCarouselApi}>
           <CarouselContent>
-            {featuredBanners.map((banner) => (
+            {featuredBanners.map((banner, index) => (
               <CarouselItem key={banner.id}>
-                <div className="relative aspect-[16/10] mx-4 rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
+                <div className="relative aspect-[16/10] mx-4 rounded-xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
                   <Image
                     src={banner.img}
-                    alt="Featured Story"
+                    alt={`Featured Story ${index + 1}`}
                     fill
                     className="object-cover"
                     data-ai-hint="aesthetic banner"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
-                    <div className="text-white">
-                      <span className="text-[10px] uppercase tracking-widest font-bold bg-primary px-2 py-1 rounded-md">Editörün Seçimi</span>
-                      <h2 className="text-2xl font-headline font-bold mt-1 leading-tight">Gökkuşağının Ötesinde</h2>
-                    </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent flex items-end p-6">
+                    {/* Keep for readability — future dynamic content */}
                   </div>
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
+          {/* Pagination Dots */}
+          {totalSlides > 1 && (
+            <div className="absolute bottom-4 right-7 flex gap-2 z-10">
+              {Array.from({ length: totalSlides }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => carouselApi?.scrollTo(i)}
+                  className={cn(
+                    'w-2 h-2 rounded-full transition-all duration-300',
+                    i === currentSlide
+                      ? 'bg-white scale-100 shadow-sm'
+                      : 'bg-white/40 scale-75 hover:bg-white/60'
+                  )}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </Carousel>
       </section>
 
