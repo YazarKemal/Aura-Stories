@@ -12,7 +12,6 @@ import {
   Play,
   Plus,
   MessageSquare,
-  ChevronRight,
   TrendingUp,
   Gift
 } from 'lucide-react';
@@ -270,20 +269,6 @@ export function RewardsScreen() {
           })}
         </div>
       </section>
-
-      {/* Redeem Section Link */}
-      <button className="flex items-center justify-between p-6 rounded-3xl bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 group active:scale-95 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div className="text-left">
-            <h4 className="text-sm font-bold text-accent dark:text-zinc-100">Puan Mağazası</h4>
-            <p className="text-[10px] text-muted-foreground dark:text-zinc-400">Puanlarını harika ödüllere dönüştür</p>
-          </div>
-        </div>
-        <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
-      </button>
 
       {/* ── Ad Reward Modal ── */}
       <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
