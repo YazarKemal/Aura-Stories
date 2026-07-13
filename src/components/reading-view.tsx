@@ -147,6 +147,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [fontFamily, setFontFamily] = useState<FontFamily>('system');
   const [readingMode, setReadingMode] = useState<ReadingMode>('scroll');
 
+  // Immersive Mode — tap center to toggle UI visibility
+  const [isUIVisible, setIsUIVisible] = useState(true);
+
   // Audio Player State
   const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -542,18 +545,23 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   const isHorizontal = readingMode === 'page' || readingMode === 'swipe';
+  const isPageTurn = readingMode === 'page';
+  const isSwipe = readingMode === 'swipe';
 
   return (
     <div
       ref={containerRef}
       className={cn(
         "fixed inset-0 z-[200] animate-in fade-in duration-500 transition-colors duration-500",
-        isHorizontal
-          ? "overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
-          : "overflow-y-auto no-scrollbar",
+        isSwipe && "overflow-x-auto overflow-y-hidden snap-x snap-mandatory",
+        isPageTurn && "overflow-x-hidden overflow-y-hidden",
+        readingMode === 'scroll' && "overflow-y-auto no-scrollbar",
         themeColors[readingTheme]
       )}
-      onClick={() => setSelectedQuote(null)} 
+      onClick={() => {
+        setSelectedQuote(null);
+        setIsUIVisible(prev => !prev);
+      }}
     >
       {/* Celebration Overlay */}
       {celebrationGift && (
@@ -605,8 +613,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-transform duration-300 max-w-md mx-auto",
-          !isVisible ? "-translate-y-full" : "translate-y-0",
+          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-all duration-300 max-w-md mx-auto",
+          (!isVisible || !isUIVisible) ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
           readingTheme === 'dark' ? "bg-[#161823]/90 border-zinc-800" : "bg-white/80 border-black/10"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -679,7 +687,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       <article
         className={cn(
           !isHorizontal && "pb-40 max-w-md mx-auto relative",
-          isHorizontal && "flex flex-row h-[calc(100vh-64px)]"
+          isHorizontal && "flex flex-row h-[calc(100dvh-64px)]"
         )}
       >
         {/* Parallax Cinematic Header */}
@@ -687,7 +695,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           className={cn(
             "relative overflow-hidden w-full",
             !isHorizontal && "h-[250px]",
-            isHorizontal && "min-w-[100vw] w-[100vw] h-full snap-center"
+            isHorizontal && "min-w-[100dvw] w-[100dvw] h-full snap-center"
           )}
           style={{ opacity: headerOpacity }}
         >
@@ -720,7 +728,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           {/* ═══════════════════════════════════════════════ */}
           <section className={cn(
             "mb-10",
-            isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6"
+            isHorizontal && "min-w-[100dvw] w-[100dvw] h-full overflow-y-auto snap-center px-5 pt-6"
           )}>
             <div className="relative">
               {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
@@ -756,7 +764,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 key={`ch-${chapter.chapterNumber}`}
                 className={cn(
                   "mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden",
-                  isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6"
+                  isHorizontal && "min-w-[100dvw] w-[100dvw] h-full overflow-y-auto snap-center px-5 pt-6"
                 )}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -942,7 +950,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           {generatedChapters.length === 0 && (
             <>
               {/* Community Choice Card — only before first generation */}
-              <section className={cn("mb-8 animate-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
+              <section className={cn("mb-8 animate-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100dvw] w-[100dvw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
                 <div className={cn("relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500 w-full max-w-full",
                   readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/20")}>
                   <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12"><Sparkles className="w-20 h-20 text-primary" /></div>
@@ -1011,7 +1019,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </section>
 
               {/* Paywall */}
-              <section className={cn("mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
+              <section className={cn("mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100dvw] w-[100dvw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
                 <div className={cn("p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500 w-full max-w-full",
                   readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/10")}>
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -1037,17 +1045,23 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
       </article>
 
-      {/* Page Mode Tap Zones — left/right edge tap to navigate */}
-      {readingMode === 'page' && (
+      {/* Page Turn Tap Zones — sol/sağ %30 tıkla → sayfa çevir */}
+      {isPageTurn && (
         <>
           <button
-            onClick={() => containerRef.current?.scrollBy({ left: -window.innerWidth, behavior: 'smooth' })}
-            className="fixed left-0 top-16 bottom-0 w-[20%] z-[205] opacity-0 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              containerRef.current?.scrollBy({ left: -window.innerWidth, behavior: 'smooth' });
+            }}
+            className="fixed left-0 top-0 bottom-0 w-[30%] z-[205] opacity-0 cursor-pointer"
             aria-label="Önceki sayfa"
           />
           <button
-            onClick={() => containerRef.current?.scrollBy({ left: window.innerWidth, behavior: 'smooth' })}
-            className="fixed right-0 top-16 bottom-0 w-[20%] z-[205] opacity-0 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              containerRef.current?.scrollBy({ left: window.innerWidth, behavior: 'smooth' });
+            }}
+            className="fixed right-0 top-0 bottom-0 w-[30%] z-[205] opacity-0 cursor-pointer"
             aria-label="Sonraki sayfa"
           />
         </>
@@ -1055,7 +1069,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Floating Buttons Group */}
       <div
-        className="fixed bottom-8 right-8 flex flex-col gap-4 z-[210]"
+        className={cn(
+          "fixed bottom-8 right-8 flex flex-col gap-4 z-[210] transition-all duration-300",
+          isUIVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Sound Button */}
