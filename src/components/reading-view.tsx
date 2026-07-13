@@ -549,7 +549,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       className={cn(
         "fixed inset-0 z-[200] animate-in fade-in duration-500 transition-colors duration-500",
         isHorizontal
-          ? "overflow-x-auto overflow-y-hidden"
+          ? "overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
           : "overflow-y-auto no-scrollbar",
         themeColors[readingTheme]
       )}
@@ -678,18 +678,18 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <article
         className={cn(
-          !isHorizontal && "pb-40 max-w-md mx-auto relative"
+          !isHorizontal && "pb-40 max-w-md mx-auto relative",
+          isHorizontal && "flex flex-row h-[calc(100vh-64px)]"
         )}
-        style={isHorizontal ? {
-          columnWidth: '100vw',
-          columnGap: 0,
-          height: 'calc(100vh - 64px)',
-        } : undefined}
       >
         {/* Parallax Cinematic Header */}
         <div
-          className="relative h-[250px] w-full overflow-hidden"
-          style={{ opacity: headerOpacity, ...(isHorizontal ? { columnSpan: 'all' } as any : {}) }}
+          className={cn(
+            "relative overflow-hidden w-full",
+            !isHorizontal && "h-[250px]",
+            isHorizontal && "min-w-[100vw] w-[100vw] h-full snap-center"
+          )}
+          style={{ opacity: headerOpacity }}
         >
           <div 
             className="absolute inset-0 w-full h-full transition-transform duration-100 ease-out"
@@ -711,11 +711,17 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </div>
         </div>
 
-        <div className="px-8 mt-12 flex flex-col">
+        <div className={cn(
+          !isHorizontal && "px-8 mt-12 flex flex-col",
+          isHorizontal && "flex flex-row h-full"
+        )}>
           {/* ═══════════════════════════════════════════════ */}
           {/* BÖLÜM 1: Orijinal (hardcoded)                  */}
           {/* ═══════════════════════════════════════════════ */}
-          <section className={cn("mb-10", isHorizontal && "break-inside-avoid")}>
+          <section className={cn(
+            "mb-10",
+            isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6"
+          )}>
             <div className="relative">
               {paragraphs.slice(0, 4).map((p, i) => renderParagraph(p, i))}
               <div className="relative h-24 overflow-hidden pointer-events-none">
@@ -750,7 +756,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 key={`ch-${chapter.chapterNumber}`}
                 className={cn(
                   "mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden",
-                  isHorizontal && "break-inside-avoid"
+                  isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6"
                 )}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -936,7 +942,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           {generatedChapters.length === 0 && (
             <>
               {/* Community Choice Card — only before first generation */}
-              <section className={cn("mb-8 animate-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden", isHorizontal && "break-inside-avoid")} onClick={(e) => e.stopPropagation()}>
+              <section className={cn("mb-8 animate-in slide-in-from-bottom-5 duration-700 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
                 <div className={cn("relative p-6 rounded-[2.5rem] border-2 shadow-xl overflow-hidden group transition-all duration-500 w-full max-w-full",
                   readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/20")}>
                   <div className="absolute top-0 right-0 p-4 opacity-10 -rotate-12"><Sparkles className="w-20 h-20 text-primary" /></div>
@@ -1005,7 +1011,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </section>
 
               {/* Paywall */}
-              <section className={cn("mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300 w-full max-w-full overflow-hidden", isHorizontal && "break-inside-avoid")} onClick={(e) => e.stopPropagation()}>
+              <section className={cn("mb-32 animate-in slide-in-from-bottom-10 duration-700 delay-300 w-full max-w-full overflow-hidden", isHorizontal && "min-w-[100vw] w-[100vw] h-full overflow-y-auto snap-center px-5 pt-6")} onClick={(e) => e.stopPropagation()}>
                 <div className={cn("p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] border flex flex-col items-center text-center gap-6 transition-all duration-500 w-full max-w-full",
                   readingTheme === 'dark' ? "bg-[#0D0E12]/90 border-zinc-800" : "bg-white border-primary/10")}>
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -1030,6 +1036,22 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           )}
         </div>
       </article>
+
+      {/* Page Mode Tap Zones — left/right edge tap to navigate */}
+      {readingMode === 'page' && (
+        <>
+          <button
+            onClick={() => containerRef.current?.scrollBy({ left: -window.innerWidth, behavior: 'smooth' })}
+            className="fixed left-0 top-16 bottom-0 w-[20%] z-[205] opacity-0 cursor-pointer"
+            aria-label="Önceki sayfa"
+          />
+          <button
+            onClick={() => containerRef.current?.scrollBy({ left: window.innerWidth, behavior: 'smooth' })}
+            className="fixed right-0 top-16 bottom-0 w-[20%] z-[205] opacity-0 cursor-pointer"
+            aria-label="Sonraki sayfa"
+          />
+        </>
+      )}
 
       {/* Floating Buttons Group */}
       <div
