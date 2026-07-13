@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
   Carousel,
   CarouselContent,
@@ -271,7 +272,7 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
       <section className="px-4 animate-in fade-in slide-in-from-bottom-2 duration-500" key={selectedCategory}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-headline font-bold text-accent">Popüler</h3>
-          <span className="text-xs font-medium text-primary cursor-pointer hover:underline">Tümünü Gör</span>
+          <Link href="/popular" className="text-xs font-medium text-primary cursor-pointer hover:underline">Tümünü Gör</Link>
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
           {stories
