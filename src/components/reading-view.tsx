@@ -558,7 +558,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         readingMode === 'scroll' && "overflow-y-auto no-scrollbar",
         themeColors[readingTheme]
       )}
-      onClick={() => {
+      onClick={(e) => {
+        // Only toggle UI / clear quote when clicking on empty background
+        const target = e.target as HTMLElement;
+        if (target.closest('button, [role="button"], [role="menuitem"], a, input, textarea, select, [data-radix-popper-content-wrapper], [data-radix-collection-item]')) {
+          return;
+        }
         setSelectedQuote(null);
         setIsUIVisible(prev => !prev);
       }}
@@ -620,7 +625,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          onClick={onBack}
+          onClick={(e) => { e.stopPropagation(); onBack(); }}
           className={cn(
             "p-2 -ml-2 rounded-full transition-colors active:scale-90",
             readingTheme === 'dark' ? "text-zinc-100 hover:bg-white/10" : "text-accent hover:bg-black/5"
@@ -648,7 +653,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn(
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
                 "p-2 rounded-full transition-colors active:scale-90 outline-none",
                 readingTheme === 'dark' ? "text-zinc-100 hover:bg-white/10" : "text-accent hover:bg-black/5"
               )}>
@@ -1077,7 +1084,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       >
         {/* Ambient Sound Button */}
         <button
-          onClick={() => setShowAmbientPicker(!showAmbientPicker)}
+          onClick={(e) => { e.stopPropagation(); setShowAmbientPicker(!showAmbientPicker); }}
           className={cn(
             "w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative",
             ambientSound !== 'none'
@@ -1097,7 +1104,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             {ambientOptions.map(opt => (
               <button
                 key={opt.id}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setAmbientSound(opt.id);
                   setShowAmbientPicker(false);
                 }}
@@ -1132,7 +1140,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
         {!isAudioPlayerOpen && (
           <button
-            onClick={() => setIsAudioPlayerOpen(true)}
+            onClick={(e) => { e.stopPropagation(); setIsAudioPlayerOpen(true); }}
             className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative"
           >
             <Headphones className="w-6 h-6 group-hover:rotate-12 transition-transform" />
@@ -1143,7 +1151,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         )}
 
         <button
-          onClick={() => setIsGiftsOpen(true)}
+          onClick={(e) => { e.stopPropagation(); setIsGiftsOpen(true); }}
           className="w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group"
         >
           <Gift className="w-6 h-6 group-hover:rotate-12 transition-transform" />
