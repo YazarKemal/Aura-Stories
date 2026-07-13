@@ -98,6 +98,9 @@ const DUMMY_COMMENTS = [
 ];
 
 type ReadingTheme = 'light' | 'sepia' | 'dark';
+type LineSpacing = 'narrow' | 'normal' | 'wide';
+type FontFamily = 'system' | 'bitter' | 'alef';
+type ReadingMode = 'scroll' | 'page' | 'swipe';
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
@@ -140,6 +143,9 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [fontSize, setFontSize] = useState([18]);
   const [readingTheme, setReadingTheme] = useState<ReadingTheme>('dark');
   const [isDyslexic, setIsDyslexic] = useState(false);
+  const [lineSpacing, setLineSpacing] = useState<LineSpacing>('normal');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('system');
+  const [readingMode, setReadingMode] = useState<ReadingMode>('scroll');
 
   // Audio Player State
   const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
@@ -332,15 +338,21 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           handleParaClick(text);
         }}
       >
-        <p 
-          style={{ 
+        <p
+          style={{
             fontSize: `${fontSize[0]}px`,
-            lineHeight: isDyslexic ? '2' : '1.6',
-            letterSpacing: isDyslexic ? '0.05em' : 'normal'
+            lineHeight: isDyslexic ? '2' : { narrow: '1.4', normal: '1.7', wide: '2.1' }[lineSpacing],
+            letterSpacing: isDyslexic ? '0.05em' : 'normal',
+            fontFamily: isDyslexic
+              ? undefined
+              : { system: undefined, bitter: '"Bitter", Georgia, "Times New Roman", serif', alef: '"Alef", "Segoe UI", Tahoma, sans-serif' }[fontFamily],
           }}
           className={cn(
             "text-lg leading-relaxed transition-all duration-500",
-            isDyslexic ? "font-body" : "font-serif",
+            !isDyslexic && fontFamily === 'system' && "font-serif",
+            !isDyslexic && fontFamily === 'bitter' && "",
+            !isDyslexic && fontFamily === 'alef' && "",
+            isDyslexic && "font-body",
             readingTheme === 'light' && "text-foreground/90",
             readingTheme === 'sepia' && "text-[#5b4636]",
             readingTheme === 'dark' && "text-gray-300",
@@ -534,6 +546,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       ref={containerRef}
       className={cn(
         "fixed inset-0 z-[200] overflow-y-auto no-scrollbar animate-in fade-in duration-500 transition-colors duration-500",
+        readingMode === 'page' && "snap-y snap-mandatory",
+        readingMode === 'swipe' && "snap-x snap-mandatory",
         themeColors[readingTheme]
       )}
       onClick={() => setSelectedQuote(null)} 
@@ -767,12 +781,18 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                         <p
                           style={{
                             fontSize: `${fontSize[0]}px`,
-                            lineHeight: isDyslexic ? '2' : '1.6',
-                            letterSpacing: isDyslexic ? '0.05em' : 'normal'
+                            lineHeight: isDyslexic ? '2' : { narrow: '1.4', normal: '1.7', wide: '2.1' }[lineSpacing],
+                            letterSpacing: isDyslexic ? '0.05em' : 'normal',
+                            fontFamily: isDyslexic
+                              ? undefined
+                              : { system: undefined, bitter: '"Bitter", Georgia, "Times New Roman", serif', alef: '"Alef", "Segoe UI", Tahoma, sans-serif' }[fontFamily],
                           }}
                           className={cn(
                             "text-lg leading-relaxed transition-all duration-500",
-                            isDyslexic ? "font-body" : "font-serif",
+                            !isDyslexic && fontFamily === 'system' && "font-serif",
+                            !isDyslexic && fontFamily === 'bitter' && "",
+                            !isDyslexic && fontFamily === 'alef' && "",
+                            isDyslexic && "font-body",
                             readingTheme === 'light' && "text-foreground/90",
                             readingTheme === 'sepia' && "text-[#5b4636]",
                             readingTheme === 'dark' && "text-gray-300",
@@ -1293,15 +1313,16 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Typography Panel Sheet */}
       <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600] max-h-[85vh] overflow-y-auto no-scrollbar">
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
-            
+
             <SheetHeader className="hidden">
               <SheetTitle>Okuma Ayarları</SheetTitle>
               <SheetDescription>Yazı boyutu ve tema tercihlerini değiştirin.</SheetDescription>
             </SheetHeader>
 
+            {/* Font Size */}
             <div className="space-y-4">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span className="flex items-center gap-1.5">A- <span className="text-[8px] opacity-50">KÜÇÜK</span></span>
@@ -1311,25 +1332,51 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               <Slider value={fontSize} onValueChange={setFontSize} min={14} max={26} step={1} className="py-2" />
             </div>
 
+            {/* Line Spacing */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Satır Aralığı</span>
+              <div className="flex items-center gap-2">
+                {([
+                  { id: 'narrow' as LineSpacing, label: 'Dar' },
+                  { id: 'normal' as LineSpacing, label: 'Normal' },
+                  { id: 'wide' as LineSpacing, label: 'Geniş' },
+                ]).map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setLineSpacing(opt.id)}
+                    className={cn(
+                      'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95',
+                      lineSpacing === opt.id
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reading Theme */}
             <div className="space-y-4">
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Teması</span>
               <div className="flex items-center justify-center gap-8">
-                <button 
-                  onClick={() => setReadingTheme('light')} 
+                <button
+                  onClick={() => setReadingTheme('light')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-white dark:bg-brand-dark shadow-sm hover:scale-110 active:scale-95",
                     readingTheme === 'light' ? "border-primary ring-2 ring-primary/20" : "border-border"
                   )}
                 />
-                <button 
-                  onClick={() => setReadingTheme('sepia')} 
+                <button
+                  onClick={() => setReadingTheme('sepia')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#f4ecd8] shadow-sm hover:scale-110 active:scale-95",
                     readingTheme === 'sepia' ? "border-primary ring-2 ring-primary/20" : "border-border"
                   )}
                 />
-                <button 
-                  onClick={() => setReadingTheme('dark')} 
+                <button
+                  onClick={() => setReadingTheme('dark')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#1a1a1a] shadow-sm hover:scale-110 active:scale-95",
                     readingTheme === 'dark' ? "border-primary ring-2 ring-primary/20" : "border-border"
@@ -1338,12 +1385,69 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </div>
             </div>
 
+            {/* Font Family */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Yazı Tipi</span>
+              <div className="flex items-center gap-2">
+                {([
+                  { id: 'system' as FontFamily, label: 'System', preview: 'Aa' },
+                  { id: 'bitter' as FontFamily, label: 'Bitter', preview: 'Aa' },
+                  { id: 'alef' as FontFamily, label: 'Alef', preview: 'Aa' },
+                ]).map((font) => (
+                  <button
+                    key={font.id}
+                    onClick={() => setFontFamily(font.id)}
+                    className={cn(
+                      'flex-1 py-3 rounded-xl font-bold transition-all border-2 flex flex-col items-center gap-1 active:scale-95',
+                      fontFamily === font.id
+                        ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                        : 'border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <span className={cn(
+                      'text-lg',
+                      font.id === 'bitter' && 'font-serif',
+                      font.id === 'alef' && '',
+                    )}>{font.preview}</span>
+                    <span className="text-[10px]">{font.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dyslexia Mode */}
             <div className="flex items-center justify-between p-5 bg-muted/20 rounded-[1.5rem] border border-border/40">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-accent">Disleksi Modu</span>
                 <span className="text-[10px] text-muted-foreground font-medium">Özel okuma fontu ve aralaması</span>
               </div>
               <Switch checked={isDyslexic} onCheckedChange={setIsDyslexic} />
+            </div>
+
+            {/* Reading Mode */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Modu</span>
+              <div className="flex items-center gap-2">
+                {([
+                  { id: 'scroll' as ReadingMode, label: 'Kaydır', icon: '↕' },
+                  { id: 'page' as ReadingMode, label: 'Çevir', icon: '📖' },
+                  { id: 'swipe' as ReadingMode, label: 'Yana Kaydır', icon: '↔' },
+                ]).map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setReadingMode(mode.id)}
+                    className={cn(
+                      'flex-1 py-3 rounded-xl font-bold transition-all border-2 flex flex-col items-center gap-1 active:scale-95',
+                      readingMode === mode.id
+                        ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                        : 'border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <span className="text-lg">{mode.icon}</span>
+                    <span className="text-[10px]">{mode.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </SheetContent>
