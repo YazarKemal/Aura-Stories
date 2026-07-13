@@ -154,11 +154,12 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
     };
   }, [carouselApi]);
 
-  const featuredBanners = [
-    { id: 1, img: PlaceHolderImages.find(i => i.id === 'banner-1')?.imageUrl || '' },
-    { id: 2, img: PlaceHolderImages.find(i => i.id === 'banner-2')?.imageUrl || '' },
-    { id: 3, img: PlaceHolderImages.find(i => i.id === 'banner-3')?.imageUrl || '' },
-  ];
+  // Vitrin için öne çıkan hikayeler (isFeatured), eksikse popülerlerle tamamla
+  const featuredStories = stories.filter(s => s.isFeatured);
+  const carouselStories =
+    featuredStories.length >= 3
+      ? featuredStories.slice(0, 3)
+      : [...featuredStories, ...stories.filter(s => !s.isFeatured && s.isPopular).slice(0, 3 - featuredStories.length)];
 
   return (
     <div className="flex flex-col gap-8 pb-24 animate-in fade-in duration-700">
@@ -166,18 +167,50 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
       <section className="px-0">
         <Carousel className="w-full" opts={{ loop: true }} setApi={setCarouselApi}>
           <CarouselContent>
-            {featuredBanners.map((banner, index) => (
-              <CarouselItem key={banner.id}>
-                <div className="relative aspect-[16/10] mx-4 rounded-xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5">
+            {carouselStories.map((story, index) => (
+              <CarouselItem key={story.id}>
+                <div
+                  className="relative aspect-[16/10] mx-4 rounded-xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5 cursor-pointer group"
+                  onClick={() => onSelectStory(story)}
+                >
                   <Image
-                    src={banner.img}
-                    alt={`Featured Story ${index + 1}`}
+                    src={story.imageUrl}
+                    alt={story.title}
                     fill
-                    className="object-cover"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
                     data-ai-hint="aesthetic banner"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent flex items-end p-6">
-                    {/* Keep for readability — future dynamic content */}
+                  {/* Gradient overlay — alttan koyulaşan, yazılar net okunur */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                  {/* İçerik katmanı */}
+                  <div className="absolute inset-0 flex flex-col justify-end p-5">
+                    {/* Sol üst: tür etiketi */}
+                    <div className="absolute top-4 left-4">
+                      <Badge className="bg-white/20 backdrop-blur-md text-white border-0 text-[10px] font-medium px-2.5 py-0.5 rounded-full">
+                        {story.category}
+                      </Badge>
+                    </div>
+
+                    {/* Sol alt: hikaye adı + yazar */}
+                    <div className="flex items-end justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-lg sm:text-xl font-headline font-bold text-white leading-tight truncate">
+                          {story.title}
+                        </h2>
+                        <p className="text-white/70 text-xs sm:text-sm mt-0.5">{story.author}</p>
+                      </div>
+                      {/* Sağ alt: İncele butonu */}
+                      <button
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-medium border border-white/20 hover:bg-white/25 transition-all active:scale-95"
+                        onClick={(e) => { e.stopPropagation(); onSelectStory(story); }}
+                      >
+                        İncele
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </CarouselItem>
@@ -190,7 +223,7 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
                 <button
                   key={i}
                   type="button"
-                  onClick={() => carouselApi?.scrollTo(i)}
+                  onClick={(e) => { e.stopPropagation(); carouselApi?.scrollTo(i); }}
                   className={cn(
                     'w-2 h-2 rounded-full transition-all duration-300',
                     i === currentSlide
