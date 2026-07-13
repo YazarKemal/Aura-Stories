@@ -100,7 +100,7 @@ const DUMMY_COMMENTS = [
 type ReadingTheme = 'light' | 'sepia' | 'dark';
 type LineSpacing = 'narrow' | 'normal' | 'wide';
 type FontFamily = 'system' | 'bitter' | 'alef';
-type ReadingMode = 'scroll' | 'page' | 'swipe';
+type ReadingMode = 'scroll' | 'swipe';
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
@@ -544,24 +544,21 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     dark: "bg-[#1a1a1a]"
   };
 
-  const isHorizontal = readingMode === 'page' || readingMode === 'swipe';
-  const isPageTurn = readingMode === 'page';
-  const isSwipe = readingMode === 'swipe';
+  const isHorizontal = readingMode === 'swipe';
 
   return (
     <div
       ref={containerRef}
       className={cn(
         "fixed inset-0 z-[200] animate-in fade-in duration-500 transition-colors duration-500",
-        isSwipe && "overflow-x-auto overflow-y-hidden snap-x snap-mandatory",
-        isPageTurn && "overflow-x-hidden overflow-y-hidden",
+        isHorizontal && "overflow-x-auto overflow-y-hidden snap-x snap-mandatory",
         readingMode === 'scroll' && "overflow-y-auto no-scrollbar",
         themeColors[readingTheme]
       )}
       onClick={(e) => {
         // Only toggle UI / clear quote when clicking on empty background
         const target = e.target as HTMLElement;
-        if (target.closest('button, [role="button"], [role="menuitem"], a, input, textarea, select, [data-radix-popper-content-wrapper], [data-radix-collection-item]')) {
+        if (target.closest('button, header, [role="button"], [role="menuitem"], [role="dialog"], a, input, textarea, select, [data-radix-popper-content-wrapper], [data-radix-collection-item]')) {
           return;
         }
         setSelectedQuote(null);
@@ -1052,28 +1049,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </div>
       </article>
 
-      {/* Page Turn Tap Zones — sol/sağ %30 tıkla → sayfa çevir */}
-      {isPageTurn && (
-        <>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              containerRef.current?.scrollBy({ left: -window.innerWidth, behavior: 'smooth' });
-            }}
-            className="fixed left-0 top-0 bottom-0 w-[30%] z-[205] opacity-0 cursor-pointer"
-            aria-label="Önceki sayfa"
-          />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              containerRef.current?.scrollBy({ left: window.innerWidth, behavior: 'smooth' });
-            }}
-            className="fixed right-0 top-0 bottom-0 w-[30%] z-[205] opacity-0 cursor-pointer"
-            aria-label="Sonraki sayfa"
-          />
-        </>
-      )}
-
       {/* Floating Buttons Group */}
       <div
         className={cn(
@@ -1491,9 +1466,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Modu</span>
               <div className="flex items-center gap-2">
                 {([
-                  { id: 'scroll' as ReadingMode, label: 'Kaydır', icon: '↕' },
-                  { id: 'page' as ReadingMode, label: 'Çevir', icon: '📖' },
-                  { id: 'swipe' as ReadingMode, label: 'Yana Kaydır', icon: '↔' },
+                  { id: 'scroll' as ReadingMode, label: 'Dikey', icon: '↕' },
+                  { id: 'swipe' as ReadingMode, label: 'Yatay', icon: '↔' },
                 ]).map((mode) => (
                   <button
                     key={mode.id}
