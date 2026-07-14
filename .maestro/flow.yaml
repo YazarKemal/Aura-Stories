@@ -112,8 +112,8 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 2000
 
-# 26. Tipografi paneli açıldı — "Yazı Tipi" başlığı görünür olmalı
-- assertVisible: "Yazı Tipi"
+# 26. Tipografi paneli açıldı — font seçenekleri görünür olmalı
+- assertVisible: "Bitter"
 
 # 27. Yazı tipini değiştir — "Bitter" fontuna geç
 - tapOn: "Bitter"
