@@ -56,30 +56,20 @@ jobs:
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ci-dummy' }}
 
-      # ── 7. Doğrula: out/ dizini oluştu mu? ─────────────────
-      - name: Verify static export
-        run: |
-          if [ -f out/index.html ]; then
-            echo "✓ Static export başarılı — out/index.html mevcut"
-          else
-            echo "✗ Static export başarısız — out/index.html bulunamadı"
-            exit 1
-          fi
-
-      # ── 8. Capacitor Android projesi oluştur/senkronize et ──
+      # ── 7. Capacitor Android projesi oluştur/senkronize et ──
       - name: Sync Capacitor Android project
         run: |
           npx cap add android 2>/dev/null || true
           npx cap sync android
 
-      # ── 9. Debug APK build ──────────────────────────────────
+      # ── 8. Debug APK build ──────────────────────────────────
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x gradlew 2>/dev/null || true
           ./gradlew assembleDebug
 
-      # ── 10. APK'nın oluştuğunu doğrula ────────────────────
+      # ── 9. APK'nın oluştuğunu doğrula ────────────────────
       - name: Verify APK artifact
         run: |
           APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
@@ -91,7 +81,7 @@ jobs:
             exit 1
           fi
 
-      # ── 11. Maestro Cloud test ─────────────────────────────
+      # ── 10. Maestro Cloud test ─────────────────────────────
       - name: Run Maestro Cloud tests
         uses: mobile-dev-inc/action-maestro-cloud@v1
         with:
@@ -103,7 +93,7 @@ jobs:
           # Android cihazda test et
           platform: android
 
-      # ── 12. APK'yı artifact olarak sakla (opsiyonel) ──────
+      # ── 11. APK'yı artifact olarak sakla (opsiyonel) ──────
       - name: Upload APK as CI artifact
         if: always()
         uses: actions/upload-artifact@v4
