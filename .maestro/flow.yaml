@@ -36,9 +36,9 @@ appId: com.prompthavenstudio.aurastories
 # 7. Onboarding — Step 2: Dil ve mikro konu (varsayılanlarla devam)
 - scrollUntilVisible:
     element:
-      text: "Devam"
+      text: "Okumaya Başlayın"
     direction: DOWN
-- tapOn: "Devam"
+- tapOn: "Okumaya Başlayın"
 
 # 8. Yaş Doğrulama / EULA Modalı
 - assertVisible: "Hoş Geldiniz"
