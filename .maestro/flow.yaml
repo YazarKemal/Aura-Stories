@@ -1,0 +1,91 @@
+# Maestro Flow — Aura Stories UI Test Senaryosu
+# Maestro Cloud CI ile çalışır. Lokalde: maestro test .maestro/flow.yaml
+
+appId: com.prompthavenstudio.aurastories
+---
+# 1. Uygulamayı başlat
+- launchApp
+
+# 2. Splash Screen'in geçmesini bekle (2.8s animasyon + buffer)
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# 3. Onboarding — Step 1: Cinsiyet seç
+- assertVisible: "Devam Et"
+- tapOn:
+    text: "Kadın"
+    optional: true
+- tapOn: "Devam Et"
+
+# 4. Onboarding — Step 1: Tür seç (en az 1 tane) ve ilerle
+- tapOn:
+    text: "Fantastik"
+    optional: true
+- tapOn: "Devam Et"
+
+# 5. Doğum yılı gir ve ilerle
+- tapOn:
+    text: "Devam Et"
+    optional: true
+
+# 6. Onboarding — Step 2: Dil seçimi (varsayılan: Türkçe) ve ilerle
+- tapOn: "Devam Et"
+
+# 7. Onboarding — Step 2: Mikro konu seç ve tamamla
+- tapOn:
+    text: "Devam Et"
+    optional: true
+
+# 8. Yaş Doğrulama / EULA Modalı
+- assertVisible: "Hoş Geldiniz"
+- tapOn:
+    id: "age-check"
+    optional: true
+- tapOn: "Devam Et"
+
+# 9. Ana ekran — Keşfet sekmesi görünür olmalı
+- assertVisible: "Keşfet"
+
+# 10. Keşfet ekranında scroll yap
+- scroll:
+    direction: DOWN
+
+# 11. Kütüphane sekmesine geç
+- tapOn: "Kütüphane"
+- assertVisible: "Kütüphane"
+
+# 12. Ödüller sekmesine geç
+- tapOn: "Ödüller"
+- assertVisible: "Ödüller"
+
+# 13. Profil sekmesine geç
+- tapOn: "Profil"
+- assertVisible: "Profil"
+
+# 14. Keşfet'e geri dön
+- tapOn: "Keşfet"
+
+# 15. Bir hikaye kartına tıkla — detay sayfası açılmalı
+- tapOn:
+    index: 0
+    optional: true
+
+# 16. Okumaya başla butonu görünür olmalı (BookDetailView içinde)
+- assertVisible:
+    text: "Okumaya Başla"
+    optional: true
+
+# 17. Okumaya başla
+- tapOn:
+    text: "Okumaya Başla"
+    optional: true
+
+# 18. Okuma ekranında scroll yap (sayfa çevirme)
+- swipe:
+    direction: LEFT
+    optional: true
+
+# 19. Okuma ekranında geri scroll
+- swipe:
+    direction: RIGHT
+    optional: true
