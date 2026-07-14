@@ -53,17 +53,17 @@ appId: com.prompthavenstudio.aurastories
 # 10. Keşfet ekranında scroll yap
 - scroll
 
-# 11. Kütüphane sekmesine geç
-- tapOn: "Kütüphane"
-- assertVisible: "Kütüphane"
+# 11. Kitaplık sekmesine geç
+- tapOn: "Kitaplık"
+- assertVisible: "Kitaplık"
 
 # 12. Ödüller sekmesine geç
 - tapOn: "Ödüller"
 - assertVisible: "Ödüller"
 
-# 13. Profil sekmesine geç
-- tapOn: "Profil"
-- assertVisible: "Profil"
+# 13. Ben sekmesine geç
+- tapOn: "Ben"
+- assertVisible: "Ben"
 
 # 14. Keşfet'e geri dön
 - tapOn: "Keşfet"
