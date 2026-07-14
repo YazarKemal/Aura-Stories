@@ -11,6 +11,8 @@
 
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-static';
+
 // ── GET: Statik bilgi yanıtı ──────────────────────────────────
 
 export function GET() {
