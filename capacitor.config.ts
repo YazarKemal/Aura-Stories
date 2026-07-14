@@ -9,8 +9,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     AdMob: {
-      appIdAndroid: 'ca-app-pub-7771069325721053~XXXXXXXXXX',
-      appIdIos: 'ca-app-pub-7771069325721053~YYYYYYYYYY',
+      // Google resmi test App ID'leri — production'da gerçek ID'lerle değiştir
+      appIdAndroid: 'ca-app-pub-3940256099942544~3347511713',
+      appIdIos: 'ca-app-pub-3940256099942544~1458002511',
     },
   },
 };
