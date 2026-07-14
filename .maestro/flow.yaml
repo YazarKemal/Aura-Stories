@@ -10,31 +10,25 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 5000
 
-# 3. Onboarding — Step 1: Cinsiyet seç
-- assertVisible: "Devam Et"
+# 3. Onboarding — Step 1: Cinsiyet seç (önce seçim yap, buton aşağıda)
 - tapOn:
     text: "Kadın"
     optional: true
-- tapOn: "Devam Et"
 
-# 4. Onboarding — Step 1: Tür seç (en az 1 tane) ve ilerle
+# 4. İlgi alanı seç (en az 1 tane gerekli)
 - tapOn:
     text: "Fantastik"
     optional: true
+
+# 5. Ekranı aşağı kaydır — "Devam Et" butonu altta
+- scroll
+
+# 6. Step 1'den Step 2'ye geç
 - tapOn: "Devam Et"
 
-# 5. Doğum yılı gir ve ilerle
-- tapOn:
-    text: "Devam Et"
-    optional: true
-
-# 6. Onboarding — Step 2: Dil seçimi (varsayılan: Türkçe) ve ilerle
+# 7. Onboarding — Step 2: Dil ve mikro konu (varsayılanlarla devam)
+- scroll
 - tapOn: "Devam Et"
-
-# 7. Onboarding — Step 2: Mikro konu seç ve tamamla
-- tapOn:
-    text: "Devam Et"
-    optional: true
 
 # 8. Yaş Doğrulama / EULA Modalı
 - assertVisible: "Hoş Geldiniz"
