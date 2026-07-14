@@ -26,26 +26,26 @@ appId: com.prompthavenstudio.aurastories
     optional: true
 - inputText: "1995"
 
-# 6. "Devam Et" butonunu bulana kadar scroll yap ve tıkla
+# 6. "Devam" butonunu bulana kadar scroll yap ve tıkla
 - scrollUntilVisible:
     element:
-      text: "Devam Et"
+      text: "Devam"
     direction: DOWN
-- tapOn: "Devam Et"
+- tapOn: "Devam"
 
 # 7. Onboarding — Step 2: Dil ve mikro konu (varsayılanlarla devam)
 - scrollUntilVisible:
     element:
-      text: "Devam Et"
+      text: "Devam"
     direction: DOWN
-- tapOn: "Devam Et"
+- tapOn: "Devam"
 
 # 8. Yaş Doğrulama / EULA Modalı
 - assertVisible: "Hoş Geldiniz"
 - tapOn:
     id: "age-check"
     optional: true
-- tapOn: "Devam Et"
+- tapOn: "Devam"
 
 # 9. Ana ekran — Keşfet sekmesi görünür olmalı
 - assertVisible: "Keşfet"
