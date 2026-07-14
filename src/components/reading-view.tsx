@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Story } from '@/lib/types';
 import { 
   ArrowLeft, 
@@ -70,6 +71,15 @@ import { Input } from '@/components/ui/input';
 import { useNetwork, fetchWithTimeout } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
 
+const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  ),
+});
+
 interface ReadingViewProps {
   story: Story;
   onBack: () => void;
@@ -100,7 +110,7 @@ const DUMMY_COMMENTS = [
 type ReadingTheme = 'light' | 'sepia' | 'dark';
 type LineSpacing = 'narrow' | 'normal' | 'wide';
 type FontFamily = 'system' | 'bitter' | 'alef';
-type ReadingMode = 'scroll' | 'swipe';
+type ReadingMode = 'scroll' | 'swipe' | 'flip';
 
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
@@ -146,6 +156,24 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>('normal');
   const [fontFamily, setFontFamily] = useState<FontFamily>('system');
   const [readingMode, setReadingMode] = useState<ReadingMode>('scroll');
+
+  const paragraphs = [
+    "Gece, İstanbul'un üzerine bir yorgan gibi serilmişti. Sokak lambalarının cılız ışığı, ıslak kaldırımlarda titrek yansımalar oluşturuyordu. Genç kadın, elindeki eski anahtarı titreyen parmaklarıyla kapı kilidine soktu. İçeriden gelen küf ve toz kokusu, yıllardır açılmamış bir sırrın habercisiydi.",
+    "Adımını içeri attığında, zemindeki tahtaların gıcırtısı sessizliği bıçak gibi kesti. Kalbi göğüs kafesine sığmıyordu. Burası, dedesinin ona miras bıraktığı, ancak vasiyetinde 'asla açma' dediği o odaydı. Merak, korkudan her zaman daha ağır basardı.",
+    "Masanın üzerindeki gaz lambasını yaktı. Işığın yayılmasıyla birlikte odanın köşelerinde saklanan gölgeler geri çekildi. Tam karşısında duran devasa yağlı boya tablo, sanki onu izliyordu. Tablodaki adamın gözleri, canlıymışçasına derin bir hüzün ve öfke barındırıyordu.",
+    "Parmağını tablonun çerçevesinde gezdirdiğinde, eline sert bir çıkıntı çarptı. Bir düğme ya da bir kilit mekanizması olabilir miydi? Hafifçe bastırdığında, tablonun arkasındaki duvar yavaşça yana kaydı. Gizli bir bölme... Ve içinde deri ciltli, üzerinde gümüş bir mühür bulunan o defter.",
+    "Mühürü kırmak için elini uzattığında, dışarıdan gelen ani bir fren sesiyle irkildi. Siyah bir lüks araç konağın önünde durmuştu. İçinden çıkan Demir Ağa, ağır adımlarla kapıya yöneldi. O an anladı ki, bu defter sadece bir anı değil, tehlikeli bir oyunun ilk parçasıydı.",
+  ];
+
+  // Flip modu için tüm paragrafları tek bir dizide topla
+  const allParagraphs = useMemo(() => {
+    const all: string[] = [...paragraphs];
+    for (const ch of generatedChapters) {
+      const chParas = ch.content.split('\n\n').filter(p => p.trim());
+      all.push(...chParas);
+    }
+    return all;
+  }, [generatedChapters]);
 
   // Immersive Mode — tap center to toggle UI visibility
   const [isUIVisible, setIsUIVisible] = useState(true);
@@ -251,14 +279,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }
     return () => container?.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const paragraphs = [
-    "Gece, İstanbul'un üzerine bir yorgan gibi serilmişti. Sokak lambalarının cılız ışığı, ıslak kaldırımlarda titrek yansımalar oluşturuyordu. Genç kadın, elindeki eski anahtarı titreyen parmaklarıyla kapı kilidine soktu. İçeriden gelen küf ve toz kokusu, yıllardır açılmamış bir sırrın habercisiydi.",
-    "Adımını içeri attığında, zemindeki tahtaların gıcırtısı sessizliği bıçak gibi kesti. Kalbi göğüs kafesine sığmıyordu. Burası, dedesinin ona miras bıraktığı, ancak vasiyetinde 'asla açma' dediği o odaydı. Merak, korkudan her zaman daha ağır basardı.",
-    "Masanın üzerindeki gaz lambasını yaktı. Işığın yayılmasıyla birlikte odanın köşelerinde saklanan gölgeler geri çekildi. Tam karşısında duran devasa yağlı boya tablo, sanki onu izliyordu. Tablodaki adamın gözleri, canlıymışçasına derin bir hüzün ve öfke barındırıyordu.",
-    "Parmağını tablonun çerçevesinde gezdirdiğinde, eline sert bir çıkıntı çarptı. Bir düğme ya da bir kilit mekanizması olabilir miydi? Hafifçe bastırdığında, tablonun arkasındaki duvar yavaşça yana kaydı. Gizli bir bölme... Ve içinde deri ciltli, üzerinde gümüş bir mühür bulunan o defter.",
-    "Mühürü kırmak için elini uzattığında, dışarıdan gelen ani bir fren sesiyle irkildi. Siyah bir lüks araç konağın önünde durmuştu. İçinden çıkan Demir Ağa, ağır adımlarla kapıya yöneldi. O an anladı ki, bu defter sadece bir anı değil, tehlikeli bir oyunun ilk parçasıydı.",
-  ];
 
   const handleParaClick = (text: string) => {
     if (selectedQuote === text) {
@@ -553,9 +573,12 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         "fixed inset-0 z-[200] animate-in fade-in duration-500 transition-colors duration-500",
         isHorizontal && "overflow-x-auto overflow-y-hidden snap-x snap-mandatory",
         readingMode === 'scroll' && "overflow-y-auto no-scrollbar",
+        readingMode === 'flip' && "overflow-hidden flex flex-col",
         themeColors[readingTheme]
       )}
       onClick={(e) => {
+        // Flip modunda sayfa çevirme ile çakışmaması için center-tap kapalı
+        if (readingMode === 'flip') return;
         // Only toggle UI / clear quote when clicking on empty background
         const target = e.target as HTMLElement;
         if (target.closest('button, header, [role="button"], [role="menuitem"], [role="dialog"], a, input, textarea, select, [data-radix-popper-content-wrapper], [data-radix-collection-item]')) {
@@ -688,6 +711,28 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         }}
       />
 
+      {/* ── 3D FlipBook Mode ────────────────────────────────── */}
+      {readingMode === 'flip' && (
+        <div
+          className="flex-1 flex items-center justify-center w-full px-2 pt-16 pb-24"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <FlipBook
+            paragraphs={allParagraphs}
+            fontSize={fontSize[0]}
+            lineSpacing={lineSpacing}
+            readingTheme={readingTheme}
+            fontFamily={fontFamily}
+            isDyslexic={isDyslexic}
+            onPageChange={(page) => {
+              // Sayfa değişimini takip et (ileride analytics/progress için)
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── Scroll / Swipe Article ─────────────────────────── */}
+      {readingMode !== 'flip' && (
       <article
         className={cn(
           !isHorizontal && "pb-40 max-w-md mx-auto relative",
@@ -1048,6 +1093,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           )}
         </div>
       </article>
+      )}
 
       {/* Floating Buttons Group */}
       <div
@@ -1468,6 +1514,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 {([
                   { id: 'scroll' as ReadingMode, label: 'Dikey', icon: '↕' },
                   { id: 'swipe' as ReadingMode, label: 'Yatay', icon: '↔' },
+                  { id: 'flip' as ReadingMode, label: '3D Kitap', icon: '📖' },
                 ]).map((mode) => (
                   <button
                     key={mode.id}
