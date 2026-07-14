@@ -108,28 +108,32 @@ appId: com.prompthavenstudio.aurastories
 - tapOn:
     point: "92%,5%"
 
-# 25. Tipografi paneli açıldı — "Satır Aralığı" görünür olmalı
-- assertVisible: "Satır Aralığı"
+# 25. Panel animasyonunun bitmesini bekle (slide-in 500ms)
+- waitForAnimationToEnd:
+    timeout: 2000
 
-# 26. Yazı tipini değiştir — "Bitter" fontuna geç
+# 26. Tipografi paneli açıldı — "Yazı Tipi" başlığı görünür olmalı
+- assertVisible: "Yazı Tipi"
+
+# 27. Yazı tipini değiştir — "Bitter" fontuna geç
 - tapOn: "Bitter"
 
-# 27. Satır aralığını "Geniş" yap
+# 28. Satır aralığını "Geniş" yap
 - tapOn: "Geniş"
 
-# 28. Tipografi panelini kapat (panel dışına tıkla)
+# 29. Tipografi panelini kapat (panel dışına tıkla)
 - tapOn:
     point: "50%,80%"
 
-# ── 29. Header'ı kapat (ekran ortasına tıkla) ──────────────
+# ── 30. Header'ı kapat (ekran ortasına tıkla) ──────────────
 - tapOn:
     point: "50%,50%"
 
-# ── 30. Header'ı tekrar aç ve geri dön ──────────────────────
+# ── 31. Header'ı tekrar aç ve geri dön ──────────────────────
 - tapOn:
     point: "50%,50%"
 - assertVisible: "Bölüm 1"
 
-# 31. Geri tuşu — sol üst köşe ArrowLeft
+# 32. Geri tuşu — sol üst köşe ArrowLeft
 - tapOn:
     point: "5%,5%"
