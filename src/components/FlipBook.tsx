@@ -112,10 +112,14 @@ export function FlipBook({
     return Math.floor(charsPerLine * linesPerPage * 0.85); // %85 kullanım
   }, [fontSize, lineSpacing, isDyslexic]);
 
-  const pages = useMemo(
-    () => paginateContent(paragraphs, estimatedCharsPerPage),
-    [paragraphs, estimatedCharsPerPage]
-  );
+  const pages = useMemo(() => {
+    const raw = paginateContent(paragraphs, estimatedCharsPerPage);
+    // react-pageflip: her yaprağın ön + arka yüzü olmalı, tek sayıda sayfa son yaprağı bozar
+    if (raw.length % 2 !== 0) {
+      raw.push([]);
+    }
+    return raw;
+  }, [paragraphs, estimatedCharsPerPage]);
 
   const lineHeight = isDyslexic
     ? '2'
@@ -150,7 +154,7 @@ export function FlipBook({
         usePortrait={singlePage}
         startZIndex={0}
         autoSize
-        maxShadowOpacity={0.5}
+        maxShadowOpacity={0.4}
         showCover={false}
         mobileScrollSupport={false}
         clickEventForward
@@ -175,6 +179,7 @@ export function FlipBook({
             )}
             style={{
               fontFamily: fontFamilyStyle,
+              willChange: 'transform',
             }}
           >
             {pageParagraphs.map((para, pIdx) => {
@@ -193,7 +198,7 @@ export function FlipBook({
                   fontFamily: fontFamilyStyle,
                 }}
                 className={cn(
-                  'leading-relaxed transition-all duration-500',
+                  'leading-relaxed',
                   !isDyslexic && fontFamily === 'system' && 'font-serif'
                 )}
               >
