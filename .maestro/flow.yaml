@@ -45,7 +45,7 @@ appId: com.prompthavenstudio.aurastories
 - tapOn:
     id: "age-check"
     optional: true
-- tapOn: "Devam"
+- tapOn: "Devam Et"
 
 # 9. Ana ekran — Keşfet sekmesi görünür olmalı
 - assertVisible: "Keşfet"
