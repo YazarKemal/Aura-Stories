@@ -12,6 +12,7 @@ import { useUserState } from '@/lib/user-state';
 import { useToast } from '@/hooks/use-toast';
 import { loadChatHistory, saveChatMessage, type ChatMessage } from '@/lib/firebase';
 import { useNetwork } from '@/hooks/use-network';
+import { sendChatMessage } from '@/lib/chat-client';
 
 interface CharacterChatViewProps {
   story: Story;
@@ -122,28 +123,18 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           sender: m.sender,
         }));
 
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyId: story.id,
-          storyTitle: story.title,
-          storySynopsis: story.synopsis,
-          storyLongSynopsis: story.longSynopsis,
-          storyTags: story.tags,
-          storyAuthor: story.author,
-          characterName: char.name,
-          messages: conversationMessages,
-        }),
+      const result = await sendChatMessage({
+        storyId: story.id,
+        storyTitle: story.title,
+        storySynopsis: story.synopsis,
+        storyLongSynopsis: story.longSynopsis,
+        storyTags: story.tags,
+        storyAuthor: story.author,
+        characterName: char.name,
+        messages: conversationMessages,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || `API hatası (${res.status})`);
-      }
-
-      return { text: data.text, memoryUpdates: data.memoryUpdates };
+      return { text: result.text, memoryUpdates: result.memoryUpdates };
     },
     [story, char.name]
   );
