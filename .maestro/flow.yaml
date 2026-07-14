@@ -47,8 +47,7 @@ appId: com.prompthavenstudio.aurastories
 - assertVisible: "Keşfet"
 
 # 10. Keşfet ekranında scroll yap
-- scroll:
-    direction: DOWN
+- scroll
 
 # 11. Kütüphane sekmesine geç
 - tapOn: "Kütüphane"
@@ -80,12 +79,10 @@ appId: com.prompthavenstudio.aurastories
     text: "Okumaya Başla"
     optional: true
 
-# 18. Okuma ekranında scroll yap (sayfa çevirme)
+# 18. Okuma ekranında swipe (sayfa çevirme)
 - swipe:
     direction: LEFT
-    optional: true
 
-# 19. Okuma ekranında geri scroll
+# 19. Okuma ekranında geri swipe
 - swipe:
     direction: RIGHT
-    optional: true
