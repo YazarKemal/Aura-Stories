@@ -644,6 +644,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           readingTheme === 'dark' ? "bg-[#161823]/90 border-zinc-800" : "bg-white/80 border-black/10"
         )}
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <button
           onClick={(e) => { e.stopPropagation(); onBack(); }}
@@ -1101,6 +1102,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           isUIVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
         )}
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {/* Ambient Sound Button */}
         <button

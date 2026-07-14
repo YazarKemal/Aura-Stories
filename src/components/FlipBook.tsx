@@ -163,23 +163,27 @@ export function FlipBook({
           onPageChange?.(e.data);
         }}
       >
-        {pages.map((pageParagraphs, pageIdx) => (
+        {pages.map((pageParagraphs, pageIdx) => {
+          const isFirstPage = pageIdx === 0;
+
+          return (
           <div
             key={pageIdx}
             className={cn(
-              'p-5 flex flex-col gap-3 overflow-y-auto',
+              'px-6 pt-4 pb-24 flex flex-col gap-3 overflow-y-auto',
               themePageBg[readingTheme]
             )}
             style={{
               fontFamily: fontFamilyStyle,
             }}
           >
-            {/* Sayfa numarası */}
-            <span className="text-[9px] font-bold text-muted-foreground/40 text-right select-none">
-              {pageIdx + 1}
-            </span>
+            {pageParagraphs.map((para, pIdx) => {
+              const isFirstPara = isFirstPage && pIdx === 0;
+              // Drop cap: ilk sayfanın ilk paragrafının ilk karakterini span ile büyüt
+              const dropChar = isFirstPara ? para.charAt(0) : null;
+              const restText = isFirstPara ? para.slice(1) : para;
 
-            {pageParagraphs.map((para, pIdx) => (
+              return (
               <p
                 key={pIdx}
                 style={{
@@ -190,22 +194,32 @@ export function FlipBook({
                 }}
                 className={cn(
                   'leading-relaxed transition-all duration-500',
-                  !isDyslexic && fontFamily === 'system' && 'font-serif',
-                  pageIdx === 0 && pIdx === 0 && 'first-letter:text-4xl first-letter:font-headline first-letter:mr-1 first-letter:float-left'
+                  !isDyslexic && fontFamily === 'system' && 'font-serif'
                 )}
               >
-                {para}
+                {dropChar ? (
+                  <>
+                    <span className="float-left text-4xl font-headline font-black mr-1.5 leading-[0.85]">
+                      {dropChar}
+                    </span>
+                    {restText}
+                  </>
+                ) : (
+                  para
+                )}
               </p>
-            ))}
+              );
+            })}
 
-            {/* Alt kenar sayfa numarası */}
+            {/* Alt kenar sayfa sayacı */}
             <div className="mt-auto pt-4">
               <span className="text-[9px] font-bold text-muted-foreground/30 select-none">
                 {pageIdx + 1} / {pages.length}
               </span>
             </div>
           </div>
-        ))}
+          );
+        })}
       </HTMLFlipBook>
     </div>
   );
