@@ -78,6 +78,21 @@ appId: com.prompthavenstudio.aurastories
 # 17. Hikaye detay sayfası — "Okumaya Başla" butonu (fixed bottom bar)
 - assertVisible: "Okumaya Başla"
 
-# 18. Detaydan Keşfet'e geri dön (sol üst köşe ArrowLeft butonu)
-- tapOn:
-    point: "8%,5%"
+# ═══════════════════════════════════════════════════════════════
+# HİKAYE OKUMA TESTİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── 18. Okumaya başla ──────────────────────────────────────
+- tapOn: "Okumaya Başla"
+
+# 19. Okuma ekranının yüklenmesini bekle
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ── 20. Sayfa Çevirme Testi: Soldan sağa swipe ─────────────
+- swipe:
+    direction: LEFT
+
+# 21. Sağdan sola swipe — geri sayfaya dön
+- swipe:
+    direction: RIGHT
