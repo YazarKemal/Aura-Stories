@@ -9,6 +9,8 @@ import {
   LearnedFact,
 } from '@/lib/lore-memory';
 
+export const dynamic = 'force-dynamic';
+
 // ── Types ────────────────────────────────────────────────────
 
 interface ChatMessage {
