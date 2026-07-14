@@ -89,10 +89,47 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 3000
 
-# ── 20. Sayfa Çevirme Testi: Soldan sağa swipe ─────────────
+# ── 20. Sayfa Çevirme Testi: Sola swipe (sonraki sayfa) ────
 - swipe:
     direction: LEFT
 
-# 21. Sağdan sola swipe — geri sayfaya dön
+# 21. Sağa swipe — geri sayfaya dön
 - swipe:
     direction: RIGHT
+
+# ── 22. Menü Kontrolü: Ekran ortasına tıkla → header açılır ─
+- tapOn:
+    point: "50%,50%"
+
+# 23. Header'daki "Bölüm 1" yazısı görünür olmalı
+- assertVisible: "Bölüm 1"
+
+# ── 24. Tipografi Paneli: T ikonuna tıkla (header sağ üst) ──
+- tapOn:
+    point: "92%,5%"
+
+# 25. Tipografi paneli açıldı — "Satır Aralığı" görünür olmalı
+- assertVisible: "Satır Aralığı"
+
+# 26. Yazı tipini değiştir — "Bitter" fontuna geç
+- tapOn: "Bitter"
+
+# 27. Satır aralığını "Geniş" yap
+- tapOn: "Geniş"
+
+# 28. Tipografi panelini kapat (panel dışına tıkla)
+- tapOn:
+    point: "50%,80%"
+
+# ── 29. Header'ı kapat (ekran ortasına tıkla) ──────────────
+- tapOn:
+    point: "50%,50%"
+
+# ── 30. Header'ı tekrar aç ve geri dön ──────────────────────
+- tapOn:
+    point: "50%,50%"
+- assertVisible: "Bölüm 1"
+
+# 31. Geri tuşu — sol üst köşe ArrowLeft
+- tapOn:
+    point: "5%,5%"
