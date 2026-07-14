@@ -156,6 +156,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>('normal');
   const [fontFamily, setFontFamily] = useState<FontFamily>('system');
   const [readingMode, setReadingMode] = useState<ReadingMode>('scroll');
+  const [pageView, setPageView] = useState<'single' | 'double'>('single');
 
   const paragraphs = [
     "Gece, İstanbul'un üzerine bir yorgan gibi serilmişti. Sokak lambalarının cılız ışığı, ıslak kaldırımlarda titrek yansımalar oluşturuyordu. Genç kadın, elindeki eski anahtarı titreyen parmaklarıyla kapı kilidine soktu. İçeriden gelen küf ve toz kokusu, yıllardır açılmamış bir sırrın habercisiydi.",
@@ -713,10 +714,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* ── 3D FlipBook Mode ────────────────────────────────── */}
       {readingMode === 'flip' && (
-        <div
-          className="flex-1 flex items-center justify-center w-full px-2 pt-16 pb-24"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex-1 flex items-center justify-center w-full px-1 pt-16 pb-20 touch-auto">
           <FlipBook
             paragraphs={allParagraphs}
             fontSize={fontSize[0]}
@@ -724,6 +722,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
             readingTheme={readingTheme}
             fontFamily={fontFamily}
             isDyslexic={isDyslexic}
+            singlePage={pageView === 'single'}
             onPageChange={(page) => {
               // Sayfa değişimini takip et (ileride analytics/progress için)
             }}
@@ -1532,6 +1531,33 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 ))}
               </div>
             </div>
+
+            {/* Page View — sadece 3D Kitap modunda görünür */}
+            {readingMode === 'flip' && (
+              <div className="space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Görünüm</span>
+                <div className="flex items-center gap-2">
+                  {([
+                    { id: 'single' as const, label: 'Tek Sayfa', icon: '📄' },
+                    { id: 'double' as const, label: 'Çift Sayfa', icon: '📖' },
+                  ]).map((view) => (
+                    <button
+                      key={view.id}
+                      onClick={() => setPageView(view.id)}
+                      className={cn(
+                        'flex-1 py-3 rounded-xl font-bold transition-all border-2 flex flex-col items-center gap-1 active:scale-95',
+                        pageView === view.id
+                          ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                          : 'border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                      )}
+                    >
+                      <span className="text-lg">{view.icon}</span>
+                      <span className="text-[10px]">{view.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

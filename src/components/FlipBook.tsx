@@ -16,6 +16,8 @@ interface FlipBookProps {
   readingTheme: ReadingTheme;
   fontFamily: FontFamily;
   isDyslexic: boolean;
+  /** true → tek sayfa (portrait), false → çift sayfa (landscape) */
+  singlePage: boolean;
   /** Her sayfada gösterilecek maksimum yaklaşık karakter sayısı */
   charsPerPage?: number;
   onPageChange?: (page: number) => void;
@@ -98,6 +100,7 @@ export function FlipBook({
   readingTheme,
   fontFamily,
   isDyslexic,
+  singlePage,
   charsPerPage,
   onPageChange,
 }: FlipBookProps) {
@@ -144,16 +147,16 @@ export function FlipBook({
         drawShadow
         showPageCorners
         flippingTime={800}
-        usePortrait={false}
+        usePortrait={singlePage}
         startZIndex={0}
         autoSize
         maxShadowOpacity={0.5}
         showCover={false}
-        mobileScrollSupport
+        mobileScrollSupport={false}
         clickEventForward
         useMouseEvents
         disableFlipByClick={false}
-        swipeDistance={30}
+        swipeDistance={20}
         style={{}}
         className=""
         onFlip={(e: any) => {
