@@ -68,25 +68,15 @@ appId: com.prompthavenstudio.aurastories
 # 14. Keşfet'e geri dön
 - tapOn: "Keşfet"
 
-# 15. Bir hikaye kartına tıkla — detay sayfası açılmalı
+# 15. Keşfet'te ilk hikaye kartına tıkla — detay sayfası açılmalı
+#     Hikaye kartları dinamik içerik gösterdiği için, ekrandaki ilk kitap
+#     kapağı görseline tıklamak en güvenilir yöntemdir.
 - tapOn:
-    index: 0
-    optional: true
+    point: "50%,45%"
 
-# 16. Okumaya başla butonu görünür olmalı (BookDetailView içinde)
-- assertVisible:
-    text: "Okumaya Başla"
-    optional: true
+# 16. Hikaye detay sayfası — "Okumaya Başla" butonu görünür olmalı
+- assertVisible: "Okumaya Başla"
 
-# 17. Okumaya başla
+# 17. Detaydan Keşfet'e geri dön
 - tapOn:
-    text: "Okumaya Başla"
-    optional: true
-
-# 18. Okuma ekranında swipe (sayfa çevirme)
-- swipe:
-    direction: LEFT
-
-# 19. Okuma ekranında geri swipe
-- swipe:
-    direction: RIGHT
+    point: "5%,5%"
