@@ -68,15 +68,16 @@ appId: com.prompthavenstudio.aurastories
 # 14. Keşfet'e geri dön
 - tapOn: "Keşfet"
 
-# 15. Keşfet'te ilk hikaye kartına tıkla — detay sayfası açılmalı
-#     Hikaye kartları dinamik içerik gösterdiği için, ekrandaki ilk kitap
-#     kapağı görseline tıklamak en güvenilir yöntemdir.
-- tapOn:
-    point: "50%,45%"
+# 15. Keşfet'te "Gece Yarısı Güneşi" hikaye kartına tıkla
+- tapOn: "Gece Yarısı Güneşi"
 
-# 16. Hikaye detay sayfası — "Okumaya Başla" butonu görünür olmalı
+# 16. Detay sayfası animasyonunun bitmesini bekle (slide-in 500ms)
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# 17. Hikaye detay sayfası — "Okumaya Başla" butonu (fixed bottom bar)
 - assertVisible: "Okumaya Başla"
 
-# 17. Detaydan Keşfet'e geri dön
+# 18. Detaydan Keşfet'e geri dön (sol üst köşe ArrowLeft butonu)
 - tapOn:
-    point: "5%,5%"
+    point: "8%,5%"
