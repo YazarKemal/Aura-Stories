@@ -88,6 +88,8 @@ appId: com.prompthavenstudio.aurastories
 # 19. Detaydan Keşfet'e dön
 - tapOn:
     point: "8%,5%"
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # 20. Kitaplık sekmesine geç
 - tapOn: "Kitaplık"
@@ -107,6 +109,8 @@ appId: com.prompthavenstudio.aurastories
 # 24. Detaydan Keşfet'e dön
 - tapOn:
     point: "8%,5%"
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # 25. Keşfet'ten hikayeye tekrar gir (okuma testine hazırlık)
 - tapOn: "Keşfet"
