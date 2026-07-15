@@ -8,19 +8,13 @@ appId: com.prompthavenstudio.aurastories
     timeout: 5000
 
 # ── 1. Cinsiyet seç ─────────────────────────────────────────
-- tapOn:
-    text: "Kadın"
-    optional: true
+- tapOn: "Kadın"
 
 # ── 2. İlgi alanı seç ───────────────────────────────────────
-- tapOn:
-    text: "Fantastik"
-    optional: true
+- tapOn: "Fantastik"
 
 # ── 3. Doğum yılı gir ───────────────────────────────────────
-- tapOn:
-    text: "YYYY"
-    optional: true
+- tapOn: "YYYY"
 - inputText: "1995"
 
 # ── 4. Step 1 → Step 2 ──────────────────────────────────────
