@@ -3,6 +3,10 @@
 
 appId: com.prompthavenstudio.aurastories
 ---
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 5000
+
 - runFlow: ../flows/onboarding.yaml
 
 # ═══════════════════════════════════════════════════════════════

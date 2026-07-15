@@ -3,7 +3,9 @@
 
 appId: com.prompthavenstudio.aurastories
 ---
-- runFlow: ../config.yaml
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 5000
 
 # ── 1. Cinsiyet seç ─────────────────────────────────────────
 - tapOn:

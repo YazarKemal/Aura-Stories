@@ -1,6 +1,0 @@
-# Ortak setup — tüm flow'lar tarafından import edilir
-# Kullanım: - runFlow: ../config.yaml (flow dosyalarından)
-
-- launchApp
-- waitForAnimationToEnd:
-    timeout: 5000
