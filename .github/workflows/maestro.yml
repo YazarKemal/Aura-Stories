@@ -114,9 +114,10 @@ jobs:
 
       - name: Prepare flow workspace
         run: |
-          # Tam .maestro/ yapısını koru (runFlow bağımlılıkları için)
-          # flow.yaml olarak sadece hedef flow'u kopyala
+          # Hedef flow'u flow.yaml yap, diğerlerini sil
+          # (Maestro Cloud workspace'teki TÜM .yaml'leri keşfedip çalıştırır)
           cp .maestro/flows/${{ matrix.flow }}.yaml .maestro/flow.yaml
+          rm -rf .maestro/flows
 
       - name: Run Maestro Cloud — ${{ matrix.flow }}
         uses: mobile-dev-inc/action-maestro-cloud@v3.0.1
