@@ -128,6 +128,8 @@ appId: com.prompthavenstudio.aurastories
 # ── 30. Header'ı tekrar aç ve geri dön ──────────────────────
 - tapOn:
     point: "50%,50%"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Bölüm 1"
 
 # 31. Geri dön (aria-label: Geri dön) ─────────────────────────
