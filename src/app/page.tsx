@@ -350,7 +350,7 @@ export default function Home() {
       {isReading && selectedStory && (
         <ReadingView 
           story={selectedStory} 
-          onBack={() => setIsReading(false)} 
+          onBack={() => { setIsReading(false); setSelectedStory(null); }}
         />
       )}
 
