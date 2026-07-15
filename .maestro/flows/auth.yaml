@@ -1,0 +1,73 @@
+# Auth Flow — login/register modal testi
+# Bağımsız çalışır: maestro test .maestro/flows/auth.yaml
+#
+# Selector'lar (auth-modal.tsx):
+#   Tabs:    "Giriş" (login), "Kayıt" (register)
+#   Inputs:  "E-posta" label, "Şifre" label, "Ad Soyad" label (register only)
+#   Button:  "Giriş Yap" (login mode), "Kayıt Ol" (register mode)
+#   Error:   inline error <p> with text-[10px] text-destructive
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/onboarding.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# AUTH MODAL'ı AÇ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Ben sekmesine git ────────────────────────────────────────
+- tapOn: "Ben"
+- assertVisible: "Ben"
+
+# ── Auth modal'ı aç (Profil ekranında "Giriş Yap" veya ikon)
+#     Not: ProfileScreen'de isAuthModalOpen state'i var,
+#     "Giriş Yap" butonu veya kullanıcı ikonu modal'ı açar
+- tapOn:
+    point: "50%,30%"
+    optional: true
+
+# ── Modal animasyonu ─────────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# ═══════════════════════════════════════════════════════════════
+# LOGIN SEKESİ — hata mesajı testi
+# ═══════════════════════════════════════════════════════════════
+
+# ── "Giriş" sekmesinde olduğumuzu doğrula ────────────────────
+- assertVisible: "Giriş"
+
+# ── Boş form submit → hata mesajı ────────────────────────────
+- tapOn: "Giriş Yap"
+- assertVisible: "Lütfen tüm alanları doldurun."
+
+# ── Geçersiz e-posta dene ────────────────────────────────────
+- tapOn: "E-posta"
+- inputText: "gecersiz@mail.com"
+- tapOn: "Şifre"
+- inputText: "1234"
+- tapOn: "Giriş Yap"
+
+# ═══════════════════════════════════════════════════════════════
+# REGISTER SEKESİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── "Kayıt" sekmesine geç ────────────────────────────────────
+- tapOn: "Kayıt"
+
+# ── Kayıt formunda "Ad Soyad" alanı görünmeli ────────────────
+- assertVisible: "Ad Soyad"
+
+# ── Kayıt formunu doldur ─────────────────────────────────────
+- tapOn: "Ad Soyad"
+- inputText: "Test Kullanıcı"
+- tapOn: "E-posta"
+- inputText: "test@aura.app"
+- tapOn: "Şifre"
+- inputText: "1234"
+
+# ── "Kayıt Ol" butonu görünmeli ──────────────────────────────
+- assertVisible: "Kayıt Ol"
+
+# ── Modal'ı kapat ────────────────────────────────────────────
+- back

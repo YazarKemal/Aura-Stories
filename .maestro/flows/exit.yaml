@@ -1,0 +1,22 @@
+# Exit Flow — okuma ekranından ana ekrana güvenli çıkış
+# Bağımsız çalışır: maestro test .maestro/flows/exit.yaml
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/main-navigation.yaml
+
+# ── Okumaya başla ────────────────────────────────────────────
+- tapOn: "Okumaya Başla"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ── Header'ı aç ──────────────────────────────────────────────
+- tapOn:
+    point: "50%,50%"
+- assertVisible: "Bölüm 1"
+
+# ── Geri dön (aria-label) ────────────────────────────────────
+- tapOn: "Geri dön"
+
+# ── Ana ekrana dönüldüğünü doğrula ───────────────────────────
+- assertVisible: "Keşfet"

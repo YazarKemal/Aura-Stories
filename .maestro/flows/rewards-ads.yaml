@@ -1,0 +1,63 @@
+# Rewards & Ads Flow — ödüller ekranı + reklam izleme
+# Bağımsız çalışır: maestro test .maestro/flows/rewards-ads.yaml
+#
+# Selector'lar (rewards-screen.tsx):
+#   "Jeton" label, kredi sayısı (userState.credits)
+#   "Günlük Görevler" başlığı
+#   "🎁 Ücretsiz Jeton Kazan (Reklam İzle)" — reklam butonu
+#   "Ödülü Al" / "✓ Ödül Alındı" — günlük hediye
+#   "Bugünkü Ödülü Al (+X Jeton)" — streak bonus
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/onboarding.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# ÖDÜLLER EKRANI
+# ═══════════════════════════════════════════════════════════════
+
+# ── Ödüller sekmesine git ────────────────────────────────────
+- tapOn: "Ödüller"
+- assertVisible: "Ödüller"
+
+# ── Jeton bakiyesi görünmeli ─────────────────────────────────
+- assertVisible: "Jeton"
+
+# ── Günlük Görevler başlığı görünmeli ────────────────────────
+- assertVisible: "Günlük Görevler"
+
+# ═══════════════════════════════════════════════════════════════
+# GÜNLÜK HEDİYE
+# ═══════════════════════════════════════════════════════════════
+
+# ── Günlük hediye butonu ("Bugünkü Ödülü Al" veya "✓ Ödül Alındı")
+#     İlk çalıştırmada müsait olur, tekrarlı testlerde alınmış olabilir
+- tapOn:
+    text: "Ödülü Al"
+    optional: true
+
+# ── Günlük hediye alındıysa toast/state değişimi ─────────────
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# ═══════════════════════════════════════════════════════════════
+# REKLAM İZLEME (opsiyonel — AdMob test modunda)
+# ═══════════════════════════════════════════════════════════════
+
+# ── "Ücretsiz Jeton Kazan" bölümüne scroll ──────────────────
+- scrollUntilVisible:
+    element:
+      text: "Ücretsiz Jeton Kazan"
+    direction: DOWN
+    optional: true
+
+# ── Reklam izle butonuna tıkla ───────────────────────────────
+#     Not: AdMob test modunda gerçek reklam gösterilmez,
+#     test ID ile hemen ödül verilir
+- tapOn:
+    text: "Ücretsiz Jeton Kazan"
+    optional: true
+
+# ── Reklam sonrası bekleme ───────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 3000

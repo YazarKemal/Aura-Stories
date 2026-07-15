@@ -1,204 +1,134 @@
-# Maestro Flow — Aura Stories UI Test Senaryosu
-# Maestro Cloud CI ile çalışır. Lokalde: maestro test .maestro/flow.yaml
+# Master Flow — onboarding'den çıkışa tam uygulama testi
+# Kullanım: maestro test .maestro/flow.yaml
+#
+# NOT: Bu flow onboarding'i tek seferde çalıştırır, sonra onboarding
+# olmadan devam eden adımları inline olarak içerir.
+# Sub-flow'lar (flows/*.yaml) bağımsız testler içindir — her biri
+# kendi onboarding'ini yapar.
+#
+# Bağımsız modül testleri:
+#   maestro test .maestro/flows/onboarding.yaml
+#   maestro test .maestro/flows/main-navigation.yaml
+#   maestro test .maestro/flows/reading.yaml
+#   maestro test .maestro/flows/sharing.yaml
+#   maestro test .maestro/flows/auth.yaml
+#   maestro test .maestro/flows/rewards-ads.yaml
+#   maestro test .maestro/flows/vip-purchase.yaml
 
 appId: com.prompthavenstudio.aurastories
 ---
-# 1. Uygulamayı başlat
-- launchApp
+- runFlow: config.yaml
 
-# 2. Splash Screen'in geçmesini bekle (2.8s animasyon + buffer)
-- waitForAnimationToEnd:
-    timeout: 5000
+# ═══════════════════════════════════════════════════════════════
+# ONBOARDING
+# ═══════════════════════════════════════════════════════════════
 
-# 3. Onboarding — Step 1: Cinsiyet seç
+# Cinsiyet seç
 - tapOn:
     text: "Kadın"
     optional: true
 
-# 4. İlgi alanı seç (en az 1 tane gerekli)
+# İlgi alanı seç
 - tapOn:
     text: "Fantastik"
     optional: true
 
-# 5. Doğum yılı gir (zorunlu alan — label: "Doğum Yılın", placeholder: YYYY)
+# Doğum yılı gir
 - tapOn:
     text: "YYYY"
     optional: true
 - inputText: "1995"
 
-# 6. "Devam" butonunu bulana kadar scroll yap ve tıkla
+# Step 1 → Step 2
 - scrollUntilVisible:
     element:
       text: "Devam"
     direction: DOWN
 - tapOn: "Devam"
 
-# 7. Onboarding — Step 2: Dil ve mikro konu (varsayılanlarla devam)
+# Step 2 → tamamla
 - scrollUntilVisible:
     element:
       text: "Okumaya Başlayın"
     direction: DOWN
 - tapOn: "Okumaya Başlayın"
 
-# 8. Yaş Doğrulama / EULA Modalı
+# EULA
 - assertVisible: "Hoş Geldiniz"
 - tapOn:
     id: "age-check"
     optional: true
 - tapOn: "Devam Et"
 
-# 9. Ana ekran — Keşfet sekmesi görünür olmalı
+# Ana ekran
 - assertVisible: "Keşfet"
 
-# 10. Keşfet ekranında scroll yap
-- scroll
+# ═══════════════════════════════════════════════════════════════
+# ANA NAVİGASYON + HİKAYE DETAYI + BOOKMARK
+# ═══════════════════════════════════════════════════════════════
 
-# 11. Kitaplık sekmesine geç
+- scroll
 - tapOn: "Kitaplık"
 - assertVisible: "Kitaplık"
-
-# 12. Ödüller sekmesine geç
 - tapOn: "Ödüller"
 - assertVisible: "Ödüller"
-
-# 13. Ben sekmesine geç
 - tapOn: "Ben"
 - assertVisible: "Ben"
-
-# 14. Keşfet'e geri dön
 - tapOn: "Keşfet"
-
-# 15. Keşfet'te "Gece Yarısı Güneşi" hikaye kartına tıkla
 - tapOn: "Gece Yarısı Güneşi"
-
-# 16. Detay sayfası animasyonunun bitmesini bekle (slide-in 500ms)
 - waitForAnimationToEnd:
     timeout: 1000
-
-# 17. Hikaye detay sayfası — "Okumaya Başla" butonu
 - assertVisible: "Okumaya Başla"
 
-# ═══════════════════════════════════════════════════════════════
-# BOOKMARK & KİTAPLIK TESTİ (toast assertions removed — too fast)
-# ═══════════════════════════════════════════════════════════════
-
-# ── 18. Bookmark ekle (aria-label: Yer imi ekle) ─────────────
+# Bookmark ekle → Kitaplık → doğrula → kaldır
 - tapOn: "Yer imi ekle"
-
-# 19. Detaydan Keşfet'e dön
 - back
 - waitForAnimationToEnd:
     timeout: 1000
-
-# 20. Kitaplık sekmesine geç
 - tapOn: "Kitaplık"
 - assertVisible: "Kitaplık"
-
-# 21. Bookmark'lı hikaye kitaplıkta görünmeli
 - assertVisible: "Gece Yarısı Güneşi"
-
-# 22. Kitaplıktan hikayeyi tekrar aç
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 1000
-
-# 23. Bookmark'ı kaldır (aria-label: Yer imi kaldır)
 - tapOn: "Yer imi kaldır"
-
-# 24. Detaydan Keşfet'e dön
 - back
 - waitForAnimationToEnd:
     timeout: 1000
-
-# 25. Keşfet'ten hikayeye tekrar gir (okuma testine hazırlık)
 - tapOn: "Keşfet"
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 1000
 
 # ═══════════════════════════════════════════════════════════════
-# HİKAYE OKUMA TESTİ
+# OKUMA + SAYFA ÇEVİRME + MENÜ/TİPOGRAFİ + ÇIKIŞ
 # ═══════════════════════════════════════════════════════════════
 
-# ── 26. Okumaya başla ──────────────────────────────────────
 - tapOn: "Okumaya Başla"
-
-# 27. Okuma ekranının yüklenmesini bekle
 - waitForAnimationToEnd:
     timeout: 3000
 
-# ═══════════════════════════════════════════════════════════════
-# PAYLAŞMA TESTİ
-# ═══════════════════════════════════════════════════════════════
-
-# ── 28. Paragrafa tek tık → selectedQuote → toolbar'da "Paylaş"
-- tapOn:
-    point: "50%,40%"
-
-# 29. Toolbar animasyonu için kısa bekleme
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# 30. Toolbar'daki "Paylaş" butonuna tıkla
-- tapOn: "Paylaş"
-
-# 31. Paylaşım panelinin animasyonunu bekle
-- waitForAnimationToEnd:
-    timeout: 2000
-
-# 32. "Instagram Hikayesi Oluştur" başlığı
-- assertVisible: "Instagram Hikayesi Oluştur"
-
-# 33. Paneli kapat — "Vazgeç"
-- tapOn: "Vazgeç"
-
-# ═══════════════════════════════════════════════════════════════
-# SAYFA ÇEVİRME TESTİ
-# ═══════════════════════════════════════════════════════════════
-
-# ── 34. Sola swipe (sonraki sayfa)
+# Sayfa çevirme
 - swipe:
     direction: LEFT
-
-# 35. Sağa swipe — geri sayfaya dön
 - swipe:
     direction: RIGHT
 
-# ═══════════════════════════════════════════════════════════════
-# MENÜ & TİPOGRAFİ TESTİ
-# ═══════════════════════════════════════════════════════════════
-
-# ── 36. Ekran ortasına tıkla → header açılır
+# Menü & tipografi
 - tapOn:
     point: "50%,50%"
-
-# 37. Header'daki "Bölüm 1" görünür olmalı
 - assertVisible: "Bölüm 1"
-
-# ── 38. "Yazı tipi ayarları" butonuna tıkla (aria-label)
 - tapOn: "Yazı tipi ayarları"
-
-# 39. Panel animasyonunun bitmesini bekle
 - waitForAnimationToEnd:
     timeout: 2000
-
-# 40. Satır aralığını "Geniş" yap
 - tapOn: "Geniş"
-
-# 41. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
 - tapOn: "Tema karanlık"
-
-# 42. Tipografi panelini kapat (overlay)
 - tapOn:
     point: "50%,2%"
-
-# ── 43. Header'ı kapat
 - tapOn:
     point: "50%,50%"
 
-# ── 44. Header'ı tekrar aç ve geri dön
+# Çıkış
 - tapOn:
     point: "50%,50%"
-
-# 45. Geri dön (aria-label: Geri dön)
 - tapOn: "Geri dön"

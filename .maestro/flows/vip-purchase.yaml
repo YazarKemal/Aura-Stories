@@ -1,0 +1,70 @@
+# VIP Purchase Flow — VIP ekranı + kademe seçimi
+# Bağımsız çalışır: maestro test .maestro/flows/vip-purchase.yaml
+#
+# Selector'lar (vip-screen.tsx):
+#   "VIP AYRICALIKLARI" — perks başlığı
+#   "REKLAM İZLEYEREK VIP KAZAN" — ad-watch section
+#   Tier titles: "1 Günlük VIP", "7 Günlük VIP", "30 Günlük VIP"
+#   "EN AVANTAJLI" badge (7 günlük tier'da)
+#   Perks: "Reklamsız Deneyim", "Aylık 500 Hediye Jeton", etc.
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/onboarding.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# VIP EKRANINA GİRİŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Ben sekmesine git ────────────────────────────────────────
+- tapOn: "Ben"
+- assertVisible: "Ben"
+
+# ── VIP butonuna tıkla (Profil ekranında "VIP" badge/butonu)
+#     ProfileScreen'de onOpenVIP handler'ı var
+- tapOn:
+    point: "50%,25%"
+    optional: true
+
+# ── VIP ekranı animasyonu ────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# ═══════════════════════════════════════════════════════════════
+# VIP EKRANI DOĞRULAMA
+# ═══════════════════════════════════════════════════════════════
+
+# ── VIP ayrıcalıkları başlığı ────────────────────────────────
+- assertVisible: "Reklamsız Deneyim"
+
+# ── Kademe seçenekleri görünmeli ─────────────────────────────
+- assertVisible: "1 Günlük VIP"
+- assertVisible: "7 Günlük VIP"
+- assertVisible: "30 Günlük VIP"
+
+# ═══════════════════════════════════════════════════════════════
+# KADEME SEÇİMİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── "7 Günlük VIP" kademesini seç (varsayılan zaten seçili) ──
+- tapOn: "7 Günlük VIP"
+
+# ── Seçim doğrulama — "EN AVANTAJLI" badge'i ─────────────────
+- assertVisible: "EN AVANTAJLI"
+
+# ── Reklam izle butonu ───────────────────────────────────────
+#     "REKLAM İZLEYEREK VIP KAZAN" bölümünde tier kartına tıkla
+- tapOn: "REKLAM İZLEYEREK VIP KAZAN"
+    optional: true
+
+# ═══════════════════════════════════════════════════════════════
+# ÇIKIŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Geri dön ──────────────────────────────────────────────────
+- back
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# ── Ana ekrana dönüldü ───────────────────────────────────────
+- assertVisible: "Ben"

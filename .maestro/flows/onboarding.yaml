@@ -1,0 +1,46 @@
+# Onboarding Flow — ilk açılış + kullanıcı tercihleri
+# Bağımsız çalışır: maestro test .maestro/flows/onboarding.yaml
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../config.yaml
+
+# ── 1. Cinsiyet seç ─────────────────────────────────────────
+- tapOn:
+    text: "Kadın"
+    optional: true
+
+# ── 2. İlgi alanı seç ───────────────────────────────────────
+- tapOn:
+    text: "Fantastik"
+    optional: true
+
+# ── 3. Doğum yılı gir ───────────────────────────────────────
+- tapOn:
+    text: "YYYY"
+    optional: true
+- inputText: "1995"
+
+# ── 4. Step 1 → Step 2 ──────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      text: "Devam"
+    direction: DOWN
+- tapOn: "Devam"
+
+# ── 5. Step 2 → tamamla ─────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      text: "Okumaya Başlayın"
+    direction: DOWN
+- tapOn: "Okumaya Başlayın"
+
+# ── 6. Yaş Doğrulama / EULA ─────────────────────────────────
+- assertVisible: "Hoş Geldiniz"
+- tapOn:
+    id: "age-check"
+    optional: true
+- tapOn: "Devam Et"
+
+# ── 7. Ana ekran doğrulama ──────────────────────────────────
+- assertVisible: "Keşfet"

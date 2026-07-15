@@ -1,0 +1,39 @@
+# Sharing Flow — paragrafa tıkla → Paylaş → Instagram paneli → kapat
+# Bağımsız çalışır: maestro test .maestro/flows/sharing.yaml
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/main-navigation.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# OKUMA EKRANINA GİRİŞ
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Okumaya Başla"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ═══════════════════════════════════════════════════════════════
+# PAYLAŞMA TESTİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Paragrafa tıkla → selectedQuote → "Paylaş" toolbar'ı ─────
+- tapOn:
+    point: "50%,40%"
+
+# ── Toolbar animasyonu ───────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# ── "Paylaş" butonu ──────────────────────────────────────────
+- tapOn: "Paylaş"
+
+# ── Panel animasyonu ─────────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# ── Instagram paneli doğrulama ───────────────────────────────
+- assertVisible: "Instagram Hikayesi Oluştur"
+
+# ── Paneli kapat ─────────────────────────────────────────────
+- tapOn: "Vazgeç"

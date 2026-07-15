@@ -1,0 +1,72 @@
+# Reading Flow — okuma (FlipBook) + sayfa çevirme + menü/tipografi + çıkış
+# Bağımsız çalışır: maestro test .maestro/flows/reading.yaml
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/main-navigation.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# OKUMA EKRANINA GİRİŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Okumaya başla ────────────────────────────────────────────
+- tapOn: "Okumaya Başla"
+
+# ── FlipBook 3D yükleme ──────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ═══════════════════════════════════════════════════════════════
+# SAYFA ÇEVİRME
+# ═══════════════════════════════════════════════════════════════
+
+# ── Sola swipe (sonraki sayfa) ───────────────────────────────
+- swipe:
+    direction: LEFT
+
+# ── Sağa swipe (önceki sayfa) ────────────────────────────────
+- swipe:
+    direction: RIGHT
+
+# ═══════════════════════════════════════════════════════════════
+# MENÜ & TİPOGRAFİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Center-tap → header aç ───────────────────────────────────
+- tapOn:
+    point: "50%,50%"
+
+# ── Header doğrulama ─────────────────────────────────────────
+- assertVisible: "Bölüm 1"
+
+# ── Tipografi panelini aç (aria-label) ───────────────────────
+- tapOn: "Yazı tipi ayarları"
+
+# ── Panel animasyonu ─────────────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# ── Satır aralığı değiştir ───────────────────────────────────
+- tapOn: "Geniş"
+
+# ── Tema değiştir (aria-label) ───────────────────────────────
+- tapOn: "Tema karanlık"
+
+# ── Paneli kapat ─────────────────────────────────────────────
+- tapOn:
+    point: "50%,2%"
+
+# ── Header'ı kapat ───────────────────────────────────────────
+- tapOn:
+    point: "50%,50%"
+
+# ═══════════════════════════════════════════════════════════════
+# ÇIKIŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Header'ı tekrar aç ───────────────────────────────────────
+- tapOn:
+    point: "50%,50%"
+
+# ── Geri dön (aria-label) ────────────────────────────────────
+- tapOn: "Geri dön"
