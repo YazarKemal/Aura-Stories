@@ -93,10 +93,9 @@ appId: com.prompthavenstudio.aurastories
 # PAYLAŞMA TESTİ
 # ═══════════════════════════════════════════════════════════════
 
-# ── 20. Metne uzun bas → paylaşım menüsü açılır ──────────────
+# ── 20. Metnin üzerine koordinatla uzun bas (sol-orta bölge) ──
 - longPressOn:
-    text: "Gece"
-    optional: true
+    point: "30%,50%"
 
 # 21. Menünün açılmasını bekle
 - waitForAnimationToEnd:
