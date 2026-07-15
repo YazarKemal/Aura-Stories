@@ -1,134 +1,28 @@
-# Master Flow — onboarding'den çıkışa tam uygulama testi
+# Master Flow — tüm test modüllerini sırayla çalıştırır
 # Kullanım: maestro test .maestro/flow.yaml
 #
-# NOT: Bu flow onboarding'i tek seferde çalıştırır, sonra onboarding
-# olmadan devam eden adımları inline olarak içerir.
-# Sub-flow'lar (flows/*.yaml) bağımsız testler içindir — her biri
-# kendi onboarding'ini yapar.
+# Her flow bağımsız çalışır (kendi onboarding'ini yapar).
+# Bu master flow tümünü tek seferde çalıştırır.
 #
 # Bağımsız modül testleri:
 #   maestro test .maestro/flows/onboarding.yaml
 #   maestro test .maestro/flows/main-navigation.yaml
 #   maestro test .maestro/flows/reading.yaml
 #   maestro test .maestro/flows/sharing.yaml
+#   maestro test .maestro/flows/exit.yaml
 #   maestro test .maestro/flows/auth.yaml
 #   maestro test .maestro/flows/rewards-ads.yaml
 #   maestro test .maestro/flows/vip-purchase.yaml
+#   maestro test .maestro/flows/character-chat.yaml
 
 appId: com.prompthavenstudio.aurastories
 ---
-- runFlow: config.yaml
-
-# ═══════════════════════════════════════════════════════════════
-# ONBOARDING
-# ═══════════════════════════════════════════════════════════════
-
-# Cinsiyet seç
-- tapOn:
-    text: "Kadın"
-    optional: true
-
-# İlgi alanı seç
-- tapOn:
-    text: "Fantastik"
-    optional: true
-
-# Doğum yılı gir
-- tapOn:
-    text: "YYYY"
-    optional: true
-- inputText: "1995"
-
-# Step 1 → Step 2
-- scrollUntilVisible:
-    element:
-      text: "Devam"
-    direction: DOWN
-- tapOn: "Devam"
-
-# Step 2 → tamamla
-- scrollUntilVisible:
-    element:
-      text: "Okumaya Başlayın"
-    direction: DOWN
-- tapOn: "Okumaya Başlayın"
-
-# EULA
-- assertVisible: "Hoş Geldiniz"
-- tapOn:
-    id: "age-check"
-    optional: true
-- tapOn: "Devam Et"
-
-# Ana ekran
-- assertVisible: "Keşfet"
-
-# ═══════════════════════════════════════════════════════════════
-# ANA NAVİGASYON + HİKAYE DETAYI + BOOKMARK
-# ═══════════════════════════════════════════════════════════════
-
-- scroll
-- tapOn: "Kitaplık"
-- assertVisible: "Kitaplık"
-- tapOn: "Ödüller"
-- assertVisible: "Ödüller"
-- tapOn: "Ben"
-- assertVisible: "Ben"
-- tapOn: "Keşfet"
-- tapOn: "Gece Yarısı Güneşi"
-- waitForAnimationToEnd:
-    timeout: 1000
-- assertVisible: "Okumaya Başla"
-
-# Bookmark ekle → Kitaplık → doğrula → kaldır
-- tapOn: "Yer imi ekle"
-- back
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn: "Kitaplık"
-- assertVisible: "Kitaplık"
-- assertVisible: "Gece Yarısı Güneşi"
-- tapOn: "Gece Yarısı Güneşi"
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn: "Yer imi kaldır"
-- back
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn: "Keşfet"
-- tapOn: "Gece Yarısı Güneşi"
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# ═══════════════════════════════════════════════════════════════
-# OKUMA + SAYFA ÇEVİRME + MENÜ/TİPOGRAFİ + ÇIKIŞ
-# ═══════════════════════════════════════════════════════════════
-
-- tapOn: "Okumaya Başla"
-- waitForAnimationToEnd:
-    timeout: 3000
-
-# Sayfa çevirme
-- swipe:
-    direction: LEFT
-- swipe:
-    direction: RIGHT
-
-# Menü & tipografi
-- tapOn:
-    point: "50%,50%"
-- assertVisible: "Bölüm 1"
-- tapOn: "Yazı tipi ayarları"
-- waitForAnimationToEnd:
-    timeout: 2000
-- tapOn: "Geniş"
-- tapOn: "Tema karanlık"
-- tapOn:
-    point: "50%,2%"
-- tapOn:
-    point: "50%,50%"
-
-# Çıkış
-- tapOn:
-    point: "50%,50%"
-- tapOn: "Geri dön"
+- runFlow: flows/onboarding.yaml
+- runFlow: flows/main-navigation.yaml
+- runFlow: flows/reading.yaml
+- runFlow: flows/sharing.yaml
+- runFlow: flows/exit.yaml
+- runFlow: flows/auth.yaml
+- runFlow: flows/rewards-ads.yaml
+- runFlow: flows/vip-purchase.yaml
+- runFlow: flows/character-chat.yaml

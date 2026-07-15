@@ -1,0 +1,62 @@
+# Character Chat Flow — AI karakter sohbeti
+# Bağımsız çalışır: maestro test .maestro/flows/character-chat.yaml
+#
+# Selector'lar (character-chat-view.tsx):
+#   Chat giriş:  "Karakter Odası" (BookDetailView Card)
+#   Input:       aria-label "Mesaj yaz"
+#   Send:        aria-label "Mesaj gönder"
+#   AI yanıtı:   extendedWaitUntil ile streaming yanıt beklenir
+
+appId: com.prompthavenstudio.aurastories
+---
+- runFlow: ../flows/main-navigation.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# KARAKTER SOHBETİNE GİRİŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Hikaye detayında "Karakter Odası" kartına tıkla ──────────
+- scrollUntilVisible:
+    element:
+      text: "Karakter Odası"
+    direction: DOWN
+- tapOn: "Karakter Odası"
+
+# ── Chat ekranı animasyonu ───────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# ── Chat başlığı görünmeli (karakter ismi header'da) ─────────
+- assertVisible: "ile Sohbet"
+
+# ═══════════════════════════════════════════════════════════════
+# MESAJ GÖNDERME
+# ═══════════════════════════════════════════════════════════════
+
+# ── Input alanına tıkla ve mesaj yaz ─────────────────────────
+- tapOn: "Mesaj yaz"
+- inputText: "Merhaba, nasılsın?"
+
+# ── Mesajı gönder ────────────────────────────────────────────
+- tapOn: "Mesaj gönder"
+
+# ── AI yanıtını bekle (DeepSeek API ~5-15s) ──────────────────
+#     extendedWaitUntil: belirtilen metin görünene kadar
+#     timeout ile maksimum bekleme süresi
+- extendedWaitUntil:
+    visible:
+      text: "Merhaba, nasılsın?"
+    timeout: 20000
+
+# ═══════════════════════════════════════════════════════════════
+# ÇIKIŞ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Geri dön (sol üst ArrowLeft) ─────────────────────────────
+- tapOn:
+    point: "5%,5%"
+
+# ── Detay sayfasına dönüldü ──────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 1000
+- assertVisible: "Okumaya Başla"

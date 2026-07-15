@@ -408,6 +408,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           <div className="flex items-center gap-2.5 bg-white/90 dark:bg-[#1C1F2E]/90 backdrop-blur-md p-2 rounded-[2rem] shadow-xl border border-primary/10 dark:border-gray-700">
             <Input
               ref={inputRef}
+              aria-label="Mesaj yaz"
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -416,6 +417,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
               className="border-none bg-transparent focus-visible:ring-0 text-sm dark:text-white h-12 rounded-full px-4 placeholder:text-muted-foreground/50 dark:placeholder:text-gray-500"
             />
             <Button
+              aria-label="Mesaj gönder"
               onClick={handleSendMessage}
               disabled={isLoading || !inputText.trim()}
               className={cn(
