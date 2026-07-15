@@ -49,12 +49,12 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Ben"
 - assertVisible: "Ben"
 
-# ── Auth modal'ı aç (Profil ekranında "Giriş Yap" veya ikon)
-#     Not: ProfileScreen'de isAuthModalOpen state'i var,
-#     "Giriş Yap" butonu veya kullanıcı ikonu modal'ı açar
-- tapOn:
-    point: "50%,30%"
-    optional: true
+# ── Auth modal'ı aç — "Giriş yap" butonu (aria-label) ────────
+- scrollUntilVisible:
+    element:
+      text: "Giriş yap"
+    direction: DOWN
+- tapOn: "Giriş yap"
 
 # ── Modal animasyonu ─────────────────────────────────────────
 - waitForAnimationToEnd:

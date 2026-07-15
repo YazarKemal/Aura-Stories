@@ -59,9 +59,16 @@ appId: com.prompthavenstudio.aurastories
     direction: DOWN
 - tapOn: "Karakter Odası"
 
-# ── Chat ekranı animasyonu ───────────────────────────────────
+# ── CharacterRoom animasyonu ──────────────────────────────────
 - waitForAnimationToEnd:
     timeout: 2000
+
+# ── İlk karakteri seç ("Kerem" — Gece Yarısı Güneşi) ─────────
+- tapOn: "Kerem"
+
+# ── Chat ekranı animasyonu ───────────────────────────────────
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # ── Chat başlığı görünmeli (karakter ismi header'da) ─────────
 - assertVisible: "ile Sohbet"

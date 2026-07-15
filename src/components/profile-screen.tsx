@@ -222,6 +222,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
       {/* Aura VIP Banner */}
       <Card
         aria-label="VIP üyelik"
+        role="button"
         onClick={onOpenVIP}
         className="p-5 rounded-[2.5rem] bg-gradient-to-br from-[#1D1231] via-[#2D1B4E] to-[#1D1231] border-none shadow-[0_15px_35px_rgba(155,103,212,0.3)] cursor-pointer group active:scale-[0.98] transition-all overflow-hidden relative"
       >
@@ -415,6 +416,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
               <p className="text-white/60 text-xs">Hikayelerinizi kaydedin ve tüm cihazlarınızdan erişin.</p>
             </div>
             <Button
+              aria-label="Giriş yap"
               onClick={onOpenLogin}
               className="w-full h-12 rounded-2xl bg-primary text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >

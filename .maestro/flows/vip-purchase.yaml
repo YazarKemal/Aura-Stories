@@ -53,9 +53,9 @@ appId: com.prompthavenstudio.aurastories
 # ── VIP banner'ı bulana kadar scroll, sonra tıkla ────────────
 - scrollUntilVisible:
     element:
-      text: "VIP üyelik"
+      text: "Aura VIP'ye Yükselt"
     direction: DOWN
-- tapOn: "VIP üyelik"
+- tapOn: "Aura VIP'ye Yükselt"
 
 # ── VIP ekranı animasyonu ────────────────────────────────────
 - waitForAnimationToEnd:
