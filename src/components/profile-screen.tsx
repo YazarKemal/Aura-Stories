@@ -219,8 +219,9 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
          </div>
       </Card>
 
-      {/* Aura VIP Banner — ilk aşamada devre dışı */}
-      {/* <Card
+      {/* Aura VIP Banner */}
+      <Card
+        aria-label="VIP üyelik"
         onClick={onOpenVIP}
         className="p-5 rounded-[2.5rem] bg-gradient-to-br from-[#1D1231] via-[#2D1B4E] to-[#1D1231] border-none shadow-[0_15px_35px_rgba(155,103,212,0.3)] cursor-pointer group active:scale-[0.98] transition-all overflow-hidden relative"
       >
@@ -239,7 +240,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
-      </Card> */}
+      </Card>
 
       {/* Cüzdan + Reklam Kartı */}
       <Card className="p-6 rounded-[2.5rem] border-none bg-white dark:bg-card shadow-[0_10px_30px_rgba(0,0,0,0.04)]">

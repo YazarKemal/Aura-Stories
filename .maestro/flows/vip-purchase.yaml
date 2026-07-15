@@ -20,11 +20,12 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Ben"
 - assertVisible: "Ben"
 
-# ── VIP butonuna tıkla (Profil ekranında "VIP" badge/butonu)
-#     ProfileScreen'de onOpenVIP handler'ı var
-- tapOn:
-    point: "50%,25%"
-    optional: true
+# ── VIP banner'ı bulana kadar scroll, sonra tıkla ────────────
+- scrollUntilVisible:
+    element:
+      text: "VIP üyelik"
+    direction: DOWN
+- tapOn: "VIP üyelik"
 
 # ── VIP ekranı animasyonu ────────────────────────────────────
 - waitForAnimationToEnd:
@@ -51,11 +52,6 @@ appId: com.prompthavenstudio.aurastories
 
 # ── Seçim doğrulama — "EN AVANTAJLI" badge'i ─────────────────
 - assertVisible: "EN AVANTAJLI"
-
-# ── Reklam izle butonu ───────────────────────────────────────
-#     "REKLAM İZLEYEREK VIP KAZAN" bölümünde tier kartına tıkla
-- tapOn: "REKLAM İZLEYEREK VIP KAZAN"
-    optional: true
 
 # ═══════════════════════════════════════════════════════════════
 # ÇIKIŞ
