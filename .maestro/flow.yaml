@@ -93,15 +93,15 @@ appId: com.prompthavenstudio.aurastories
 # PAYLAŞMA TESTİ
 # ═══════════════════════════════════════════════════════════════
 
-# ── 20. Metnin üzerine koordinatla uzun bas (sol-orta bölge) ──
-- longPressOn:
-    point: "30%,50%"
+# ── 20. Paragrafa tek tık → selectedQuote → toolbar'da "Paylaş" ─
+- tapOn:
+    point: "50%,40%"
 
-# 21. Menünün açılmasını bekle
+# 21. Toolbar animasyonu için kısa bekleme
 - waitForAnimationToEnd:
-    timeout: 2000
+    timeout: 1000
 
-# ── 22. "Paylaş" butonuna tıkla ───────────────────────────────
+# ── 22. Toolbar'daki "Paylaş" butonuna tıkla ───────────────────
 - tapOn: "Paylaş"
 
 # 23. Paylaşım panelinin animasyonunu bekle
