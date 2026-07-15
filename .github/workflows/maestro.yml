@@ -1,7 +1,7 @@
 name: Maestro Cloud — Mobile UI Tests
 
-# Aura Stories APK build + Maestro Cloud test pipeline
-# Her push ve PR'da çalışır. Manuel tetikleme de mümkün.
+# Aura Stories APK build + Maestro Cloud paralel test pipeline
+# Her flow ayrı job, biri kırılsa diğerleri çalışmaya devam eder
 
 on:
   push:
@@ -9,45 +9,41 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    # Manuel tetikleme — GitHub Actions UI üzerinden çalıştırılabilir
 
 jobs:
-  build-and-test:
-    name: Build APK & Run Maestro Cloud
+  # ═══════════════════════════════════════════════════════════════
+  # BUILD — APK üret (tek sefer, tüm test job'ları paylaşır)
+  # ═══════════════════════════════════════════════════════════════
+  build:
+    name: Build APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
-      # ── 1. Kaynak kodu çek ─────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Node.js kurulumu ─────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      # ── 3. Java 17 kurulumu (Android build için) ────────────
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      # ── 4. Android SDK kurulumu ─────────────────────────────
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-35 build-tools;35.0.0'
 
-      # ── 5. NPM bağımlılıklarını yükle ──────────────────────
       - name: Install dependencies
         run: npm ci
 
-      # ── 6. Next.js build (static export → out/) ─────────────
-      - name: Build Next.js
+      - name: Build Next.js (static export → out/)
         run: npm run build
         env:
           NODE_ENV: production
@@ -55,58 +51,79 @@ jobs:
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ci-dummy' }}
 
-      # ── 7. Doğrula: out/ dizini oluştu mu? ─────────────────
       - name: Verify build output
         run: |
-          echo "=== Build çıktısı kontrol ediliyor ==="
           ls -la out/ | head -20
-          if [ -f out/index.html ]; then
-            echo "✓ out/index.html mevcut"
-          else
-            echo "✗ out/index.html bulunamadı — statik export başarısız"
-            exit 1
-          fi
+          [ -f out/index.html ] || { echo "✗ out/index.html bulunamadı"; exit 1; }
+          echo "✓ Static export başarılı"
 
-      # ── 8. Capacitor Android projesi oluştur/senkronize et ──
       - name: Sync Capacitor Android project
         run: |
           npx cap add android 2>/dev/null || true
           npx cap sync android
 
-      # ── 9. Debug APK build ──────────────────────────────────
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x gradlew 2>/dev/null || true
           ./gradlew assembleDebug
 
-      # ── 10. APK'nın oluştuğunu doğrula ────────────────────
-      - name: Verify APK artifact
+      - name: Verify APK
         run: |
           APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "$APK_PATH" ]; then
-            echo "✓ APK build başarılı — $APK_PATH"
-            echo "APK_SIZE=$(du -h "$APK_PATH" | cut -f1)" >> $GITHUB_ENV
-          else
-            echo "✗ APK bulunamadı — $APK_PATH"
-            exit 1
-          fi
+          [ -f "$APK_PATH" ] || { echo "✗ APK bulunamadı"; exit 1; }
+          echo "✓ APK build başarılı — $(du -h "$APK_PATH" | cut -f1)"
 
-      # ── 11. Maestro Cloud test ─────────────────────────────
-      - name: Run Maestro Cloud tests
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # TEST — 9 flow, paralel matrix job
+  # ═══════════════════════════════════════════════════════════════
+  test:
+    name: "${{ matrix.flow }}"
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        flow:
+          - onboarding
+          - main-navigation
+          - reading
+          - sharing
+          - exit
+          - auth
+          - rewards-ads
+          - vip-purchase
+          - character-chat
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: debug-apk
+
+      - name: Prepare flow workspace
+        run: |
+          # Tam .maestro/ yapısını koru (runFlow bağımlılıkları için)
+          # flow.yaml olarak sadece hedef flow'u kopyala
+          cp .maestro/flows/${{ matrix.flow }}.yaml .maestro/flow.yaml
+
+      - name: Run Maestro Cloud — ${{ matrix.flow }}
         uses: mobile-dev-inc/action-maestro-cloud@v3.0.1
         with:
           api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
           project-id: ${{ secrets.MAESTRO_PROJECT_ID }}
-          app-file: android/app/build/outputs/apk/debug/app-debug.apk
+          app-file: app-debug.apk
           workspace: .maestro
           timeout: 600
-
-      # ── 12. APK'yı artifact olarak sakla (opsiyonel) ──────
-      - name: Upload APK as CI artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: aura-stories-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          name: ${{ matrix.flow }}
