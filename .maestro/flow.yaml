@@ -86,8 +86,7 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Yer imi ekle"
 
 # 19. Detaydan Keşfet'e dön
-- tapOn:
-    point: "8%,5%"
+- back
 - waitForAnimationToEnd:
     timeout: 1000
 
@@ -107,8 +106,7 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Yer imi kaldır"
 
 # 24. Detaydan Keşfet'e dön
-- tapOn:
-    point: "8%,5%"
+- back
 - waitForAnimationToEnd:
     timeout: 1000
 
