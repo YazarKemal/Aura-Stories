@@ -14,7 +14,33 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 5000
 
-- runFlow: flows/onboarding.yaml
+# ── Onboarding (inline) ────────────────────────────────────
+- tapOn:
+    text: "Kadın"
+    optional: true
+- tapOn:
+    text: "Fantastik"
+    optional: true
+- tapOn:
+    text: "YYYY"
+    optional: true
+- inputText: "1995"
+- scrollUntilVisible:
+    element:
+      text: "Devam"
+    direction: DOWN
+- tapOn: "Devam"
+- scrollUntilVisible:
+    element:
+      text: "Okumaya Başlayın"
+    direction: DOWN
+- tapOn: "Okumaya Başlayın"
+- assertVisible: "Hoş Geldiniz"
+- tapOn:
+    id: "age-check"
+    optional: true
+- tapOn: "Devam Et"
+- assertVisible: "Keşfet"
 
 # ═══════════════════════════════════════════════════════════════
 # ÖDÜLLER EKRANI
