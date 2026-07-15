@@ -111,30 +111,27 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 2000
 
-# 26. Tipografi paneli açıldı — "Bitter" font butonu görünür olmalı
-- assertVisible: "Bitter"
-
-# 27. Yazı tipini değiştir — "Bitter" fontuna geç
-- tapOn: "Bitter"
-
-# 28. Satır aralığını "Geniş" yap
+# 26. Panel açıldı — satır aralığını "Geniş" yap (üstte, her zaman görünür)
 - tapOn: "Geniş"
 
-# 29. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
+# 27. Yazı tipini "Bitter" olarak değiştir
+- tapOn: "Bitter"
+
+# 28. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
 - tapOn: "Tema karanlık"
 
-# 30. Tipografi panelini kapat (overlay'e tıkla — panel üstü)
+# 29. Tipografi panelini kapat (overlay'e tıkla — panel üstü)
 - tapOn:
     point: "50%,2%"
 
-# ── 31. Header'ı kapat (ekran ortasına tıkla) ──────────────
+# ── 30. Header'ı kapat (ekran ortasına tıkla) ──────────────
 - tapOn:
     point: "50%,50%"
 
-# ── 32. Header'ı tekrar aç ve geri dön ──────────────────────
+# ── 31. Header'ı tekrar aç ve geri dön ──────────────────────
 - tapOn:
     point: "50%,50%"
 - assertVisible: "Bölüm 1"
 
-# 33. Geri dön (aria-label: Geri dön) ─────────────────────────
+# 32. Geri dön (aria-label: Geri dön) ─────────────────────────
 - tapOn: "Geri dön"
