@@ -7,7 +7,7 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 5000
 
-- runFlow: ../flows/main-navigation.yaml
+- runFlow: flows/main-navigation.yaml
 
 # ── Okumaya başla ────────────────────────────────────────────
 - tapOn: "Okumaya Başla"

@@ -14,7 +14,7 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 5000
 
-- runFlow: ../flows/onboarding.yaml
+- runFlow: flows/onboarding.yaml
 
 # ═══════════════════════════════════════════════════════════════
 # ÖDÜLLER EKRANI
