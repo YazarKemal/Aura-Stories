@@ -111,7 +111,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
             <button onClick={handleShare} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               <Share2 className="w-5 h-5" />
             </button>
-            <button onClick={handleBookmark} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
+            <button onClick={handleBookmark} aria-label={isBookmarked ? "Yer imi kaldır" : "Yer imi ekle"} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               {isBookmarked ? (
                 <BookmarkCheck className="w-5 h-5 text-primary fill-current" />
               ) : (
