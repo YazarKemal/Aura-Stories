@@ -104,15 +104,14 @@ appId: com.prompthavenstudio.aurastories
 # 23. Header'daki "Bölüm 1" yazısı görünür olmalı
 - assertVisible: "Bölüm 1"
 
-# ── 24. Tipografi Paneli: T ikonuna tıkla (header sağ üst) ──
-- tapOn:
-    point: "92%,5%"
+# ── 24. Tipografi Paneli: "Yazı tipi ayarları" butonuna tıkla ─
+- tapOn: "Yazı tipi ayarları"
 
 # 25. Panel animasyonunun bitmesini bekle (slide-in 500ms)
 - waitForAnimationToEnd:
     timeout: 2000
 
-# 26. Tipografi paneli açıldı — font seçenekleri görünür olmalı
+# 26. Tipografi paneli açıldı — "Bitter" font butonu görünür olmalı
 - assertVisible: "Bitter"
 
 # 27. Yazı tipini değiştir — "Bitter" fontuna geç
@@ -121,19 +120,21 @@ appId: com.prompthavenstudio.aurastories
 # 28. Satır aralığını "Geniş" yap
 - tapOn: "Geniş"
 
-# 29. Tipografi panelini kapat (panel dışına tıkla)
-- tapOn:
-    point: "50%,80%"
+# 29. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
+- tapOn: "Tema karanlık"
 
-# ── 30. Header'ı kapat (ekran ortasına tıkla) ──────────────
+# 30. Tipografi panelini kapat (overlay'e tıkla — panel üstü)
+- tapOn:
+    point: "50%,2%"
+
+# ── 31. Header'ı kapat (ekran ortasına tıkla) ──────────────
 - tapOn:
     point: "50%,50%"
 
-# ── 31. Header'ı tekrar aç ve geri dön ──────────────────────
+# ── 32. Header'ı tekrar aç ve geri dön ──────────────────────
 - tapOn:
     point: "50%,50%"
 - assertVisible: "Bölüm 1"
 
-# 32. Geri tuşu — sol üst köşe ArrowLeft
-- tapOn:
-    point: "5%,5%"
+# 33. Geri dön (aria-label: Geri dön) ─────────────────────────
+- tapOn: "Geri dön"

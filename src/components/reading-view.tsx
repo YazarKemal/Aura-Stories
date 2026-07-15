@@ -647,6 +647,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         onPointerDown={(e) => e.stopPropagation()}
       >
         <button
+          aria-label="Geri dön"
           onClick={(e) => { e.stopPropagation(); onBack(); }}
           className={cn(
             "p-2 -ml-2 rounded-full transition-colors active:scale-90",
@@ -663,7 +664,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           )}>Teslimiyet</h2>
         </div>
         <div className="flex items-center gap-1">
-          <button 
+          <button
+            aria-label="Yazı tipi ayarları"
             onClick={handleOpenTypography}
             className={cn(
               "p-2 rounded-full transition-colors active:scale-90",
@@ -676,6 +678,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
+                aria-label="Okuma menüsü"
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
                 "p-2 rounded-full transition-colors active:scale-90 outline-none",
@@ -1397,7 +1400,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       {/* Typography Panel Sheet */}
       <Sheet open={isTypographyOpen} onOpenChange={setIsTypographyOpen}>
-        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600] max-h-[85vh] overflow-y-auto no-scrollbar">
+        <SheetContent side="bottom" aria-label="Okuma ayarları" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600] max-h-[85vh] overflow-y-auto no-scrollbar">
           <div className="p-8 flex flex-col gap-8">
             <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
 
@@ -1446,6 +1449,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block text-center">Okuma Teması</span>
               <div className="flex items-center justify-center gap-8">
                 <button
+                  aria-label="Tema açık"
                   onClick={() => setReadingTheme('light')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-white dark:bg-brand-dark shadow-sm hover:scale-110 active:scale-95",
@@ -1453,6 +1457,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                   )}
                 />
                 <button
+                  aria-label="Tema sepya"
                   onClick={() => setReadingTheme('sepia')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#f4ecd8] shadow-sm hover:scale-110 active:scale-95",
@@ -1460,6 +1465,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                   )}
                 />
                 <button
+                  aria-label="Tema karanlık"
                   onClick={() => setReadingTheme('dark')}
                   className={cn(
                     "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center bg-[#1a1a1a] shadow-sm hover:scale-110 active:scale-95",
