@@ -89,45 +89,70 @@ appId: com.prompthavenstudio.aurastories
 - waitForAnimationToEnd:
     timeout: 3000
 
-# ── 20. Sayfa Çevirme Testi: Sola swipe (sonraki sayfa) ────
-- swipe:
-    direction: LEFT
+# ═══════════════════════════════════════════════════════════════
+# PAYLAŞMA TESTİ
+# ═══════════════════════════════════════════════════════════════
 
-# 21. Sağa swipe — geri sayfaya dön
-- swipe:
-    direction: RIGHT
+# ── 20. "Paylaş" butonuna tıkla (bölüm sonu footer) ──────────
+- tapOn: "Paylaş"
 
-# ── 22. Menü Kontrolü: Ekran ortasına tıkla → header açılır ─
-- tapOn:
-    point: "50%,50%"
-
-# 23. Header'daki "Bölüm 1" yazısı görünür olmalı
-- assertVisible: "Bölüm 1"
-
-# ── 24. Tipografi Paneli: "Yazı tipi ayarları" butonuna tıkla ─
-- tapOn: "Yazı tipi ayarları"
-
-# 25. Panel animasyonunun bitmesini bekle (slide-in 500ms)
+# 21. Paylaşım panelinin animasyonunu bekle
 - waitForAnimationToEnd:
     timeout: 2000
 
-# 26. Panel açıldı — satır aralığını "Geniş" yap (üstte, her zaman görünür)
+# 22. Paylaşım paneli açıldı — "Instagram Hikayesi Oluştur" başlığı
+- assertVisible: "Instagram Hikayesi Oluştur"
+
+# 23. Paneli kapat — "Vazgeç" butonu
+- tapOn: "Vazgeç"
+
+# ═══════════════════════════════════════════════════════════════
+# SAYFA ÇEVİRME TESTİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── 24. Sola swipe (sonraki sayfa) ──────────────────────────
+- swipe:
+    direction: LEFT
+
+# 25. Sağa swipe — geri sayfaya dön
+- swipe:
+    direction: RIGHT
+
+# ═══════════════════════════════════════════════════════════════
+# MENÜ & TİPOGRAFİ TESTİ
+# ═══════════════════════════════════════════════════════════════
+
+# ── 26. Ekran ortasına tıkla → header açılır ────────────────
+- tapOn:
+    point: "50%,50%"
+
+# 27. Header'daki "Bölüm 1" yazısı görünür olmalı
+- assertVisible: "Bölüm 1"
+
+# ── 28. "Yazı tipi ayarları" butonuna tıkla (aria-label) ─────
+- tapOn: "Yazı tipi ayarları"
+
+# 29. Panel animasyonunun bitmesini bekle (slide-in 500ms)
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# 30. Satır aralığını "Geniş" yap (panel üst kısmında)
 - tapOn: "Geniş"
 
-# 27. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
+# 31. Okuma temasını "karanlık" yap (aria-label: Tema karanlık)
 - tapOn: "Tema karanlık"
 
-# 28. Tipografi panelini kapat (overlay'e tıkla — panel üstü)
+# 32. Tipografi panelini kapat (overlay'e tıkla — panel üstü)
 - tapOn:
     point: "50%,2%"
 
-# ── 29. Header'ı kapat (ekran ortasına tıkla) ──────────────
+# ── 33. Header'ı kapat (ekran ortasına tıkla) ────────────────
 - tapOn:
     point: "50%,50%"
 
-# ── 30. Header'ı tekrar aç ve geri dön ──────────────────────
+# ── 34. Header'ı tekrar aç ve geri dön ──────────────────────
 - tapOn:
     point: "50%,50%"
 
-# 31. Geri dön (aria-label: Geri dön) ─────────────────────────
+# 35. Geri dön (aria-label: Geri dön)
 - tapOn: "Geri dön"
