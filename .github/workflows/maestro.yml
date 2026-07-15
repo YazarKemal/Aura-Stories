@@ -119,13 +119,20 @@ jobs:
           cp .maestro/flows/${{ matrix.flow }}.yaml .maestro/flow.yaml
           rm -rf .maestro/flows
 
+      - name: Install Maestro CLI
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
       - name: Run Maestro Cloud — ${{ matrix.flow }}
-        uses: mobile-dev-inc/action-maestro-cloud@v3.0.1
-        with:
-          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-          project-id: ${{ secrets.MAESTRO_PROJECT_ID }}
-          app-file: app-debug.apk
-          workspace: .maestro
-          timeout: 600
-          name: ${{ matrix.flow }}
-          device-locale: tr_TR
+        env:
+          MAESTRO_CLOUD_API_KEY: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+        run: |
+          maestro cloud \
+            --api-key "$MAESTRO_CLOUD_API_KEY" \
+            --project-id "${{ secrets.MAESTRO_PROJECT_ID }}" \
+            --app-file app-debug.apk \
+            --name "${{ matrix.flow }}" \
+            --device-locale tr_TR \
+            --timeout 600 \
+            .maestro/

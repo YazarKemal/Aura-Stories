@@ -41,6 +41,13 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Devam Et"
 - assertVisible: "Keşfet"
 
+# ── Hikaye detayına git ──────────────────────────────────
+- scroll
+- tapOn: "Gece Yarısı Güneşi"
+- waitForAnimationToEnd:
+    timeout: 1000
+- assertVisible: "Okumaya Başla"
+
 # ═══════════════════════════════════════════════════════════════
 # KARAKTER SOHBETİNE GİRİŞ
 # ═══════════════════════════════════════════════════════════════
