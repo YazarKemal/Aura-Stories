@@ -127,3 +127,4 @@ jobs:
           workspace: .maestro
           timeout: 600
           name: ${{ matrix.flow }}
+          device-locale: tr_TR
