@@ -89,7 +89,13 @@ appId: com.prompthavenstudio.aurastories
 # ═══════════════════════════════════════════════════════════════
 
 # ── Geri dön ──────────────────────────────────────────────────
-#     Donanım 'back' yerine header'daki X (Kapat) butonu
+#     Header scrollable container İÇİNDE (vip-screen.tsx:64) —
+#     kademelere inen scroll X butonunu ekran dışına taşıdı;
+#     önce yukarı scroll ile görünür yap
+- scrollUntilVisible:
+    element:
+      text: "Kapat"
+    direction: UP
 - tapOn: "Kapat"
 - waitForAnimationToEnd:
     timeout: 2000

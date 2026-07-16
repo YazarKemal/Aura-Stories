@@ -120,7 +120,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForm(); onClose(); } }}>
-      <DialogContent className="max-w-[90%] rounded-[2.5rem] p-0 border-none bg-background/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+      <DialogContent
+        // Dış tıklama / Escape-benzeri event'ler modalı sessizce kapatıyordu
+        // (klavye kapatma dahil) — kapatma yalnızca X butonu veya başarılı
+        // giriş ile olur
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-w-[90%] rounded-[2.5rem] p-0 border-none bg-background/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+      >
         <DialogTitle className="sr-only">{tab === 'login' ? 'Giriş formu' : 'Kayıt formu'}</DialogTitle>
 
         {/* Header with tabs */}

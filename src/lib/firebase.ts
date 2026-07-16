@@ -162,9 +162,19 @@ export async function getStories(): Promise<Story[]> {
 
 /** Hikayeler koleksiyonunu gerçek zamanlı dinle. */
 export function onStoriesSnapshot(callback: (stories: Story[]) => void) {
-  return onSnapshot(collection(db, 'stories'), (snap) => {
-    callback(snap.docs.map(d => d.data() as Story));
-  });
+  return onSnapshot(
+    collection(db, 'stories'),
+    (snap) => {
+      callback(snap.docs.map(d => d.data() as Story));
+    },
+    (err) => {
+      // Hata durumunda callback HİÇ tetiklenmiyordu → çağıranlar sonsuza
+      // kadar loading iskeletinde kalıyordu. Boş dizi ile tetikle,
+      // fallback kararını çağıran versin.
+      console.warn('[Firestore] Hikaye dinleyicisi hatası:', err);
+      callback([]);
+    }
+  );
 }
 
 /** Kategorileri Firestore'dan çek. */
