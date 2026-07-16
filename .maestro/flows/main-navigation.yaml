@@ -56,8 +56,12 @@ appId: com.prompthavenstudio.aurastories
 # ═══════════════════════════════════════════════════════════════
 
 # ── Carousel'i geç — otomatik kayan slayta tap isabet etmiyor;
-#    scroll ile statik listedeki karta in ───────────────────────
+#    scroll sonrası statik liste kartını ORTALA, sonra tıkla ────
 - scroll
+- scrollUntilVisible:
+    element:
+      text: "Gece Yarısı Güneşi"
+    direction: DOWN
 
 # ── Hikaye kartına tıkla ─────────────────────────────────────
 - tapOn: "Gece Yarısı Güneşi"
@@ -73,8 +77,12 @@ appId: com.prompthavenstudio.aurastories
 # BOOKMARK & KİTAPLIK
 # ═══════════════════════════════════════════════════════════════
 
-# ── Bookmark ekle ────────────────────────────────────────────
+# ── Bookmark ekle → kaldır (aynı oturumda toggle) ────────────
+#     NOT: isBookmarked component-local state (kalıcılık YOK) —
+#     detay yeniden açıldığında sıfırlanır, o yüzden toggle
+#     aynı oturumda test edilir
 - tapOn: "Yer imi ekle"
+- tapOn: "Yer imi kaldır"
 
 # ── Detaydan çık ─────────────────────────────────────────────
 #     Donanım 'back' Capacitor'da uygulamayı arka plana atabiliyor
@@ -92,9 +100,7 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 2000
-
-# ── Bookmark'ı kaldır ────────────────────────────────────────
-- tapOn: "Yer imi kaldır"
+- assertVisible: "Okumaya Başla"
 
 # ── Detaydan çık ─────────────────────────────────────────────
 - tapOn: "Geri dön"
@@ -104,6 +110,10 @@ appId: com.prompthavenstudio.aurastories
 # ── Keşfet'e dön, hikayeye tekrar gir (sonraki test için hazır)
 - tapOn: "Keşfet"
 - scroll
+- scrollUntilVisible:
+    element:
+      text: "Gece Yarısı Güneşi"
+    direction: DOWN
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 2000

@@ -62,6 +62,8 @@ appId: com.prompthavenstudio.aurastories
 - assertVisible: "Giriş"
 
 # ── Boş form submit → hata mesajı ────────────────────────────
+#     Klavye butonu örtebiliyor — önce kapat
+- hideKeyboard
 - tapOn: "Giriş Yap"
 - assertVisible: "Lütfen tüm alanları doldurun."
 
@@ -70,6 +72,7 @@ appId: com.prompthavenstudio.aurastories
 - inputText: "gecersiz@mail.com"
 - tapOn: "Şifre"
 - inputText: "1234"
+- hideKeyboard
 - tapOn: "Giriş Yap"
 
 # ═══════════════════════════════════════════════════════════════

@@ -36,7 +36,12 @@ appId: com.prompthavenstudio.aurastories
 - assertVisible: "Keşfet"
 
 # ── Hikaye detayına git ──────────────────────────────────
+#     Carousel'i geç, statik liste kartını ortala (flaky tap fix)
 - scroll
+- scrollUntilVisible:
+    element:
+      text: "Gece Yarısı Güneşi"
+    direction: DOWN
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 2000

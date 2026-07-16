@@ -65,9 +65,11 @@ appId: com.prompthavenstudio.aurastories
 # ── VIP ayrıcalıkları başlığı ────────────────────────────────
 - assertVisible: ".*Reklamsız Deneyim.*"
 
-# ── Kademe seçenekleri görünmeli ─────────────────────────────
-#     Kademe kartları fiyat/açıklamayla düzleşiyor — regex
-- assertVisible: ".*1 Günlük VIP.*"
+# ── Kademe seçenekleri ekranın altında — scroll ile in ───────
+- scrollUntilVisible:
+    element:
+      text: ".*1 Günlük VIP.*"
+    direction: DOWN
 - assertVisible: ".*7 Günlük VIP.*"
 - assertVisible: ".*30 Günlük VIP.*"
 
