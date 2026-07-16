@@ -73,7 +73,9 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Yer imi ekle"
 
 # ── Detaydan çık ─────────────────────────────────────────────
-- back
+#     Donanım 'back' Capacitor'da uygulamayı arka plana atabiliyor
+#     (SPA'da history boş) — header'daki geri butonuna tıkla
+- tapOn: "Geri dön"
 - waitForAnimationToEnd:
     timeout: 2000
 
@@ -91,7 +93,7 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Yer imi kaldır"
 
 # ── Detaydan çık ─────────────────────────────────────────────
-- back
+- tapOn: "Geri dön"
 - waitForAnimationToEnd:
     timeout: 2000
 

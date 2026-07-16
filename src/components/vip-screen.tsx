@@ -72,6 +72,7 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
         <Badge className="bg-amber-400/20 text-amber-400 border-amber-400/30 px-3 py-1 text-[10px] font-black tracking-widest uppercase">AURA PREMIUM</Badge>
         <button
           onClick={onBack}
+          aria-label="Kapat"
           className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
         >
           <X className="w-5 h-5" />

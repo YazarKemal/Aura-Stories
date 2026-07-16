@@ -121,7 +121,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForm(); onClose(); } }}>
       <DialogContent className="max-w-[90%] rounded-[2.5rem] p-0 border-none bg-background/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-        <DialogTitle className="sr-only">{tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}</DialogTitle>
+        <DialogTitle className="sr-only">{tab === 'login' ? 'Giriş formu' : 'Kayıt formu'}</DialogTitle>
 
         {/* Header with tabs */}
         <div className="bg-gradient-to-br from-primary/10 via-accent/5 to-primary/5 dark:from-zinc-800 dark:to-zinc-900 p-8 pb-4">

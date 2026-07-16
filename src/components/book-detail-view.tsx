@@ -101,8 +101,9 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
 
         {/* Top Navigation */}
         <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10">
-          <button 
+          <button
             onClick={onBack}
+            aria-label="Geri dön"
             className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent hover:bg-white active:scale-90 transition-all"
           >
             <ArrowLeft className="w-6 h-6" />

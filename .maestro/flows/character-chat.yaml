@@ -76,7 +76,10 @@ appId: com.prompthavenstudio.aurastories
 # ═══════════════════════════════════════════════════════════════
 
 # ── Input alanına tıkla ve mesaj yaz ─────────────────────────
-- tapOn: "Mesaj yaz"
+#     WebView, input düğümünü aria-label yerine placeholder ile
+#     gösterebilir — iki olasılığı da kapsayan regex
+- tapOn:
+    text: "(.*Mesaj yaz.*|.*bir şey yaz.*)"
 - inputText: "Merhaba, nasılsın?"
 
 # ── Mesajı gönder ────────────────────────────────────────────
