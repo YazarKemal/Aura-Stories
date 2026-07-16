@@ -55,7 +55,7 @@ appId: com.prompthavenstudio.aurastories
 
 # ── CharacterRoom animasyonu ──────────────────────────────────
 - waitForAnimationToEnd:
-    timeout: 2000
+    timeout: 3000
 
 # ── İlk karakteri seç ("Kerem" — Gece Yarısı Güneşi) ─────────
 - tapOn: "Kerem"
