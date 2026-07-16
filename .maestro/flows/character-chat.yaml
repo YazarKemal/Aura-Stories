@@ -39,7 +39,7 @@ appId: com.prompthavenstudio.aurastories
 - scroll
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 - assertVisible: "Okumaya Başla"
 
 # ═══════════════════════════════════════════════════════════════
@@ -62,7 +62,7 @@ appId: com.prompthavenstudio.aurastories
 
 # ── Chat ekranı animasyonu ───────────────────────────────────
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 
 # ── Chat başlığı görünmeli (karakter ismi header'da) ─────────
 - assertVisible: "ile Sohbet"
@@ -79,11 +79,13 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Mesaj gönder"
 
 # ── AI yanıtını bekle (DeepSeek API ~5-15s) ──────────────────
-#     extendedWaitUntil: belirtilen metin görünene kadar
-#     timeout ile maksimum bekleme süresi
+#     Kullanıcı balonu anında görünür; asıl bekleme "yazıyor"
+#     göstergesinin kaybolması (isLoading=false) — yanıt da
+#     hata balonu da bu koşulu sağlar (CI'da deterministik)
+- assertVisible: "Merhaba, nasılsın?"
 - extendedWaitUntil:
-    visible:
-      text: "Merhaba, nasılsın?"
+    notVisible:
+      text: "yazıyor"
     timeout: 20000
 
 # ═══════════════════════════════════════════════════════════════
@@ -96,5 +98,5 @@ appId: com.prompthavenstudio.aurastories
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 - assertVisible: "Okumaya Başla"

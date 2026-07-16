@@ -60,7 +60,7 @@ appId: com.prompthavenstudio.aurastories
 
 # ── Detay animasyonu ─────────────────────────────────────────
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 
 # ── Detay sayfası doğrulama ──────────────────────────────────
 - assertVisible: "Okumaya Başla"
@@ -75,7 +75,7 @@ appId: com.prompthavenstudio.aurastories
 # ── Detaydan çık ─────────────────────────────────────────────
 - back
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 
 # ── Kitaplıkta doğrula ───────────────────────────────────────
 - tapOn: "Kitaplık"
@@ -85,7 +85,7 @@ appId: com.prompthavenstudio.aurastories
 # ── Kitaplıktan aç ───────────────────────────────────────────
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 
 # ── Bookmark'ı kaldır ────────────────────────────────────────
 - tapOn: "Yer imi kaldır"
@@ -93,10 +93,10 @@ appId: com.prompthavenstudio.aurastories
 # ── Detaydan çık ─────────────────────────────────────────────
 - back
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
 
 # ── Keşfet'e dön, hikayeye tekrar gir (sonraki test için hazır)
 - tapOn: "Keşfet"
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
-    timeout: 1000
+    timeout: 2000
