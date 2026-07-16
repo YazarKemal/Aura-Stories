@@ -45,14 +45,14 @@ appId: com.prompthavenstudio.aurastories
 - assertVisible: "Ben"
 
 # ── VIP banner'ı bulana kadar scroll, sonra tıkla ────────────
-#     Kart düğümü alt başlıkla düzleşiyor ("Aura VIP'ye Yükselt
-#     Ayrıcalıklı okuma dünyası") — regex "contains" şart
+#     Kart role="button" + aria-label="VIP üyelik" taşıyor —
+#     erişilebilirlik ismi iç metinlerin YERİNE geçer, bu yüzden
+#     "Aura VIP'ye Yükselt" ağaçta yoktur; aria-label ile eşle
 - scrollUntilVisible:
     element:
-      text: ".*Aura VIP.*"
+      text: "VIP üyelik"
     direction: DOWN
-- tapOn:
-    text: ".*Aura VIP.*"
+- tapOn: "VIP üyelik"
 
 # ── VIP ekranı animasyonu ────────────────────────────────────
 - waitForAnimationToEnd:

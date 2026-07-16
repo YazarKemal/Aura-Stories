@@ -80,7 +80,10 @@ appId: com.prompthavenstudio.aurastories
 #     gösterebilir — iki olasılığı da kapsayan regex
 - tapOn:
     text: "(.*Mesaj yaz.*|.*bir şey yaz.*)"
-- inputText: "Merhaba, nasılsın?"
+# NOT: Android'de Maestro inputText yalnızca ASCII karakterleri
+# güvenilir yazar — 'ı/ş' içeren metin bozuk girilip assert'i
+# düşürüyordu, mesaj ASCII'ye çevrildi
+- inputText: "Merhaba nasilsin"
 
 # ── Mesajı gönder ────────────────────────────────────────────
 - tapOn: "Mesaj gönder"
@@ -91,7 +94,7 @@ appId: com.prompthavenstudio.aurastories
 #     hata balonu da bu koşulu sağlar (CI'da deterministik)
 #     NOT: metinler regex'tir — "?" quantifier'a dönüşmesin diye
 #     nokta-yıldız contains kalıbı kullanılıyor
-- assertVisible: ".*Merhaba, nasılsın.*"
+- assertVisible: ".*Merhaba nasilsin.*"
 - extendedWaitUntil:
     notVisible:
       text: ".*yazıyor.*"
