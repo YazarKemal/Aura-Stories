@@ -9,6 +9,7 @@ import { stories as mockStories } from '@/lib/mock-data';
 import { StoryCard } from './story-card';
 import { Story } from '@/lib/types';
 import { getStories, onStoriesSnapshot } from '@/lib/firebase';
+import { useUserState } from '@/lib/user-state';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface LibraryScreenProps {
@@ -17,17 +18,20 @@ interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibraryScreenProps) {
+  const { userState } = useUserState();
   const [activeSubTab, setActiveSubTab] = useState('Varsayılan');
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isLoggedIn = !!userState.user;
 
   useEffect(() => {
     const unsub = onStoriesSnapshot((fs) => {
-      setStories(fs.length > 0 ? fs : mockStories);
+      // Üye kullanıcıda gerçek veri (boşsa boş durum UI'ı); misafirde mock fallback
+      setStories(fs.length > 0 ? fs : (isLoggedIn ? fs : mockStories));
       setIsLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [isLoggedIn]);
   const subTabs = ['Varsayılan', 'Yeni', 'İlerleme', 'İndirilenler'];
 
   const filteredStories = stories.filter(story => {
