@@ -43,6 +43,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Çift-tık kilidi — state gecikmesinden etkilenmez
+  const sendLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -142,9 +144,15 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const handleSendMessage = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
+    if (sendLockRef.current) return;
+    // Kilidi ve loading'i jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
+    sendLockRef.current = true;
+    setIsLoading(true);
 
     if (!online) {
       toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Mesaj göndermek için internet bağlantısı gerekli.', variant: 'destructive' });
+      sendLockRef.current = false;
+      setIsLoading(false);
       return;
     }
 
@@ -157,6 +165,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         variant: 'destructive',
       });
       // Opsiyonel: setIsAdModalOpen(true) ile reklam modalı açılabilir
+      sendLockRef.current = false;
+      setIsLoading(false);
       return;
     }
 
@@ -181,7 +191,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
 
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
-    setIsLoading(true);
 
     try {
       const result = await sendToAPI(updatedHistory);
@@ -227,6 +236,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setIsLoading(false);
+      sendLockRef.current = false;
     }
   }, [inputText, isLoading, messages, sendToAPI]);
 

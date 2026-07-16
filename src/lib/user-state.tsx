@@ -93,10 +93,10 @@ interface UserStateContextType {
   addCredits: (amount: number) => void;
 
   // ── Story Engine ──────────────────────────────────────────
-  /** Spend 15 credits to unlock the next chapter via community vote */
-  unlockWithVote: (storyId: string) => boolean;
-  /** Spend 50 credits to force a specific fate choice immediately */
-  forceFateChoice: (storyId: string, chapterNumber: number, option: 'A' | 'B', optionText: string) => boolean;
+  /** Spend 15 credits to unlock the next chapter via community vote (Firestore atomic) */
+  unlockWithVote: (storyId: string) => Promise<boolean>;
+  /** Spend 50 credits to force a specific fate choice immediately (Firestore atomic) */
+  forceFateChoice: (storyId: string, chapterNumber: number, option: 'A' | 'B', optionText: string) => Promise<boolean>;
   /** Save an AI-generated chapter to the story engine */
   saveGeneratedChapter: (storyId: string, chapter: GeneratedChapter) => void;
   /** Get the latest fate options for a story */
@@ -105,10 +105,10 @@ interface UserStateContextType {
   getStoryEngine: (storyId: string) => StoryEngineState;
 
   // ── Authentication ──────────────────────────────────────
-  /** Giriş yap (Firebase). Kullanıcıyı state ve Firestore'a kaydeder */
-  login: (email: string, password: string, name?: string) => Promise<boolean>;
-  /** Kayıt ol (Firebase). Yeni kullanıcı oluşturur */
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  /** Giriş yap (Firebase). Başarısızsa Firebase hata kodunu döner */
+  login: (email: string, password: string, name?: string) => Promise<{ ok: boolean; code?: string }>;
+  /** Kayıt ol (Firebase). Başarısızsa Firebase hata kodunu döner */
+  register: (name: string, email: string, password: string) => Promise<{ ok: boolean; code?: string }>;
   /** Çıkış yap. State ve Firebase oturumunu temizler */
   logout: () => void;
   /** Kullanıcı giriş yapmış mı? */
@@ -176,6 +176,9 @@ const UserStateContext = createContext<UserStateContextType | null>(null);
 
 export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const [userState, setUserState] = useState<UserState>(DEFAULT_STATE);
+
+  // ── Harcama kilidi — çift tıklamada eşzamanlı jeton düşümünü engeller
+  const spendLockRef = useRef(false);
 
   // ── AdMob Initialize (bir kere) ────────────────────────────
   useEffect(() => {
@@ -255,31 +258,61 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   // ── Story Engine Actions ────────────────────────────────────
 
   const unlockWithVote = useCallback(
-    (storyId: string): boolean => {
-      if (userState.credits < CHAPTER_UNLOCK_COST) return false;
-      setUserState(prev => ({ ...prev, credits: prev.credits - CHAPTER_UNLOCK_COST }));
-      return true;
+    async (storyId: string): Promise<boolean> => {
+      if (spendLockRef.current) return false;
+      spendLockRef.current = true;
+      try {
+        if (userState.credits < CHAPTER_UNLOCK_COST) return false;
+        // Üye kullanıcıda önce Firestore'a yaz (atomic) — hata varsa harcama iptal
+        if (userState.user?.uid) {
+          try {
+            await updateFirestoreCredits(userState.user.uid, -CHAPTER_UNLOCK_COST);
+          } catch (err) {
+            console.warn('[UnlockWithVote] Firestore hatası:', err);
+            return false;
+          }
+        }
+        setUserState(prev => ({ ...prev, credits: prev.credits - CHAPTER_UNLOCK_COST }));
+        return true;
+      } finally {
+        spendLockRef.current = false;
+      }
     },
     [userState]
   );
 
   const forceFateChoice = useCallback(
-    (storyId: string, chapterNumber: number, option: 'A' | 'B', optionText: string): boolean => {
-      if (userState.credits < FORCE_FATE_COST) return false;
+    async (storyId: string, chapterNumber: number, option: 'A' | 'B', optionText: string): Promise<boolean> => {
+      if (spendLockRef.current) return false;
+      spendLockRef.current = true;
+      try {
+        if (userState.credits < FORCE_FATE_COST) return false;
+        // Üye kullanıcıda önce Firestore'a yaz (atomic) — hata varsa harcama iptal
+        if (userState.user?.uid) {
+          try {
+            await updateFirestoreCredits(userState.user.uid, -FORCE_FATE_COST);
+          } catch (err) {
+            console.warn('[ForceFate] Firestore hatası:', err);
+            return false;
+          }
+        }
 
-      setUserState(prev => {
-        const engine = getOrCreateEngine(prev, storyId);
-        const choice: FateChoice = { chapterNumber, selectedOption: option, optionText, isForceChoice: true };
-        return {
-          ...prev,
-          credits: prev.credits - FORCE_FATE_COST,
-          storyEngines: {
-            ...prev.storyEngines,
-            [storyId]: { ...engine, fateChoices: [...engine.fateChoices, choice], activeChapter: chapterNumber + 1 },
-          },
-        };
-      });
-      return true;
+        setUserState(prev => {
+          const engine = getOrCreateEngine(prev, storyId);
+          const choice: FateChoice = { chapterNumber, selectedOption: option, optionText, isForceChoice: true };
+          return {
+            ...prev,
+            credits: prev.credits - FORCE_FATE_COST,
+            storyEngines: {
+              ...prev.storyEngines,
+              [storyId]: { ...engine, fateChoices: [...engine.fateChoices, choice], activeChapter: chapterNumber + 1 },
+            },
+          };
+        });
+        return true;
+      } finally {
+        spendLockRef.current = false;
+      }
     },
     [userState]
   );
@@ -336,23 +369,29 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   // ── Spend Credits (Firestore atomic) ─────────────────────
 
   const spendCredits = useCallback(async (amount: number): Promise<boolean> => {
-    const uid = userState.user?.uid;
-    if (!uid) {
-      // Misafir kullanıcı — local state'ten düş
-      if (userState.credits < amount) return false;
-      setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
-      return true;
-    }
-    // Bakiye kontrolü
-    if (userState.credits < amount) return false;
-    // Firestore'dan düş
+    if (spendLockRef.current) return false;
+    spendLockRef.current = true;
     try {
-      await updateFirestoreCredits(uid, -amount);
-      setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
-      return true;
-    } catch (err) {
-      console.warn('[SpendCredits] Firestore hatası:', err);
-      return false;
+      const uid = userState.user?.uid;
+      if (!uid) {
+        // Misafir kullanıcı — local state'ten düş
+        if (userState.credits < amount) return false;
+        setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
+        return true;
+      }
+      // Bakiye kontrolü
+      if (userState.credits < amount) return false;
+      // Firestore'dan düş
+      try {
+        await updateFirestoreCredits(uid, -amount);
+        setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
+        return true;
+      } catch (err) {
+        console.warn('[SpendCredits] Firestore hatası:', err);
+        return false;
+      }
+    } finally {
+      spendLockRef.current = false;
     }
   }, [userState.credits, userState.user?.uid]);
 
@@ -539,24 +578,24 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   // KESİNLİKLE jeton bypass'ı YOKTUR.
   const isAdmin = userState.user?.role === 'admin';
 
-  const login = useCallback(async (email: string, password: string, _name?: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string, _name?: string): Promise<{ ok: boolean; code?: string }> => {
     try {
       await firebaseLogin(email, password);
-      return true;
+      return { ok: true };
     } catch (err: any) {
       console.error('[Auth] Giriş hatası:', err.message);
-      return false;
+      return { ok: false, code: err?.code };
     }
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
+  const register = useCallback(async (name: string, email: string, password: string): Promise<{ ok: boolean; code?: string }> => {
     try {
       const cred = await firebaseRegister(email, password);
       await createFirestoreUser(cred.user.uid, email, name);
-      return true;
+      return { ok: true };
     } catch (err: any) {
       console.error('[Auth] Kayıt hatası:', err.message);
-      return false;
+      return { ok: false, code: err?.code };
     }
   }, []);
 

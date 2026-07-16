@@ -445,14 +445,23 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   // ── AI Story Generation ──────────────────────────────────
-  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean) => {
+  // isGeneratingRef: state gecikmesinden etkilenmeyen çift-tık kilidi
+  const isGeneratingRef = useRef(false);
+
+  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false) => {
+    if (!skipGuard) {
+      if (isGeneratingRef.current) return;
+      isGeneratingRef.current = true;
+      setIsGeneratingStory(true);
+    }
     if (!online) {
       toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
       return;
     }
 
     const chapterNum = engine.activeChapter + 1;
-    setIsGeneratingStory(true);
     setForceChoiceLabel(isForce ? optionText : null);
 
     try {
@@ -513,28 +522,49 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         variant: 'destructive',
       });
     } finally {
+      isGeneratingRef.current = false;
       setIsGeneratingStory(false);
       setForceChoiceLabel(null);
     }
   };
 
-  const handleUnlockAndGenerate = () => {
+  const handleUnlockAndGenerate = async () => {
+    if (isGeneratingRef.current) return;
     if (userState.credits < 15) {
       toast({ title: '⚠️ Yetersiz Kredi', description: 'Bu işlem için 15 jetona ihtiyacın var.', variant: 'destructive' });
       return;
     }
-    unlockWithVote(story.id);
+    // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
+    isGeneratingRef.current = true;
+    setIsGeneratingStory(true);
+    const ok = await unlockWithVote(story.id);
+    if (!ok) {
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
+      toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
+      return;
+    }
     // After unlock, auto-vote for the leading option
-    handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false);
+    await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true);
   };
 
-  const handleForceFate = (option: 'A' | 'B', optionText: string) => {
+  const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
+    if (isGeneratingRef.current) return;
     if (userState.credits < FORCE_FATE_COST) {
       toast({ title: '⚠️ Yetersiz Kredi', description: `Bu işlem için ${FORCE_FATE_COST} jetona ihtiyacın var.`, variant: 'destructive' });
       return;
     }
-    forceFateChoice(story.id, engine.activeChapter, option, optionText);
-    handleGenerateStory(option, optionText, true);
+    // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
+    isGeneratingRef.current = true;
+    setIsGeneratingStory(true);
+    const ok = await forceFateChoice(story.id, engine.activeChapter, option, optionText);
+    if (!ok) {
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
+      toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
+      return;
+    }
+    await handleGenerateStory(option, optionText, true, true);
   };
 
   const handleSendGift = (giftType: string) => {
