@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useUserState } from '@/lib/user-state';
 import { firebaseGoogleLogin } from '@/lib/firebase';
-import { Mail, Lock, User, LogIn, UserPlus, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, LogIn, UserPlus, Sparkles, Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,6 +21,33 @@ interface AuthModalProps {
 
 type AuthTab = 'login' | 'register';
 
+/** Auth işlemi bu süre içinde bitmezse zaman aşımı sayılır */
+const AUTH_TIMEOUT_MS = 15000;
+
+/** Firebase hata kodlarını kullanıcıya gösterilecek Türkçe mesajlara çevirir */
+function mapFirebaseError(code: string | undefined, tab: AuthTab): string {
+  const map: Record<string, string> = {
+    'auth/invalid-credential': 'E-posta veya şifre hatalı.',
+    'auth/user-not-found': 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.',
+    'auth/wrong-password': 'Şifre hatalı.',
+    'auth/email-already-in-use': 'Bu e-posta adresi zaten kayıtlı.',
+    'auth/too-many-requests': 'Çok fazla hatalı deneme. Lütfen bir süre bekleyin.',
+    'auth/network-request-failed': 'Ağ bağlantısı hatası. İnternetinizi kontrol edin.',
+    'auth/invalid-email': 'Geçersiz e-posta adresi.',
+    'auth/weak-password': 'Şifre çok zayıf. Daha güçlü bir şifre deneyin.',
+  };
+  if (code && map[code]) return map[code];
+  return tab === 'login' ? 'Giriş başarısız. E-posta veya şifre hatalı.' : 'Kayıt başarısız. Lütfen tekrar deneyin.';
+}
+
+/** Promise'i zaman aşımıyla yarıştırır — ağ takılırsa sonsuz bekleme olmaz */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+  ]);
+}
+
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { login, register } = useUserState();
   const [tab, setTab] = useState<AuthTab>('login');
@@ -28,6 +55,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setName('');
@@ -43,6 +71,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError('');
 
     if (!email.trim() || !password.trim()) {
@@ -53,25 +82,40 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setError('Şifre en az 4 karakter olmalıdır.');
       return;
     }
-
-    let ok = false;
-    if (tab === 'register') {
-      if (!name.trim()) {
-        setError('Lütfen adınızı girin.');
-        return;
-      }
-      ok = await register(name.trim(), email.trim(), password);
-    } else {
-      ok = await login(email.trim(), password);
-    }
-
-    if (!ok) {
-      setError(tab === 'login' ? 'Giriş başarısız. E-posta veya şifre hatalı.' : 'Kayıt başarısız. Lütfen tekrar deneyin.');
+    if (tab === 'register' && !name.trim()) {
+      setError('Lütfen adınızı girin.');
       return;
     }
 
-    resetForm();
-    onClose();
+    // Offline kontrolü — ağ yokken Firebase'i hiç bekletme
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError('İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await withTimeout(
+        tab === 'register'
+          ? register(name.trim(), email.trim(), password)
+          : login(email.trim(), password),
+        AUTH_TIMEOUT_MS
+      );
+
+      if (!result.ok) {
+        setError(mapFirebaseError(result.code, tab));
+        return;
+      }
+
+      resetForm();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message === 'TIMEOUT'
+        ? 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.'
+        : 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -171,9 +215,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           <Button
             type="submit"
-            className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent dark:from-purple-600 dark:to-indigo-600 text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all"
+            disabled={isSubmitting}
+            className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent dark:from-purple-600 dark:to-indigo-600 text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-70"
           >
-            {tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                İşleniyor...
+              </span>
+            ) : (
+              tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol'
+            )}
           </Button>
 
           {/* Divider */}
@@ -188,16 +240,30 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={async (e) => {
                 e.preventDefault();
+                if (isSubmitting) return;
+                setError('');
+                if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                  setError('İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin.');
+                  return;
+                }
+                setIsSubmitting(true);
                 try {
-                  await firebaseGoogleLogin();
+                  await withTimeout(firebaseGoogleLogin(), AUTH_TIMEOUT_MS);
                   resetForm();
                   onClose();
                 } catch (err: any) {
-                  if (err.code !== 'auth/popup-closed-by-user') {
+                  if (err?.message === 'TIMEOUT') {
+                    setError('İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.');
+                  } else if (err?.code === 'auth/network-request-failed') {
+                    setError('Ağ bağlantısı hatası. İnternetinizi kontrol edin.');
+                  } else if (err?.code !== 'auth/popup-closed-by-user') {
                     setError('Google ile giriş başarısız. Lütfen tekrar deneyin.');
                   }
+                } finally {
+                  setIsSubmitting(false);
                 }
               }}
               className="w-full h-12 rounded-2xl border-border/50 dark:border-zinc-700 font-bold text-sm gap-3 hover:bg-muted/30"
