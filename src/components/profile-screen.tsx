@@ -44,6 +44,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ProfileScreenProps {
   onOpenWriterDashboard?: () => void;
@@ -57,6 +67,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
   const { toast } = useToast();
   const { userState, logout, isGiftClaimedToday, claimDailyGift } = useUserState();
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const currentUser = userState.user;
   const dailyGiftClaimed = isGiftClaimedToday;
@@ -160,10 +171,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              logout();
-              toast({ title: "Çıkış Yapıldı", description: "Hesabından güvenle çıkış yapıldı." });
-            }}
+            onClick={() => setLogoutConfirmOpen(true)}
             className="rounded-full border-red-200 dark:border-red-800 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
           >
             Çıkış Yap
@@ -399,10 +407,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
               <p className="text-white/60 text-xs">{currentUser.email}</p>
             </div>
             <Button
-              onClick={() => {
-                logout();
-                toast({ title: "Çıkış Yapıldı", description: "Hesabından güvenle çıkış yapıldı." });
-              }}
+              onClick={() => setLogoutConfirmOpen(true)}
               variant="outline"
               className="w-full h-12 rounded-2xl border-red-200 dark:border-red-800 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-950/30"
             >
@@ -616,8 +621,8 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
               <Button
                 variant="outline"
                 onClick={() => {
-                  toast({ title: "Çıkış Yapıldı", description: "Hesabından güvenle çıkış yapıldı." });
                   setIsSettingsOpen(false);
+                  setLogoutConfirmOpen(true);
                 }}
                 className="w-full h-12 rounded-2xl border-red-200 text-red-600 font-bold hover:bg-red-50"
               >
@@ -662,6 +667,34 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Çıkış Onay Kutusu */}
+      <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <AlertDialogContent className="max-w-[90%] rounded-[2.5rem] border-border/50 dark:bg-zinc-900">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-headline font-black text-accent">
+              Çıkış Yap
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              Hesabından çıkmak istediğine emin misin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 sm:flex-row">
+            <AlertDialogCancel className="flex-1 h-12 rounded-2xl font-bold mt-0">
+              İptal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                logout();
+                toast({ title: "Çıkış Yapıldı", description: "Hesabından güvenle çıkış yapıldı." });
+              }}
+              className="flex-1 h-12 rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold"
+            >
+              Çıkış Yap
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
