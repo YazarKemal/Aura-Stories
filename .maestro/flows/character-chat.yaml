@@ -58,14 +58,18 @@ appId: com.prompthavenstudio.aurastories
     timeout: 3000
 
 # ── İlk karakteri seç ("Kerem" — Gece Yarısı Güneşi) ─────────
-- tapOn: "Kerem"
+#     WebView, buton içeriğini tek düğüme düzleştirebilir
+#     ("Kerem Gizemli kütüphaneci...") — regex "contains" ile eşle
+- tapOn:
+    text: ".*Kerem.*"
 
 # ── Chat ekranı animasyonu ───────────────────────────────────
 - waitForAnimationToEnd:
     timeout: 2000
 
-# ── Chat başlığı görünmeli (karakter ismi header'da) ─────────
-- assertVisible: "ile Sohbet"
+# ── Chat başlığı görünmeli (header: "Kerem ile Sohbet") ──────
+#     Tam metin "Kerem ile Sohbet" — kısmi eşleşme için regex şart
+- assertVisible: ".*ile Sohbet.*"
 
 # ═══════════════════════════════════════════════════════════════
 # MESAJ GÖNDERME
@@ -82,10 +86,12 @@ appId: com.prompthavenstudio.aurastories
 #     Kullanıcı balonu anında görünür; asıl bekleme "yazıyor"
 #     göstergesinin kaybolması (isLoading=false) — yanıt da
 #     hata balonu da bu koşulu sağlar (CI'da deterministik)
-- assertVisible: "Merhaba, nasılsın?"
+#     NOT: metinler regex'tir — "?" quantifier'a dönüşmesin diye
+#     nokta-yıldız contains kalıbı kullanılıyor
+- assertVisible: ".*Merhaba, nasılsın.*"
 - extendedWaitUntil:
     notVisible:
-      text: "yazıyor"
+      text: ".*yazıyor.*"
     timeout: 20000
 
 # ═══════════════════════════════════════════════════════════════
