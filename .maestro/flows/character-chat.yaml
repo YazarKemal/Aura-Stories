@@ -110,13 +110,10 @@ appId: com.prompthavenstudio.aurastories
 # ═══════════════════════════════════════════════════════════════
 
 # ── Geri dön (sol üst ArrowLeft) ─────────────────────────────
-#     KANIT (Cloud ekran görüntüsü): klavye hâlâ açık — point tap'ı
-#     yutuyor/ıskalatıyor. Önce klavyeyi kapat (açıkken güvenli:
-#     back-benzeri event'i IME tüketir), sonra koordinat yerine
-#     aria-label ile tıkla (klavye kapanınca konum yeniden hesaplanır)
-- hideKeyboard
-- waitForAnimationToEnd:
-    timeout: 1000
+#     point(5%,5%) klavye açıkken ıskalıyordu (Cloud kanıtı);
+#     hideKeyboard ise klavye KAPALIYSA back'e dönüşüp uygulamayı
+#     arka plana atıyor (0f0a1ea hatası). Node tabanlı tap her iki
+#     durumda da güncel konumu hesaplar — ikisi de kullanılmıyor
 - tapOn: "Geri dön"
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────

@@ -94,7 +94,7 @@ appId: com.prompthavenstudio.aurastories
 # ── Kitaplıkta doğrula ───────────────────────────────────────
 - tapOn: "Kitaplık"
 - assertVisible: "Kitaplık"
-- assertVisible: "Gece Yarısı Güneşi"
+- assertVisible: ".*Gece Yarısı Güneşi.*"
 
 # ── Kitaplıktan aç ───────────────────────────────────────────
 - tapOn: "Gece Yarısı Güneşi"
