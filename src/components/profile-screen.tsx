@@ -421,7 +421,7 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
               <p className="text-white/60 text-xs">Hikayelerinizi kaydedin ve tüm cihazlarınızdan erişin.</p>
             </div>
             <Button
-              aria-label="Giriş yap"
+              aria-label="Hesabına giriş yap"
               onClick={onOpenLogin}
               className="w-full h-12 rounded-2xl bg-primary text-white font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >

@@ -47,12 +47,16 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Ben"
 - assertVisible: "Ben"
 
-# ── Auth modal'ı aç — "Giriş yap" butonu (aria-label) ────────
+# ── Auth modal'ı aç — "Hesabına giriş yap" (aria-label) ──────
+#     Etiket benzersiz olmalı: eski 'Giriş yap' modaldaki 'Giriş Yap'
+#     submit'iyle case-insensitive TAM eşleşiyordu — Maestro modal
+#     açıkken arkadaki profil butonunu seçip tap'ı overlay'e boşa
+#     harcıyordu (character-chat'teki 'Geri dön' çakışmasının aynısı)
 - scrollUntilVisible:
     element:
-      text: "Giriş yap"
+      text: "Hesabına giriş yap"
     direction: DOWN
-- tapOn: "Giriş yap"
+- tapOn: "Hesabına giriş yap"
 
 # ── Modal animasyonu ─────────────────────────────────────────
 - waitForAnimationToEnd:
