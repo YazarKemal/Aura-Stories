@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { getRewardedAdUnitId, initializeAdMob, AD_REWARD_AMOUNT, isCapacitorAvailable } from '@/lib/admob-config';
+import { getRewardedAdUnitId, initializeAdMob, AD_REWARD_AMOUNT, isCapacitorAvailable, isSimulationForced } from '@/lib/admob-config';
 import {
   onAuthChange,
   firebaseLogin,
@@ -632,6 +632,16 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       return reward;
     }
 
+    // ── CI/E2E kilidi — Maestro cihazında gerçek SDK'yı hiç açma ──
+    // (rewards-ads akışı deterministik kalır + AdMob geçersiz trafik riski yok)
+    if (isSimulationForced()) {
+      console.warn(
+        '[AdMob] Simülasyon modu zorlandı (NEXT_PUBLIC_ADMOB_MODE=simulation).'
+      );
+      const reward = await simulateAdReward();
+      return reward;
+    }
+
     // ── Kapasitör Native Ortam (capacitor:// protokolü) ──────
     try {
       const isNative = await isCapacitorAvailable();
@@ -645,47 +655,68 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       }
 
       /*
-       * GERÇEK REWARDED AD ENTEGRASYONU
+       * GERÇEK REWARDED AD ENTEGRASYONU (@capacitor-community/admob v8)
        *
        * Sadece fiziksel cihazda (Capacitor native runtime) çalışır.
-       * Paketleri yüklemek için:
-       *   npm install @capacitor-community/admob
-       *   npx cap sync
+       * API: AdMob.prepareRewardVideoAd → AdMob.showRewardVideoAd,
+       * ödül/kapanış/hata olayları RewardAdPluginEvents ile dinlenir.
        */
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { RewardedAd } = await import('@capacitor-community/admob');
+      const { AdMob, RewardAdPluginEvents } = await import(
+        '@capacitor-community/admob'
+      );
 
       const adUnitId = getRewardedAdUnitId();
 
-      return new Promise<number>((resolve) => {
-        const ad = new RewardedAd({ adId: adUnitId });
+      return await new Promise<number>((resolve) => {
+        // Listener'lar AdMob plugin'inde GLOBAL'dir — bitişte kaldırılmazsa
+        // sonraki izlemelerde birikip çift ödül verir
+        const listeners: Array<{ remove: () => Promise<void> }> = [];
+        let settled = false;
 
-        ad.addListener('onRewarded', (reward: { amount?: number }) => {
+        const settle = (amount: number) => {
+          if (settled) return;
+          settled = true;
+          listeners.forEach(l => { l.remove().catch(() => {}); });
+          setIsWatchingAd(false);
+          resolve(amount);
+        };
+
+        const fallbackToSimulation = (reason: string) => {
+          if (settled) return;
+          settled = true;
+          listeners.forEach(l => { l.remove().catch(() => {}); });
+          console.warn(reason);
+          setIsWatchingAd(false);
+          simulateAdReward().then(resolve);
+        };
+
+        AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
           const amount =
             reward.amount && reward.amount > 0
               ? reward.amount
               : AD_REWARD_AMOUNT;
-          setUserState(prev => ({ ...prev, credits: prev.credits + amount }));
-          setIsWatchingAd(false);
-          resolve(amount);
-        });
+          setUserState(prev => {
+            // Firestore'a da yaz — yalnız local kalırsa onSnapshot geri alır
+            if (prev.user?.uid) syncCreditsToFirestore(prev.user.uid, amount);
+            return { ...prev, credits: prev.credits + amount };
+          });
+          settle(amount);
+        }).then(h => listeners.push(h));
 
-        ad.addListener('onFailedToLoad', () => {
-          console.warn('[AdMob] Reklam yüklenemedi → simülasyon');
-          setIsWatchingAd(false);
-          simulateAdReward().then(resolve);
-        });
+        AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+          // Ödül gelmeden kapatıldıysa 0; ödül geldiyse settle zaten çalıştı
+          settle(0);
+        }).then(h => listeners.push(h));
 
-        ad.addListener('onDismissed', () => {
-          setIsWatchingAd(false);
-          resolve(0);
-        });
+        AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => {
+          fallbackToSimulation('[AdMob] Reklam yüklenemedi → simülasyon');
+        }).then(h => listeners.push(h));
 
-        ad.load().then(() => ad.show()).catch(() => {
-          console.warn('[AdMob] Reklam gösterilemedi → simülasyon');
-          setIsWatchingAd(false);
-          simulateAdReward().then(resolve);
-        });
+        AdMob.prepareRewardVideoAd({ adId: adUnitId })
+          .then(() => AdMob.showRewardVideoAd())
+          .catch(() => {
+            fallbackToSimulation('[AdMob] Reklam gösterilemedi → simülasyon');
+          });
       });
     } catch (error) {
       console.warn(

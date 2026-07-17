@@ -54,6 +54,10 @@ jobs:
           # CI APK'sında çalışması için gerçek key şart (dummy fallback YOK:
           # secret eksikse chat ekranda açıkça hata verir, sessizce geçmez)
           NEXT_PUBLIC_DEEPSEEK_API_KEY: ${{ secrets.NEXT_PUBLIC_DEEPSEEK_API_KEY }}
+          # Maestro cihazında gerçek AdMob SDK'sı AÇILMAMALI: rewards-ads
+          # akışı simülasyon zamanlamasına göre yazıldı + otomasyona reklam
+          # göstermek AdMob "geçersiz trafik" ihlalidir (hesap riski)
+          NEXT_PUBLIC_ADMOB_MODE: simulation
 
       - name: Verify build output
         run: |

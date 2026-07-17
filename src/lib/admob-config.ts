@@ -25,6 +25,24 @@ export const ADMOB_IOS_REWARDED_TEST_ID =
   'ca-app-pub-3940256099942544/1712485313';
 
 /**
+ * CI/E2E için reklamları tamamen simülasyona zorlar.
+ * `NEXT_PUBLIC_ADMOB_MODE=simulation` → native SDK hiç başlatılmaz.
+ *
+ * Maestro Cloud cihazında gerçek/test reklamı göstermek hem rewards-ads
+ * akışını bozar hem de AdMob "geçersiz trafik" ihlali riskidir —
+ * maestro.yml build adımı bu modu kullanır.
+ */
+export function isSimulationForced(): boolean {
+  // NOT: `process.env.NEXT_PUBLIC_X` düz erişimi build'de literal ile
+  // değiştirilir (isProductionMode ile aynı desen) — optional chaining
+  // (`process.env?.X`) statik gömmeyi bozabilir, kullanma
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.NEXT_PUBLIC_ADMOB_MODE === 'simulation';
+  }
+  return false;
+}
+
+/**
  * Ortam değişkenine göre prodüksiyon mu test mi olduğunu belirler.
  * .env veya .env.local dosyasında `NEXT_PUBLIC_ADMOB_MODE=production` ayarlayın.
  *
@@ -88,51 +106,55 @@ export const TEST_DEVICE_IDS: string[] = [
 
 /**
  * Capacitor AdMob başlatma fonksiyonu.
- * Uygulama başlangıcında (örn. Providers içinde useEffect) bir kere çağrılmalıdır.
+ * Uygulama başlangıcında (Providers → useEffect) bir kere çağrılır.
  *
- * NOT: Bu fonksiyon şu an simülasyon modunda çalışır.
- * Capacitor paketleri kurulduğunda aşağıdaki satırları aktif edin:
- *
- *   npm install @capacitor-community/admob
- *   npx cap sync
+ * - CI/E2E (`NEXT_PUBLIC_ADMOB_MODE=simulation`) → SDK hiç başlatılmaz
+ * - Web/Termux (native runtime yok) → simülasyon
+ * - Gerçek cihaz → AdMob SDK initialize edilir
  *
  * Prodüksiyona çıkmak için .env.local dosyasına ekleyin:
  *   NEXT_PUBLIC_ADMOB_MODE=production
+ * (Not: `next build` zaten NODE_ENV=production ile otomatik prod moda geçer)
  */
 export async function initializeAdMob(): Promise<void> {
   const prod = isProductionMode();
 
   try {
-    // ── GERÇEK CAPACITOR ENTEGRASYONU (yorumdan çıkarın) ──
-    //
-    // import { AdMob } from '@capacitor-community/admob';
-    //
-    // await AdMob.initialize({
-    //   /**
-    //    * Test cihazlarını kaydet. Bu cihazlarda gerçek reklam yerine
-    //    * test reklamları gösterilir. App Store / Play Store onayı öncesi
-    //    * bu listeyi temizleyin veya `initializeForTesting: false` yapın.
-    //    */
-    //   testingDevices: TEST_DEVICE_IDS,
-    //
-    //   /**
-    //    * Geliştirme aşamasında `true`. Canlıya çıkarken MUTLAKA `false` yapın.
-    //    * `false` olduğunda testingDevices listesi yine de çalışır.
-    //    *
-    //    * NEXT_PUBLIC_ADMOB_MODE=production → false (gerçek reklamlar)
-    //    * varsayılan (test) → true (test reklamları)
-    //    */
-    //   initializeForTesting: !prod,
-    // });
-    //
-    //   prod ? '🚀 PROD modu — gerçek reklamlar' : '🧪 TEST modu — test reklamları',
-    //   '| Test cihazları:', TEST_DEVICE_IDS,
-    //   '| Ad Unit ID:', getRewardedAdUnitId());
-    // ─────────────────────────────────────────────────────────
+    // ── CI/E2E kilidi — Maestro cihazında SDK'yı hiç açma ──────
+    if (isSimulationForced()) {
+      console.warn(
+        '[AdMob] Simülasyon modu zorlandı (NEXT_PUBLIC_ADMOB_MODE=simulation) — SDK başlatılmayacak.'
+      );
+      return;
+    }
 
-    // Simülasyon: Capacitor yoksa sessizce devam et
+    // ── Web/Termux — native runtime yok, simülasyon ────────────
+    if (!(await isCapacitorAvailable())) {
+      console.warn(
+        `[AdMob] Simülasyon modunda (${prod ? 'PROD' : 'TEST'}). Native platform yok — simüle reklamlar kullanılacak.`
+      );
+      return;
+    }
+
+    // ── Gerçek cihaz — AdMob SDK initialize ────────────────────
+    const { AdMob } = await import('@capacitor-community/admob');
+
+    await AdMob.initialize({
+      /**
+       * Test cihazlarını kaydet. Bu cihazlarda gerçek reklam yerine
+       * test reklamları gösterilir (gelir olarak sayılmaz).
+       */
+      testingDevices: TEST_DEVICE_IDS,
+
+      /**
+       * Geliştirme aşamasında `true`. Prod build'de `false` → gerçek
+       * reklamlar (testingDevices listesi yine de çalışır).
+       */
+      initializeForTesting: !prod,
+    });
+
     console.warn(
-      `[AdMob] Simülasyon modunda (${prod ? 'PROD' : 'TEST'}). Capacitor kurulu değil — simüle reklamlar kullanılacak. Ad Unit ID: ${getRewardedAdUnitId()}`
+      `[AdMob] SDK başlatıldı — ${prod ? '🚀 PROD modu, gerçek reklamlar' : '🧪 TEST modu, test reklamları'} | Ad Unit ID: ${getRewardedAdUnitId()}`
     );
   } catch (error) {
     console.warn(
