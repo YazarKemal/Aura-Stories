@@ -24,8 +24,11 @@ import { SplashScreen } from '@/components/splash-screen';
 import { OnboardingView } from '@/components/onboarding-view';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AuthModal } from '@/components/auth-modal';
+import { useUserState } from '@/lib/user-state';
+import { maybeShowInterstitial } from '@/lib/interstitial-ads';
 
 export default function Home() {
+  const { isVipActive } = useUserState();
   // Varsayılan state'ler — SSR ile uyumlu, hydration hatası yok
   const [isLoading, setIsLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
@@ -348,16 +351,24 @@ export default function Home() {
       )}
 
       {isReading && selectedStory && (
-        <ReadingView 
-          story={selectedStory} 
-          onBack={() => { setIsReading(false); setSelectedStory(null); }}
+        <ReadingView
+          story={selectedStory}
+          onBack={() => {
+            // Doğal çıkış anı — VIP değilse interstitial dene (fire-and-forget, bloklamaz)
+            if (!isVipActive()) void maybeShowInterstitial();
+            setIsReading(false); setSelectedStory(null);
+          }}
         />
       )}
 
       {selectedStory && !isReading && !isChatOpen && (
-        <BookDetailView 
-          story={selectedStory} 
-          onBack={() => setSelectedStory(null)} 
+        <BookDetailView
+          story={selectedStory}
+          onBack={() => {
+            // Doğal çıkış anı — VIP değilse interstitial dene (fire-and-forget, bloklamaz)
+            if (!isVipActive()) void maybeShowInterstitial();
+            setSelectedStory(null);
+          }}
           onStartReading={handleStartReading}
           onOpenChat={handleOpenChat}
         />

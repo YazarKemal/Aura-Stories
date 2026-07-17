@@ -531,7 +531,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const handleUnlockAndGenerate = async () => {
     if (isGeneratingRef.current) return;
     if (userState.credits < 15) {
-      toast({ title: '⚠️ Yetersiz Kredi', description: 'Bu işlem için 15 jetona ihtiyacın var.', variant: 'destructive' });
+      // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
+      setIsAdModalOpen(true);
       return;
     }
     // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
@@ -551,7 +552,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
     if (isGeneratingRef.current) return;
     if (userState.credits < FORCE_FATE_COST) {
-      toast({ title: '⚠️ Yetersiz Kredi', description: `Bu işlem için ${FORCE_FATE_COST} jetona ihtiyacın var.`, variant: 'destructive' });
+      // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
+      setIsAdModalOpen(true);
       return;
     }
     // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin

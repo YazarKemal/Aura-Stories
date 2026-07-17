@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { loadChatHistory, saveChatMessage, type ChatMessage } from '@/lib/firebase';
 import { useNetwork } from '@/hooks/use-network';
 import { sendChatMessage } from '@/lib/chat-client';
+import { AdRewardModal } from '@/components/ad-reward-modal';
 
 interface CharacterChatViewProps {
   story: Story;
@@ -43,6 +44,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Yetersiz jeton upsell'i — reklam teklifi modalı
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   // Çift-tık kilidi — state gecikmesinden etkilenmez
   const sendLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,12 +162,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     // Jeton kontrolü — mesaj başına 5 jeton
     const ok = await spendCredits(5);
     if (!ok) {
-      toast({
-        title: '⚠️ Yetersiz Jeton',
-        description: 'Mesaj göndermek için 5 jetona ihtiyacın var. Reklam izleyerek jeton kazanabilirsin.',
-        variant: 'destructive',
-      });
-      // Opsiyonel: setIsAdModalOpen(true) ile reklam modalı açılabilir
+      // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
+      setIsAdModalOpen(true);
       sendLockRef.current = false;
       setIsLoading(false);
       return;
@@ -446,6 +445,9 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           </div>
         </div>
       </footer>
+
+      {/* Yetersiz jeton upsell'i — reklam izle, +5 jeton kazan */}
+      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} />
     </div>
   );
 }

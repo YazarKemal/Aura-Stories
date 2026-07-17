@@ -25,6 +25,20 @@ export const ADMOB_IOS_REWARDED_TEST_ID =
   'ca-app-pub-3940256099942544/1712485313';
 
 /**
+ * 🚀 PRODÜKSİYON — Interstitial (Geçiş) Ad Unit ID
+ *
+ * TODO: AdMob konsolundan yeni bir "Geçiş reklamı" (Interstitial) birimi
+ * oluşturup gerçek ID ile değiştirin. Placeholder ile prod'a çıkılırsa
+ * interstitial yüklenemez ve sessizce atlanır (uygulama etkilenmez).
+ */
+export const ADMOB_INTERSTITIAL_PROD_ID =
+  'ca-app-pub-7771069325721053/0000000000';
+
+/** 🧪 Android Interstitial Test Ad Unit ID (Google Resmi) */
+export const ADMOB_ANDROID_INTERSTITIAL_TEST_ID =
+  'ca-app-pub-3940256099942544/1033173712';
+
+/**
  * CI/E2E için reklamları tamamen simülasyona zorlar.
  * `NEXT_PUBLIC_ADMOB_MODE=simulation` → native SDK hiç başlatılmaz.
  *
@@ -73,6 +87,14 @@ export function getRewardedAdUnitId(): string {
     }
   }
   return ADMOB_ANDROID_REWARDED_TEST_ID;
+}
+
+/** Ortama göre doğru Interstitial Ad Unit ID'sini döndürür (Android odaklı) */
+export function getInterstitialAdUnitId(): string {
+  if (isProductionMode()) {
+    return ADMOB_INTERSTITIAL_PROD_ID;
+  }
+  return ADMOB_ANDROID_INTERSTITIAL_TEST_ID;
 }
 
 // ══════════════════════════════════════════════════════════════

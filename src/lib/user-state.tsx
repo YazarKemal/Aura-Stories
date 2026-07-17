@@ -10,6 +10,7 @@ import {
   getFirestoreUser,
   createFirestoreUser,
   updateFirestoreCredits,
+  updateVipUntil,
   claimDailyGift as firestoreClaimDailyGift,
   isGiftClaimedToday,
   onUserSnapshot,
@@ -72,6 +73,8 @@ export interface UserState {
   vipAdsWatched: number;
   /** VIP kademe ilerlemesi — seçili kademe ID */
   vipSelectedTier: string;
+  /** VIP bitiş zamanı (epoch ms) — null: VIP yok. Kalıcı (localStorage + Firestore) */
+  vipUntil: number | null;
   /** Kimlik doğrulama — null ise kullanıcı giriş yapmamış */
   user: AuthUser | null;
   /** Firebase bağlantısı hazır mı? (onAuthStateChanged ilk tetiklenme) */
@@ -129,6 +132,10 @@ interface UserStateContextType {
   setVipTier: (tierId: string) => void;
   /** VIP ilerlemesini sıfırla (kademe tamamlandığında) */
   resetVipProgress: () => void;
+  /** VIP kazandır: şu andan itibaren durationMs süreyle. Kalıcı (localStorage + Firestore) */
+  grantVip: (durationMs: number) => void;
+  /** VIP şu an aktif mi? (vipUntil gelecekte mi) */
+  isVipActive: () => boolean;
 
   // ── Rewarded Ads ──────────────────────────────────────────
   /** Simulate watching a rewarded ad. Returns the amount of credits earned. */
@@ -151,6 +158,7 @@ const DEFAULT_STATE: UserState = {
   storyEngines: {},
   vipAdsWatched: 0,
   vipSelectedTier: '7days',
+  vipUntil: null,
   user: null,
   firebaseReady: false,
   level: 1,
@@ -421,21 +429,22 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem('aura-vip-progress');
       if (saved) {
-        const { vipAdsWatched, vipSelectedTier } = JSON.parse(saved);
+        const { vipAdsWatched, vipSelectedTier, vipUntil } = JSON.parse(saved);
         setUserState(prev => ({
           ...prev,
           vipAdsWatched: vipAdsWatched ?? 0,
           vipSelectedTier: vipSelectedTier ?? '7days',
+          vipUntil: typeof vipUntil === 'number' ? vipUntil : null,
         }));
       }
     } catch { /* ignore */ }
   }, []);
 
-  const persistVip = (adsWatched: number, selectedTier: string) => {
+  const persistVip = (adsWatched: number, selectedTier: string, vipUntil: number | null) => {
     try {
       localStorage.setItem(
         'aura-vip-progress',
-        JSON.stringify({ vipAdsWatched: adsWatched, vipSelectedTier: selectedTier })
+        JSON.stringify({ vipAdsWatched: adsWatched, vipSelectedTier: selectedTier, vipUntil })
       );
     } catch { /* quota exceeded */ }
   };
@@ -443,24 +452,42 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const recordVipAdWatch = useCallback(() => {
     setUserState(prev => {
       const next = prev.vipAdsWatched + 1;
-      persistVip(next, prev.vipSelectedTier);
+      persistVip(next, prev.vipSelectedTier, prev.vipUntil);
       return { ...prev, vipAdsWatched: next };
     });
   }, []);
 
   const setVipTier = useCallback((tierId: string) => {
     setUserState(prev => {
-      persistVip(0, tierId);
+      persistVip(0, tierId, prev.vipUntil);
       return { ...prev, vipSelectedTier: tierId, vipAdsWatched: 0 };
     });
   }, []);
 
   const resetVipProgress = useCallback(() => {
     setUserState(prev => {
-      persistVip(0, prev.vipSelectedTier);
+      persistVip(0, prev.vipSelectedTier, prev.vipUntil);
       return { ...prev, vipAdsWatched: 0 };
     });
   }, []);
+
+  const grantVip = useCallback((durationMs: number) => {
+    const until = Date.now() + durationMs;
+    setUserState(prev => {
+      persistVip(prev.vipAdsWatched, prev.vipSelectedTier, until);
+      // Girişliyse Firestore'a da yaz — cihazlar arası senkron
+      if (prev.user?.uid) {
+        updateVipUntil(prev.user.uid, new Date(until).toISOString()).catch(err =>
+          console.warn('[VIP] Firestore vipUntil yazılamadı:', err)
+        );
+      }
+      return { ...prev, vipUntil: until };
+    });
+  }, []);
+
+  const isVipActive = useCallback((): boolean => {
+    return userState.vipUntil !== null && Date.now() < userState.vipUntil;
+  }, [userState.vipUntil]);
 
   // ── Daily Gift ────────────────────────────────────────────
 
@@ -522,6 +549,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           wordsRead: fsUser!.wordsRead ?? 0,
           streak: fsUser!.streak ?? 0,
           lastGiftClaimedAt: fsUser!.lastGiftClaimedAt ?? null,
+          vipUntil: fsUser!.vipUntil ? new Date(fsUser!.vipUntil).getTime() : null,
           firebaseReady: true,
         }));
 
@@ -556,6 +584,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
               wordsRead: updated.wordsRead ?? 0,
               streak: updated.streak ?? 0,
               lastGiftClaimedAt: updated.lastGiftClaimedAt ?? null,
+              // Sunucu her geldiğinde kazanır — cihazlar arası VIP senkronu
+              vipUntil: updated.vipUntil ? new Date(updated.vipUntil).getTime() : null,
             }));
           }
         });
@@ -753,7 +783,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       value={{
         userState, unlockNextChapter, buyFullAccess, getCurrentChapter, isChapterAccessible, addCredits,
         unlockWithVote, forceFateChoice, saveGeneratedChapter, getLatestFateOptions, getStoryEngine,
-        recordVipAdWatch, setVipTier, resetVipProgress,
+        recordVipAdWatch, setVipTier, resetVipProgress, grantVip, isVipActive,
         login, register, logout, isLoggedIn, isAdmin,
         spendCredits,
         isGiftClaimedToday: isGiftClaimedTodayValue,

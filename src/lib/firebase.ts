@@ -78,6 +78,8 @@ export interface FirestoreUser {
   wordsRead: number;
   streak: number;
   lastGiftClaimedAt: string | null;
+  /** VIP bitiş zamanı (ISO string) — null: VIP yok */
+  vipUntil: string | null;
 }
 
 export async function getFirestoreUser(uid: string): Promise<FirestoreUser | null> {
@@ -102,6 +104,7 @@ export async function createFirestoreUser(
     wordsRead: 0,
     streak: 0,
     lastGiftClaimedAt: null,
+    vipUntil: null,
   };
   await setDoc(doc(db, 'users', uid), user);
   return user;
@@ -111,6 +114,13 @@ export async function createFirestoreUser(
 export async function updateFirestoreCredits(uid: string, delta: number): Promise<void> {
   await updateDoc(doc(db, 'users', uid), {
     credits: increment(delta),
+  });
+}
+
+/** VIP bitiş zamanını Firestore'a yaz (ISO string, null = VIP yok). */
+export async function updateVipUntil(uid: string, vipUntilIso: string | null): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    vipUntil: vipUntilIso,
   });
 }
 

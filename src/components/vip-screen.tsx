@@ -25,7 +25,7 @@ interface VIPScreenProps {
 }
 
 export function VIPScreen({ onBack }: VIPScreenProps) {
-  const { userState, recordVipAdWatch, setVipTier, resetVipProgress } = useUserState();
+  const { userState, recordVipAdWatch, setVipTier, resetVipProgress, grantVip, isVipActive } = useUserState();
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [vipUnlocked, setVipUnlocked] = useState(false);
 
@@ -39,6 +39,7 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
     // Seçili kademenin reklam hedefine ulaşıldı mı?
     const tier = adTiers.find(t => t.id === selectedTier);
     if (tier && next >= tier.ads) {
+      grantVip(tier.durationMs); // Kalıcı VIP — localStorage + girişliyse Firestore
       setVipUnlocked(true);
       setTimeout(() => {
         resetVipProgress();
@@ -55,9 +56,9 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
   ];
 
   const adTiers = [
-    { id: '1day', title: '1 Günlük VIP', ads: 2, reward: '+50 Jeton', popular: false },
-    { id: '7days', title: '7 Günlük VIP', ads: 10, reward: '+200 Jeton', popular: true },
-    { id: '30days', title: '30 Günlük VIP', ads: 30, reward: '+500 Jeton', popular: false },
+    { id: '1day', title: '1 Günlük VIP', ads: 2, reward: '+50 Jeton', popular: false, durationMs: 86_400_000 },
+    { id: '7days', title: '7 Günlük VIP', ads: 10, reward: '+200 Jeton', popular: true, durationMs: 604_800_000 },
+    { id: '30days', title: '30 Günlük VIP', ads: 30, reward: '+500 Jeton', popular: false, durationMs: 2_592_000_000 },
   ];
 
   return (
@@ -187,7 +188,7 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
 
       {/* Sticky Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 p-8 pt-4 bg-gradient-to-t from-[#0F071A] via-[#0F071A] to-transparent z-[460] max-w-md mx-auto">
-        {vipUnlocked ? (
+        {(vipUnlocked || isVipActive()) ? (
           <Button
             onClick={onBack}
             className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-green-400 to-emerald-600 text-white text-xl font-black shadow-[0_15px_40px_rgba(52,211,153,0.4)] hover:scale-[1.02] active:scale-95 transition-all"
