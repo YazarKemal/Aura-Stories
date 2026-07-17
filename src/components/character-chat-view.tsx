@@ -274,7 +274,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           <button
             onClick={onBack}
             className="p-2 -ml-2 text-accent hover:bg-white/10 rounded-full transition-colors active:scale-90"
-            aria-label="Geri dön"
+            aria-label="Sohbetten çık"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>

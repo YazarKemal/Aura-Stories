@@ -109,14 +109,18 @@ appId: com.prompthavenstudio.aurastories
 # ÇIKIŞ
 # ═══════════════════════════════════════════════════════════════
 
-# ── Geri dön — önce klavye, sonra donanımsal back ────────────
-#     KANIT (Cloud): klavye açıkken ilk back yalnızca klavyeyi
-#     kapatıyor, sayfa geri gitmiyor. Sıra: hideKeyboard (klavye
-#     açık → IME kapanır) → back (oda terk edilir)
-- hideKeyboard
+# ── Geri dön — benzersiz etiketli çıkış butonu ───────────────
+#     back KULLANMA: klavye kapalıyken history boş olduğundan
+#     Capacitor uygulamayı arka plana atıyor (cb9b2c5 kanıtı).
+#     'Geri dön' KULLANMA: detay ekranının aynı etiketli butonu
+#     ağaçta — Maestro yanlışını seçebiliyor.
+#     1) Nötr balona dokun → input blur → klavye güvenle kapanır
+#        (hideKeyboard'ın back'e dönüşme riski yok)
+#     2) Chat'e özel 'Sohbetten çık' etiketiyle çık
+- tapOn: ".*Merhaba nasilsin.*"
 - waitForAnimationToEnd:
     timeout: 1000
-- back
+- tapOn: "Sohbetten çık"
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────
 #     Viewport hâlâ 'Karakter Odası' kartının olduğu scroll
