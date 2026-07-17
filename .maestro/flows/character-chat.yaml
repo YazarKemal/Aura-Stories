@@ -109,12 +109,11 @@ appId: com.prompthavenstudio.aurastories
 # ÇIKIŞ
 # ═══════════════════════════════════════════════════════════════
 
-# ── Geri dön (sol üst ArrowLeft) ─────────────────────────────
-#     point(5%,5%) klavye açıkken ıskalıyordu (Cloud kanıtı);
-#     hideKeyboard ise klavye KAPALIYSA back'e dönüşüp uygulamayı
-#     arka plana atıyor (0f0a1ea hatası). Node tabanlı tap her iki
-#     durumda da güncel konumu hesaplar — ikisi de kullanılmıyor
-- tapOn: "Geri dön"
+# ── Geri dön — donanımsal back tuşu (kullanıcı kararı) ───────
+#     KANIT: klavye kapanıyor ama tapOn 'Geri dön' odadan
+#     çıkarmıyor (2 aynı etiketli buton; alttaki detay ekranınki
+#     scroll'la ekran dışında — Maestro onu seçince tap boşa gidiyor)
+- back
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────
 - waitForAnimationToEnd:
