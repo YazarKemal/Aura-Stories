@@ -18,6 +18,15 @@ interface BookDetailViewProps {
   onOpenChat: () => void;
 }
 
+/** localStorage'daki yer imi listesini oku ('aura-vip-progress' ile aynı idiom) */
+function getStoredBookmarks(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem('aura-bookmarks') || '[]');
+  } catch {
+    return [];
+  }
+}
+
 export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: BookDetailViewProps) {
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,6 +35,11 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
   );
   const [progress, setProgress] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
+
+  // Yer imini localStorage'dan geri yükle (kalıcı — 'aura-bookmarks': story id listesi)
+  useEffect(() => {
+    setIsBookmarked(getStoredBookmarks().includes(story.id));
+  }, [story.id]);
 
   // Scroll to top when story changes
   useEffect(() => {
@@ -59,12 +73,21 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
   };
 
   const handleBookmark = () => {
-    setIsBookmarked(prev => !prev);
+    const next = !isBookmarked;
+    setIsBookmarked(next);
+    // localStorage'a kalıcı yaz
+    try {
+      const list = getStoredBookmarks();
+      const updated = next
+        ? Array.from(new Set([...list, story.id]))
+        : list.filter(id => id !== story.id);
+      localStorage.setItem('aura-bookmarks', JSON.stringify(updated));
+    } catch { /* quota exceeded */ }
     toast({
-      title: isBookmarked ? 'Yer İmi Kaldırıldı' : 'Yer İmi Eklendi!',
-      description: isBookmarked
-        ? `${story.title} kitaplığınızdan çıkarıldı.`
-        : `${story.title} kitaplığınıza kaydedildi.`,
+      title: next ? 'Yer İmi Eklendi!' : 'Yer İmi Kaldırıldı',
+      description: next
+        ? `${story.title} kitaplığınıza kaydedildi.`
+        : `${story.title} kitaplığınızdan çıkarıldı.`,
     });
   };
 
