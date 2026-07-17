@@ -35,21 +35,13 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Devam Et"
 - assertVisible: "Keşfet"
 
-# ── Hikaye detayına git ──────────────────────────────────
-#     Onboarding biter bitmez discover hâlâ oturuyor (Firestore
-#     fallback + AI öneri bölümü layout kaydırıyor) — önce ekranın
-#     yerleşmesini bekle, sonra carousel'i geçip liste kartını ortala
-- extendedWaitUntil:
-    visible:
-      text: "Gece Yarısı Güneşi"
-    timeout: 10000
-- waitForAnimationToEnd:
-    timeout: 3000
-- scroll
-- scrollUntilVisible:
-    element:
-      text: "Gece Yarısı Güneşi"
-    direction: DOWN
+# ── Hikaye detayına git — KİTAPLIK üzerinden ─────────────
+#     Discover'daki carousel/AI-öneri layout kaymaları story tap'ını
+#     4 koşudur deterministik düşürüyor; main-navigation'da iki
+#     koşudur YEŞİL olan rota kullanılıyor: Kitaplık → statik liste
+- tapOn: "Kitaplık"
+- assertVisible: "Kitaplık"
+- assertVisible: "Gece Yarısı Güneşi"
 - tapOn: "Gece Yarısı Güneşi"
 - waitForAnimationToEnd:
     timeout: 2000
