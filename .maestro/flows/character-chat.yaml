@@ -110,8 +110,14 @@ appId: com.prompthavenstudio.aurastories
 # ═══════════════════════════════════════════════════════════════
 
 # ── Geri dön (sol üst ArrowLeft) ─────────────────────────────
-- tapOn:
-    point: "5%,5%"
+#     KANIT (Cloud ekran görüntüsü): klavye hâlâ açık — point tap'ı
+#     yutuyor/ıskalatıyor. Önce klavyeyi kapat (açıkken güvenli:
+#     back-benzeri event'i IME tüketir), sonra koordinat yerine
+#     aria-label ile tıkla (klavye kapanınca konum yeniden hesaplanır)
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 1000
+- tapOn: "Geri dön"
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────
 - waitForAnimationToEnd:
