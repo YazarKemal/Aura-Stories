@@ -109,13 +109,18 @@ appId: com.prompthavenstudio.aurastories
 # ÇIKIŞ
 # ═══════════════════════════════════════════════════════════════
 
-# ── Geri dön — donanımsal back tuşu (kullanıcı kararı) ───────
-#     KANIT: klavye kapanıyor ama tapOn 'Geri dön' odadan
-#     çıkarmıyor (2 aynı etiketli buton; alttaki detay ekranınki
-#     scroll'la ekran dışında — Maestro onu seçince tap boşa gidiyor)
+# ── Geri dön — önce klavye, sonra donanımsal back ────────────
+#     KANIT (Cloud): klavye açıkken ilk back yalnızca klavyeyi
+#     kapatıyor, sayfa geri gitmiyor. Sıra: hideKeyboard (klavye
+#     açık → IME kapanır) → back (oda terk edilir)
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 1000
 - back
 
 # ── Detay sayfasına dönüldü ──────────────────────────────────
+#     Viewport hâlâ 'Karakter Odası' kartının olduğu scroll
+#     konumunda — 'Okumaya Başla' yukarıda ekran dışında kalır
 - waitForAnimationToEnd:
     timeout: 2000
-- assertVisible: "Okumaya Başla"
+- assertVisible: "Karakter Odası"

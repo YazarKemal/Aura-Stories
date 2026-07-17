@@ -27,6 +27,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
+            aria-label={tab.label}
             className="flex flex-col items-center justify-center flex-1 gap-1 group relative outline-none"
           >
             <div className={cn(
