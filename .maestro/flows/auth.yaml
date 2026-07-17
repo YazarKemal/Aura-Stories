@@ -18,6 +18,10 @@ appId: com.prompthavenstudio.aurastories
 - tapOn: "Fantastik"
 - tapOn: "YYYY"
 - inputText: "1995"
+# Klavyeyi BURADA kapat — onboarding'de dialog yok, güvenli.
+# (Modal içinde hideKeyboard Radix dialog'u kapatıyor; açık kalan
+# klavye ise modaldaki 'Giriş Yap' butonunu örtüyor)
+- hideKeyboard
 - scrollUntilVisible:
     element:
       text: "Devam"

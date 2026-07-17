@@ -36,7 +36,15 @@ appId: com.prompthavenstudio.aurastories
 - assertVisible: "Keşfet"
 
 # ── Hikaye detayına git ──────────────────────────────────
-#     Carousel'i geç, statik liste kartını ortala (flaky tap fix)
+#     Onboarding biter bitmez discover hâlâ oturuyor (Firestore
+#     fallback + AI öneri bölümü layout kaydırıyor) — önce ekranın
+#     yerleşmesini bekle, sonra carousel'i geçip liste kartını ortala
+- extendedWaitUntil:
+    visible:
+      text: "Gece Yarısı Güneşi"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scroll
 - scrollUntilVisible:
     element:
