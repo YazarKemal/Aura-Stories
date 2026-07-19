@@ -68,8 +68,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useUserState, FORCE_FATE_COST } from '@/lib/user-state';
 import { AdRewardModal } from '@/components/ad-reward-modal';
 import { Input } from '@/components/ui/input';
-import { useNetwork, fetchWithTimeout } from '@/hooks/use-network';
+import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
+import { generateStoryChapter } from '@/lib/story-client';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -465,30 +466,20 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setForceChoiceLabel(isForce ? optionText : null);
 
     try {
-      const res = await fetchWithTimeout('/api/generate-story', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyTitle: story.title,
-          storyAuthor: story.author,
-          storySynopsis: story.synopsis,
-          storyTags: story.tags,
-          previousChapters: engine.generatedChapters.map(gc => ({
-            chapterNumber: gc.chapterNumber,
-            title: gc.title,
-            content: gc.content,
-            chosenOption: gc.triggeredBy?.optionText,
-          })),
-          chosenFate: { option, text: optionText, isForceChoice: isForce },
-          chapterNumber: chapterNum,
-        }),
+      const data = await generateStoryChapter({
+        storyTitle: story.title,
+        storyAuthor: story.author,
+        storySynopsis: story.synopsis,
+        storyTags: story.tags,
+        previousChapters: engine.generatedChapters.map(gc => ({
+          chapterNumber: gc.chapterNumber,
+          title: gc.title,
+          content: gc.content,
+          chosenOption: gc.triggeredBy?.optionText,
+        })),
+        chosenFate: { option, text: optionText, isForceChoice: isForce },
+        chapterNumber: chapterNum,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Hikaye üretilemedi');
-      }
 
       const chapter = {
         chapterNumber: chapterNum,
