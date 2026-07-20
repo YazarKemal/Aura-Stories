@@ -34,6 +34,8 @@ export interface LoreMemory {
   learnedFacts: LearnedFact[];
   /** Brief conversation summary for context continuity */
   conversationSummary: string;
+  /** Current emotional tone, shifted by story events (AI-generated chapters) */
+  emotionalState?: string;
   /** ISO timestamp of last update */
   lastUpdated: string;
 }
@@ -185,14 +187,41 @@ const SEED_MEMORIES: LoreMemory[] = [
   },
 ];
 
-// ── In-Memory Store (sunucu yeniden başlayınca sıfırlanır) ──
+// ── In-Memory Store (localStorage ile kalıcı) ────────────────
 
 const memoryStore: Map<string, LoreMemory> = new Map();
+const LOCAL_STORAGE_KEY = 'aura-lore-memories';
 
 // Seed'leri yükle
 for (const seed of SEED_MEMORIES) {
   memoryStore.set(seed.id, { ...seed });
 }
+
+// Kaydedilmiş hafızaları localStorage'dan yükle (seed'lerin üzerine yazar)
+function loadPersistedMemories(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!saved) return;
+    const parsed: Record<string, LoreMemory> = JSON.parse(saved);
+    for (const [id, memory] of Object.entries(parsed)) {
+      memoryStore.set(id, memory);
+    }
+  } catch { /* ignore */ }
+}
+
+function persistMemories(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const obj: Record<string, LoreMemory> = {};
+    for (const [id, memory] of memoryStore.entries()) {
+      obj[id] = memory;
+    }
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(obj));
+  } catch { /* quota exceeded */ }
+}
+
+loadPersistedMemories();
 
 // ── Public API ────────────────────────────────────────────────
 
@@ -234,6 +263,7 @@ export function loadMemory(
 export function saveMemory(memory: LoreMemory): void {
   memory.lastUpdated = new Date().toISOString();
   memoryStore.set(memory.id, { ...memory });
+  persistMemories();
 }
 
 /** Kullanıcı mesajından yeni öğrenilen gerçekleri çıkar */
@@ -311,6 +341,13 @@ export function extractNewFacts(
 export function buildMemoryContext(memory: LoreMemory): string {
   const parts: string[] = [];
 
+  // ── Şu anki duygu durumu (hikaye olaylarıyla değişir) ──
+  if (memory.emotionalState) {
+    parts.push(`💭 ŞU ANKİ DUYGU DURUMUN: ${memory.emotionalState}`);
+    parts.push('  Bu ruh haliyle konuş — tepkilerin buna göre şekillensin.');
+    parts.push('');
+  }
+
   // ── Bilinenler ──
   if (memory.knownSecrets.length > 0) {
     parts.push('📖 HİKAYENDE BİLDİĞİN GERÇEKLER:');
@@ -384,4 +421,21 @@ export function getLearnedFactsForStory(
       characterName: m.characterName,
       learnedFacts: m.learnedFacts.map(f => f.fact),
     }));
+}
+
+/**
+ * AI'ın ürettiği bir bölümdeki duygusal değişimi, o hikayenin (daha önce
+ * sohbet edilmiş) tüm karakterlerinin hafızasına işler. Karakterin bir
+ * sonraki sohbette bu ruh haliyle tepki vermesini sağlar.
+ */
+export function applyStoryEventToCharacters(
+  storyId: string,
+  emotionalShift: string
+): void {
+  if (!emotionalShift) return;
+  for (const memory of memoryStore.values()) {
+    if (memory.storyId !== storyId) continue;
+    memory.emotionalState = emotionalShift;
+    saveMemory(memory);
+  }
 }

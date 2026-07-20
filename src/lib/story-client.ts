@@ -42,6 +42,8 @@ export interface GenerateStoryResult {
   content: string;
   optionA: string;
   optionB: string;
+  /** Bu bölümün hikayenin/karakterlerin duygusal tonunda yarattığı değişimin kısa özeti */
+  emotionalShift?: string;
 }
 
 // ── Genre-specific Narrative Style ──────────────────────────────
@@ -115,9 +117,10 @@ Bölüm ${payload.chapterNumber}'i yaz. Kurallar:
 4. Önceki bölümlerdeki karakterlere, olaylara ve tutarlılığa sadık kal.
 5. Bölümü bir gerilim/merak anında bitir — okuyucu bir sonraki kararı vermek istesin.
 6. Bölümden sonra okuyucuya sunulacak İKİ farklı kader seçeneği yaz (A ve B) — kısa, çarpıcı, birbirinden belirgin şekilde farklı yönlere işaret eden cümleler.
+7. Bu bölümde karakterlerin duygusal durumunda bir değişim varsa (ör. ihanet, zafer, kayıp, güven), bunu TEK CÜMLEYLE özetle (emotionalShift). Belirgin bir değişim yoksa emotionalShift'i boş string bırak.
 
 Yanıtını SADECE aşağıdaki JSON formatında ver, başka hiçbir açıklama ekleme:
-{"title": "Bölüm başlığı", "content": "Bölüm metni", "optionA": "A seçeneği metni", "optionB": "B seçeneği metni"}`;
+{"title": "Bölüm başlığı", "content": "Bölüm metni", "optionA": "A seçeneği metni", "optionB": "B seçeneği metni", "emotionalShift": "Tek cümlelik duygusal durum özeti veya boş string"}`;
 }
 
 // ── Response Parsing ─────────────────────────────────────────
@@ -141,6 +144,7 @@ function parseStoryResponse(raw: string): GenerateStoryResult {
     content: String(parsed.content),
     optionA: String(parsed.optionA),
     optionB: String(parsed.optionB),
+    emotionalShift: parsed.emotionalShift ? String(parsed.emotionalShift) : undefined,
   };
 }
 

@@ -71,7 +71,7 @@ import { Input } from '@/components/ui/input';
 import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
 import { generateStoryChapter } from '@/lib/story-client';
-import { getLearnedFactsForStory } from '@/lib/lore-memory';
+import { getLearnedFactsForStory, applyStoryEventToCharacters } from '@/lib/lore-memory';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -498,6 +498,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       };
 
       saveGeneratedChapter(story.id, chapter);
+      if (data.emotionalShift) applyStoryEventToCharacters(story.id, data.emotionalShift);
       setVotedOption(null);
 
       // Okuma günlüğü prompt'u
