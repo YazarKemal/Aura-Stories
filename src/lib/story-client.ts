@@ -35,6 +35,15 @@ export interface GenerateStoryPayload {
   chapterNumber: number;
   /** Karakterlerin sohbet ekranında öğrendiği gerçekler — tutarlılık için */
   characterKnowledge?: CharacterKnowledge[];
+  /** Hikayede zaten tanıtılmış karakterlerin adları — yeni karakter tespiti için */
+  existingCharacterNames?: string[];
+}
+
+export interface NewCharacter {
+  name: string;
+  role: string;
+  personality: string;
+  greeting: string;
 }
 
 export interface GenerateStoryResult {
@@ -44,6 +53,8 @@ export interface GenerateStoryResult {
   optionB: string;
   /** Bu bölümün hikayenin/karakterlerin duygusal tonunda yarattığı değişimin kısa özeti */
   emotionalShift?: string;
+  /** Bu bölümde ilk kez tanıtılan, daha önce bahsi geçmemiş karakterler */
+  newCharacters?: NewCharacter[];
 }
 
 // ── Genre-specific Narrative Style ──────────────────────────────
@@ -87,6 +98,8 @@ function buildSystemPrompt(payload: GenerateStoryPayload): string {
         .join('\n')}\n\nBu bölümü yazarken bu karakterlerin artık bu gerçekleri BİLDİĞİNİ varsay — sohbette zaten ifşa edilmiş bu bilgilerle çelişme.\n`
     : '';
 
+  const existingNames = payload.existingCharacterNames?.join(', ') || '(henüz karakter tanıtılmadı)';
+
   return `Sen, "${payload.storyTitle}" adlı interaktif hikayenin AI anlatıcısısın. Yazar: ${payload.storyAuthor}.
 
 HİKAYE ÖZETİ: ${payload.storySynopsis}
@@ -118,9 +131,10 @@ Bölüm ${payload.chapterNumber}'i yaz. Kurallar:
 5. Bölümü bir gerilim/merak anında bitir — okuyucu bir sonraki kararı vermek istesin.
 6. Bölümden sonra okuyucuya sunulacak İKİ farklı kader seçeneği yaz (A ve B) — kısa, çarpıcı, birbirinden belirgin şekilde farklı yönlere işaret eden cümleler.
 7. Bu bölümde karakterlerin duygusal durumunda bir değişim varsa (ör. ihanet, zafer, kayıp, güven), bunu TEK CÜMLEYLE özetle (emotionalShift). Belirgin bir değişim yoksa emotionalShift'i boş string bırak.
+8. Hikayede zaten tanıtılmış karakterler: ${existingNames}. Eğer bu bölümde bunların DIŞINDA, isimlendirilmiş ve konuşan YENİ bir karakter tanıtırsan, onu newCharacters dizisine ekle (name, role, personality, greeting — greeting o karakterin ağzından, birinci tekil şahıs bir selamlama cümlesi olsun). Yeni karakter yoksa newCharacters'i boş dizi bırak. Var olan karakterleri asla tekrar ekleme.
 
 Yanıtını SADECE aşağıdaki JSON formatında ver, başka hiçbir açıklama ekleme:
-{"title": "Bölüm başlığı", "content": "Bölüm metni", "optionA": "A seçeneği metni", "optionB": "B seçeneği metni", "emotionalShift": "Tek cümlelik duygusal durum özeti veya boş string"}`;
+{"title": "Bölüm başlığı", "content": "Bölüm metni", "optionA": "A seçeneği metni", "optionB": "B seçeneği metni", "emotionalShift": "Tek cümlelik duygusal durum özeti veya boş string", "newCharacters": [{"name": "...", "role": "...", "personality": "...", "greeting": "..."}]}`;
 }
 
 // ── Response Parsing ─────────────────────────────────────────
@@ -139,12 +153,24 @@ function parseStoryResponse(raw: string): GenerateStoryResult {
     throw new Error('AI yanıtında eksik alan var (title/content/optionA/optionB).');
   }
 
+  const newCharacters: NewCharacter[] = Array.isArray(parsed.newCharacters)
+    ? parsed.newCharacters
+        .filter((c: any) => c && c.name && c.role && c.personality && c.greeting)
+        .map((c: any) => ({
+          name: String(c.name),
+          role: String(c.role),
+          personality: String(c.personality),
+          greeting: String(c.greeting),
+        }))
+    : [];
+
   return {
     title: String(parsed.title),
     content: String(parsed.content),
     optionA: String(parsed.optionA),
     optionB: String(parsed.optionB),
     emotionalShift: parsed.emotionalShift ? String(parsed.emotionalShift) : undefined,
+    newCharacters: newCharacters.length > 0 ? newCharacters : undefined,
   };
 }
 

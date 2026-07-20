@@ -439,3 +439,19 @@ export function applyStoryEventToCharacters(
     saveMemory(memory);
   }
 }
+
+/**
+ * AI'ın hikayede yeni tanıttığı bir karakter için hafızayı, generic
+ * fallback yerine AI'ın verdiği kişilikle önceden oluşturur — ilk
+ * sohbetten itibaren tutarlı olsun diye.
+ */
+export function seedDynamicCharacterMemory(
+  storyId: string,
+  storyTitle: string,
+  characterName: string,
+  personality: string
+): void {
+  const memory = loadMemory(storyId, storyTitle, characterName);
+  memory.personality = personality;
+  saveMemory(memory);
+}
