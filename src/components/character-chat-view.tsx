@@ -30,7 +30,7 @@ interface Message {
 
 export function CharacterChatView({ story, activeCharacter, onBack }: CharacterChatViewProps) {
   const char = activeCharacter;
-  const { spendCredits, userState } = useUserState();
+  const { spendCredits, userState, getStoryEngine } = useUserState();
   const { toast } = useToast();
   const { online } = useNetwork();
 
@@ -128,6 +128,12 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           sender: m.sender,
         }));
 
+      const generatedChapters = getStoryEngine(story.id).generatedChapters;
+      const latestChapter = generatedChapters[generatedChapters.length - 1];
+      const latestChapterSummary = latestChapter
+        ? `Bölüm ${latestChapter.chapterNumber} — ${latestChapter.title}: ${latestChapter.content.slice(0, 500)}`
+        : undefined;
+
       const result = await sendChatMessage({
         storyId: story.id,
         storyTitle: story.title,
@@ -137,11 +143,12 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         storyAuthor: story.author,
         characterName: char.name,
         messages: conversationMessages,
+        latestChapterSummary,
       });
 
       return { text: result.text, memoryUpdates: result.memoryUpdates };
     },
-    [story, char.name]
+    [story, char.name, getStoryEngine]
   );
 
   const handleSendMessage = useCallback(async () => {

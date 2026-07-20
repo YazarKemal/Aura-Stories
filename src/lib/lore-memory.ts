@@ -369,3 +369,19 @@ export function updateConversationSummary(
 export function listAllMemories(): LoreMemory[] {
   return Array.from(memoryStore.values());
 }
+
+/**
+ * Bir hikayenin karakterlerinin sohbet yoluyla öğrendiği gerçekleri döndürür.
+ * AI hikaye üretiminin (story-client.ts) sohbette zaten ifşa edilmiş
+ * sırlarla çelişmemesi için kullanılır.
+ */
+export function getLearnedFactsForStory(
+  storyId: string
+): { characterName: string; learnedFacts: string[] }[] {
+  return Array.from(memoryStore.values())
+    .filter(m => m.storyId === storyId && m.learnedFacts.length > 0)
+    .map(m => ({
+      characterName: m.characterName,
+      learnedFacts: m.learnedFacts.map(f => f.fact),
+    }));
+}

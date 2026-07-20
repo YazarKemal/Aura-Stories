@@ -71,6 +71,7 @@ import { Input } from '@/components/ui/input';
 import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
 import { generateStoryChapter } from '@/lib/story-client';
+import { getLearnedFactsForStory } from '@/lib/lore-memory';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -483,6 +484,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         })),
         chosenFate: { option, text: optionText, isForceChoice: isForce },
         chapterNumber: chapterNum,
+        characterKnowledge: getLearnedFactsForStory(story.id),
       });
 
       const chapter = {

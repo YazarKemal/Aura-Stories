@@ -20,6 +20,11 @@ export interface PreviousChapter {
   chosenOption?: string;
 }
 
+export interface CharacterKnowledge {
+  characterName: string;
+  learnedFacts: string[];
+}
+
 export interface GenerateStoryPayload {
   storyTitle: string;
   storyAuthor: string;
@@ -28,6 +33,8 @@ export interface GenerateStoryPayload {
   previousChapters: PreviousChapter[];
   chosenFate: { option: 'A' | 'B'; text: string; isForceChoice: boolean };
   chapterNumber: number;
+  /** Karakterlerin sohbet ekranında öğrendiği gerçekler — tutarlılık için */
+  characterKnowledge?: CharacterKnowledge[];
 }
 
 export interface GenerateStoryResult {
@@ -71,6 +78,13 @@ function buildSystemPrompt(payload: GenerateStoryPayload): string {
         .join('\n\n')
     : '(Bu ilk bölüm — henüz önceki bölüm yok.)';
 
+  const knowledge = payload.characterKnowledge?.filter(k => k.learnedFacts.length > 0) || [];
+  const knowledgeSection = knowledge.length > 0
+    ? `\n╔══════════════════════════════════════════╗\n║  KARAKTERLERİN SOHBETTE ÖĞRENDİKLERİ     ║\n╚══════════════════════════════════════════╝\n\n${knowledge
+        .map(k => `${k.characterName}: ${k.learnedFacts.map(f => `"${f}"`).join('; ')}`)
+        .join('\n')}\n\nBu bölümü yazarken bu karakterlerin artık bu gerçekleri BİLDİĞİNİ varsay — sohbette zaten ifşa edilmiş bu bilgilerle çelişme.\n`
+    : '';
+
   return `Sen, "${payload.storyTitle}" adlı interaktif hikayenin AI anlatıcısısın. Yazar: ${payload.storyAuthor}.
 
 HİKAYE ÖZETİ: ${payload.storySynopsis}
@@ -83,7 +97,7 @@ ANLATIM TARZI: ${style}
 ╚══════════════════════════════════════════╝
 
 ${chaptersSection}
-
+${knowledgeSection}
 ╔══════════════════════════════════════════╗
 ║           OKUYUCUNUN KADER SEÇİMİ        ║
 ╚══════════════════════════════════════════╝
