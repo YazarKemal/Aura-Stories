@@ -448,6 +448,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // ── AI Story Generation ──────────────────────────────────
   // isGeneratingRef: state gecikmesinden etkilenmeyen çift-tık kilidi
   const isGeneratingRef = useRef(false);
+  // Reklam izleyince yarım kalan akışı otomatik tamamlamak için bekleyen aksiyon
+  const pendingAdActionRef = useRef<
+    { kind: 'unlock' } | { kind: 'forceFate'; option: 'A' | 'B'; optionText: string } | null
+  >(null);
 
   const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false) => {
     if (!skipGuard) {
@@ -523,6 +527,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     if (isGeneratingRef.current) return;
     if (userState.credits < 15) {
       // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
+      pendingAdActionRef.current = { kind: 'unlock' };
       setIsAdModalOpen(true);
       return;
     }
@@ -544,6 +549,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     if (isGeneratingRef.current) return;
     if (userState.credits < FORCE_FATE_COST) {
       // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
+      pendingAdActionRef.current = { kind: 'forceFate', option, optionText };
       setIsAdModalOpen(true);
       return;
     }
@@ -558,6 +564,22 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       return;
     }
     await handleGenerateStory(option, optionText, true, true);
+  };
+
+  // Reklam ödülü sonrası yarım kalan akışı otomatik tamamla.
+  // userState.credits, reklam süresince başka bir yolla değişmediği için
+  // ödül miktarı üzerine eklenerek güvenle projekte edilebilir.
+  const handleAdReward = (earned: number) => {
+    const action = pendingAdActionRef.current;
+    pendingAdActionRef.current = null;
+    if (!action) return;
+
+    const projectedCredits = userState.credits + earned;
+    if (action.kind === 'unlock' && projectedCredits >= 15) {
+      handleUnlockAndGenerate();
+    } else if (action.kind === 'forceFate' && projectedCredits >= FORCE_FATE_COST) {
+      handleForceFate(action.option, action.optionText);
+    }
   };
 
   const handleSendGift = (giftType: string) => {
@@ -1002,7 +1024,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                           <div className="flex items-center gap-3 pt-1">
                             <div className="flex-1 h-px bg-border/30" />
                             <button
-                              onClick={(e) => { e.stopPropagation(); setIsAdModalOpen(true); }}
+                              onClick={(e) => { e.stopPropagation(); pendingAdActionRef.current = null; setIsAdModalOpen(true); }}
                               className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-50 to-brand-primary/10 dark:bg-purple-900/30 dark:from-purple-900/20 dark:to-purple-800/20 border border-brand-primary/30 dark:border-purple-700/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold hover:scale-105 active:scale-95 transition-all shadow-sm whitespace-nowrap"
                             >
                               <Gift className="w-4 h-4" />
@@ -1079,7 +1101,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                         <div className="flex items-center gap-3 pt-1">
                           <div className="flex-1 h-px bg-border/30" />
                           <button
-                            onClick={(e) => { e.stopPropagation(); setIsAdModalOpen(true); }}
+                            onClick={(e) => { e.stopPropagation(); pendingAdActionRef.current = null; setIsAdModalOpen(true); }}
                             className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-50 to-brand-primary/10 dark:bg-purple-900/30 dark:from-purple-900/20 dark:to-purple-800/20 border border-brand-primary/30 dark:border-purple-700/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold hover:scale-105 active:scale-95 transition-all shadow-sm whitespace-nowrap"
                           >
                             <Gift className="w-4 h-4" />
@@ -1776,7 +1798,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </SheetContent>
       </Sheet>
 
-      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} />
+      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
     </div>
   );
 }

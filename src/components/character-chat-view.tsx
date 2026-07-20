@@ -239,6 +239,15 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     }
   }, [inputText, isLoading, messages, sendToAPI]);
 
+  // Reklam ödülü sonrası yarım kalan mesajı otomatik gönder.
+  // userState.credits, reklam süresince başka bir yolla değişmediği için
+  // ödül miktarı üzerine eklenerek güvenle projekte edilebilir.
+  const handleAdReward = (earned: number) => {
+    if (userState.credits + earned >= 5) {
+      handleSendMessage();
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -447,7 +456,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       </footer>
 
       {/* Yetersiz jeton upsell'i — reklam izle, +5 jeton kazan */}
-      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} />
+      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
     </div>
   );
 }
