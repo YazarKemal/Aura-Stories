@@ -71,6 +71,8 @@ import { Input } from '@/components/ui/input';
 import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
 import { generateStoryChapter } from '@/lib/story-client';
+import { getLearnedFactsForStory, applyStoryEventToCharacters, seedDynamicCharacterMemory } from '@/lib/lore-memory';
+import { getCharactersForStory, addDynamicCharacter } from '@/lib/character-roster';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -483,6 +485,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         })),
         chosenFate: { option, text: optionText, isForceChoice: isForce },
         chapterNumber: chapterNum,
+        characterKnowledge: getLearnedFactsForStory(story.id),
+        existingCharacterNames: getCharactersForStory(story.id).map(c => c.name),
       });
 
       const chapter = {
@@ -496,6 +500,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       };
 
       saveGeneratedChapter(story.id, chapter);
+      if (data.emotionalShift) applyStoryEventToCharacters(story.id, data.emotionalShift);
+      data.newCharacters?.forEach(nc => {
+        addDynamicCharacter(story.id, nc);
+        seedDynamicCharacterMemory(story.id, story.title, nc.name, nc.personality);
+      });
       setVotedOption(null);
 
       // Okuma günlüğü prompt'u

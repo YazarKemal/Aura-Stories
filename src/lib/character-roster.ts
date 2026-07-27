@@ -167,11 +167,73 @@ export const CHARACTER_ROSTERS: Record<string, CharacterRoster[]> = {
   ],
 };
 
+// ── Dynamic Characters (AI hikaye üretiminde tanıtılanlar) ──────
+// localStorage'a kalıcı; unlockedAtChapter: 0 → tanımlandığı anda
+// sohbete açık (legacy "satın alınan bölüm" sistemine bağlı değil).
+
+const DYNAMIC_STORAGE_KEY = 'aura-dynamic-characters';
+const dynamicRoster: Map<string, CharacterRoster[]> = new Map();
+
+function loadPersistedDynamicCharacters(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const saved = localStorage.getItem(DYNAMIC_STORAGE_KEY);
+    if (!saved) return;
+    const parsed: Record<string, CharacterRoster[]> = JSON.parse(saved);
+    for (const [storyId, characters] of Object.entries(parsed)) {
+      dynamicRoster.set(storyId, characters);
+    }
+  } catch { /* ignore */ }
+}
+
+function persistDynamicCharacters(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const obj: Record<string, CharacterRoster[]> = {};
+    for (const [storyId, characters] of dynamicRoster.entries()) {
+      obj[storyId] = characters;
+    }
+    localStorage.setItem(DYNAMIC_STORAGE_KEY, JSON.stringify(obj));
+  } catch { /* quota exceeded */ }
+}
+
+loadPersistedDynamicCharacters();
+
 /**
- * Get all characters for a given story.
+ * AI'ın bir bölümde tanıttığı yeni bir karakteri kalıcı rooster'a ekler.
+ * Aynı isimde (statik veya dinamik) karakter zaten varsa hiçbir şey yapmaz.
+ */
+export function addDynamicCharacter(
+  storyId: string,
+  character: { name: string; role: string; personality: string; greeting: string }
+): void {
+  const existing = getCharactersForStory(storyId);
+  const alreadyExists = existing.some(
+    c => c.name.trim().toLowerCase() === character.name.trim().toLowerCase()
+  );
+  if (alreadyExists) return;
+
+  const slug = character.name.trim().toLowerCase().replace(/[^a-z0-9çğıöşü]+/gi, '-');
+  const newCharacter: CharacterRoster = {
+    id: `${storyId}-dyn-${slug}`,
+    name: character.name,
+    role: character.role,
+    personality: character.personality,
+    unlockedAtChapter: 0,
+    greeting: character.greeting,
+    storyId,
+  };
+
+  const forStory = dynamicRoster.get(storyId) || [];
+  dynamicRoster.set(storyId, [...forStory, newCharacter]);
+  persistDynamicCharacters();
+}
+
+/**
+ * Get all characters for a given story (statik + AI'ın dinamik tanıttıkları).
  */
 export function getCharactersForStory(storyId: string): CharacterRoster[] {
-  return CHARACTER_ROSTERS[storyId] || [];
+  return [...(CHARACTER_ROSTERS[storyId] || []), ...(dynamicRoster.get(storyId) || [])];
 }
 
 /**

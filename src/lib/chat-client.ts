@@ -31,6 +31,8 @@ export interface ChatRequestPayload {
   storyAuthor: string;
   characterName: string;
   messages: { text: string; sender: 'user' | 'character' }[];
+  /** AI'ın (story-client.ts) en son ürettiği bölümün özeti — tutarlılık için */
+  latestChapterSummary?: string;
 }
 
 export interface ChatResponsePayload {
@@ -73,6 +75,10 @@ function buildSystemPrompt(req: ChatRequestPayload, memory: ReturnType<typeof lo
 
   const memorySection = buildMemoryContext(memory);
 
+  const chapterSection = req.latestChapterSummary
+    ? `\n╔══════════════════════════════════════════╗\n║     HİKAYENİN EN SON GELİŞMESİ (AI)      ║\n╚══════════════════════════════════════════╝\n\n${req.latestChapterSummary}\n\nBu gelişmeleri yaşadın/biliyorsun — konuşmanda doğal şekilde referans verebilirsin.\n`
+    : '';
+
   return `Sen, "${req.storyTitle}" adlı kitaptaki ${req.characterName} karakterisin. Yazar: ${req.storyAuthor}.
 
 HİKAYE ÖZETİ: ${req.storyLongSynopsis || req.storySynopsis}
@@ -89,7 +95,7 @@ KARAKTER PROFİLİN:
 ╚══════════════════════════════════════════╝
 
 ${memorySection}
-
+${chapterSection}
 ╔══════════════════════════════════════════╗
 ║           KONUŞMA KURALLARI              ║
 ╚══════════════════════════════════════════╝
