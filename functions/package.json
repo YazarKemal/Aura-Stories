@@ -1,0 +1,29 @@
+{
+  "name": "aura-stories-functions",
+  "private": true,
+  "allowScripts": {
+    "@firebase/util": true,
+    "firebase-admin": true,
+    "firebase-functions": true,
+    "protobufjs": true
+  },
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf lib"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.0"
+  }
+}
