@@ -122,7 +122,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const sendToAPI = useCallback(
     async (history: Message[]): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
       const conversationMessages = history
-        .filter(m => m.sender === 'user' || m.sender === 'character')
+        .filter((m): m is Message & { sender: 'user' | 'character' } => m.sender === 'user' || m.sender === 'character')
         .map(m => ({
           text: m.text,
           sender: m.sender,

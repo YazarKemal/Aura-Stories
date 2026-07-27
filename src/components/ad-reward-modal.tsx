@@ -232,7 +232,7 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
 
               {/* Close button */}
               <button
-                onClick={handleClose}
+                onClick={() => handleClose(false)}
                 className="w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-accent dark:from-purple-600 dark:to-indigo-600 text-white font-bold shadow-lg shadow-primary/20 dark:shadow-purple-900/40 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />

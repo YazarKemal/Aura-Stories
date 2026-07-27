@@ -81,6 +81,8 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
           readCount: rec.readCount,
           category: 'Özel',
           tags: ['AI Seçimi', 'Özel'],
+          wordCount: 0,
+          status: 'ongoing' as const,
         }));
 
         setAiRecommendations(transformed);
