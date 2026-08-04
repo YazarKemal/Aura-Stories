@@ -15,7 +15,9 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf lib"
+    "clean": "rm -rf lib",
+    "test": "node --test 'src/**/*.test.ts'",
+    "test:unit": "node --test 'src/**/*.test.ts'"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

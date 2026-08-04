@@ -301,14 +301,40 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setIsShareSheetOpen(true);
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = async () => {
     if (!reportReason) return;
     setIsReportSheetOpen(false);
-    toast({
-      title: "Rapor İletildi",
-      description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
-      variant: "default",
-    });
+
+    try {
+      // Mevcut bölüm içeriğinden referans al
+      const currentChapter = engine?.generatedChapters?.find(
+        (ch: { chapterNumber: number }) => ch.chapterNumber === engine.activeChapter
+      );
+      const contentPreview = currentChapter?.content?.slice(0, 500) || '';
+
+      const { submitContentReport } = await import('@/lib/firebase');
+      await submitContentReport({
+        uid: userState.user?.uid || null,
+        storyId: story.id,
+        storyTitle: story.title,
+        chapterNumber: engine.activeChapter || null,
+        contentType: 'story',
+        contentPreview,
+        reason: reportReason,
+        createdAt: new Date().toISOString(),
+      });
+      toast({
+        title: "Rapor İletildi",
+        description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
+        variant: "default",
+      });
+    } catch {
+      toast({
+        title: "Hata",
+        description: "Rapor iletilemedi. Lütfen tekrar deneyin.",
+        variant: "destructive",
+      });
+    }
     setReportReason(null);
   };
 

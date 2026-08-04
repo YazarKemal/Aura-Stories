@@ -297,4 +297,45 @@ export async function getJournalEntries(uid: string): Promise<JournalEntry[]> {
   } catch { return []; }
 }
 
-export { auth, db };
+export { auth, db, app };
+
+// ── Content Reporting (AI moderation) ─────────────────────────
+
+export interface ContentReport {
+  /** Kullanıcı UID'si (anonim ise null) */
+  uid: string | null;
+  /** Hikaye ID'si */
+  storyId: string;
+  /** Hikaye başlığı */
+  storyTitle: string;
+  /** Bölüm numarası (hikaye içeriği için) veya null (chat için) */
+  chapterNumber: number | null;
+  /** İçerik tipi: story veya chat */
+  contentType: 'story' | 'chat';
+  /** Karakter adı (chat için) */
+  characterName?: string;
+  /** İçeriğin ilk 500 karakteri (özet/referans) */
+  contentPreview: string;
+  /** Rapor nedeni */
+  reason: string;
+  /** Oluşturulma zamanı (ISO) */
+  createdAt: string;
+}
+
+/**
+ * AI içeriğini Firestore'a raporlar.
+ * Kullanıcı uygulamadan çıkmadan içeriği bildirebilir.
+ */
+export async function submitContentReport(report: ContentReport): Promise<void> {
+  try {
+    const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+    await addDoc(collection(db, 'contentReports'), {
+      ...report,
+      createdAt: report.createdAt || new Date().toISOString(),
+      serverCreatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('[Firestore] İçerik raporu kaydedilemedi:', err);
+    throw err;
+  }
+}

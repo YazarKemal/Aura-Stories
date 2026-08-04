@@ -7,6 +7,15 @@ export interface ChatMessage {
   content: string;
 }
 
+/** İstemci localStorage'ında tutulan lore memory'nin sunucuya iletilen kısmı */
+export interface LoreMemoryContext {
+  personality: string;
+  knownSecrets: string[];
+  hiddenSecrets: string[];
+  learnedFacts: { fact: string; revealedBy: string; timestamp: string; importance: 'minor' | 'major' | 'critical' }[];
+  conversationSummary: string;
+}
+
 export interface CharacterChatInput {
   storyId: string;
   storyTitle: string;
@@ -16,6 +25,8 @@ export interface CharacterChatInput {
   storyAuthor?: string;
   characterName: string;
   messages: { text: string; sender: 'user' | 'character' }[];
+  /** Lore memory verisi — system prompt sunucuda bundan oluşturulur */
+  memoryContext?: LoreMemoryContext;
 }
 
 export interface CharacterChatOutput {

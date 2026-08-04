@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Capacitor Android WebView'da signInWithPopup çalışmaz.
+  // Google butonunu native platformda gizle, email/password çalışmaya devam etsin.
+  const [isNativePlatform, setIsNativePlatform] = useState(false);
+  useEffect(() => {
+    import('@capacitor/core').then(m => {
+      setIsNativePlatform(m.Capacitor.isNativePlatform());
+    }).catch(() => {
+      setIsNativePlatform(false);
+    });
+  }, []);
 
   const resetForm = () => {
     setName('');
@@ -242,7 +253,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="flex-1 h-px bg-border/30" />
           </div>
 
-          {/* Social login placeholders */}
+          {/* Social login — Google signInWithPopup Capacitor WebView'da çalışmaz */}
+          {!isNativePlatform && (
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -288,6 +300,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               Apple ile Giriş Yap (Yakında)
             </Button>
           </div>
+          )}
 
           <p className="text-[10px] text-center text-muted-foreground">
             Giriş yaparak Kullanıcı Sözleşmesi&apos;ni kabul etmiş olursunuz.

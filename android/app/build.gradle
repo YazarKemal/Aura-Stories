@@ -16,10 +16,32 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // CI ortamında ortam değişkenlerinden okunan signing config.
+    // ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
+    // GitHub Secrets'tan gelir. Keystore dosyası yoksa debug gibi imzasız derlenir.
+    def keystoreFile = file('release.keystore')
+    def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+    def keyAlias = System.getenv('ANDROID_KEY_ALIAS')
+    def keyPassword = System.getenv('ANDROID_KEY_PASSWORD')
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists() && keystorePassword && keyAlias && keyPassword) {
+                storeFile keystoreFile
+                storePassword keystorePassword
+                keyAlias keyAlias
+                keyPassword keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystoreFile.exists() && keystorePassword && keyAlias && keyPassword) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
