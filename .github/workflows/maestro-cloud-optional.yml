@@ -1,0 +1,191 @@
+name: Maestro Cloud — Opsiyonel UI Testleri
+
+# BU WORKFLOW OTOMATİK ÇALIŞMAZ — yalnızca manuel tetiklenir.
+# Maestro Cloud ücretli bir servistir. Çalıştırmak için aktif
+# abonelik ve geçerli API key gerekir.
+#
+# Kullanım:
+#   GitHub → Actions → Maestro Cloud — Opsiyonel UI Testleri → Run workflow
+#
+# Gereken secret'lar:
+#   MAESTRO_CLOUD_API_KEY    — Maestro Cloud API anahtarı
+#   MAESTRO_PROJECT_ID       — Maestro Cloud proje kimliği
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow:
+        description: 'Test edilecek flow (boş bırakılırsa tümü)'
+        required: false
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - onboarding
+          - main-navigation
+          - reading
+          - sharing
+          - exit
+          - auth
+          - rewards-ads
+          - vip-purchase
+          - character-chat
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # Secret kontrolü — yoksa fail etmeden skip
+  # ═══════════════════════════════════════════════════════════════
+  check-secrets:
+    name: Check Maestro Cloud Secrets
+    runs-on: ubuntu-latest
+    outputs:
+      has_secrets: ${{ steps.check.outputs.has_secrets }}
+    steps:
+      - name: Check required secrets
+        id: check
+        run: |
+          MISSING=""
+          if [ -z "${{ secrets.MAESTRO_CLOUD_API_KEY }}" ]; then
+            MISSING="$MISSING MAESTRO_CLOUD_API_KEY"
+          fi
+          if [ -z "${{ secrets.MAESTRO_PROJECT_ID }}" ]; then
+            MISSING="$MISSING MAESTRO_PROJECT_ID"
+          fi
+          if [ -n "$MISSING" ]; then
+            echo "⚠️  Eksik secret'lar:$MISSING"
+            echo "Maestro Cloud isteğe bağlıdır ve ücretli abonelik gerektirir."
+            echo "Bu workflow otomatik CI'ın parçası DEĞİLDİR."
+            echo ""
+            echo "Kullanmak için GitHub repo → Settings → Secrets → Actions:"
+            echo "  - MAESTRO_CLOUD_API_KEY"
+            echo "  - MAESTRO_PROJECT_ID"
+            echo ""
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "✓ Tüm Maestro Cloud secret'ları mevcut"
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ═══════════════════════════════════════════════════════════════
+  # BUILD — APK üret
+  # ═══════════════════════════════════════════════════════════════
+  build:
+    name: Build APK
+    needs: check-secrets
+    if: needs.check-secrets.outputs.has_secrets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js (static export → out/)
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || 'ci-dummy' }}
+          NEXT_PUBLIC_ADMOB_MODE: simulation
+
+      - name: Verify build output
+        run: |
+          [ -f out/index.html ] || { echo "✗ out/index.html bulunamadı"; exit 1; }
+          echo "✓ Static export başarılı"
+
+      - name: Sync Capacitor Android project
+        run: |
+          npx cap add android 2>/dev/null || true
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew 2>/dev/null || true
+          ./gradlew assembleDebug
+
+      - name: Verify APK
+        run: |
+          APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
+          [ -f "$APK_PATH" ] || { echo "✗ APK bulunamadı"; exit 1; }
+          echo "✓ APK build başarılı — $(du -h "$APK_PATH" | cut -f1)"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # TEST — paralel matrix (opsiyonel, manuel)
+  # ═══════════════════════════════════════════════════════════════
+  test:
+    name: "${{ matrix.flow }}"
+    needs: build
+    if: needs.check-secrets.outputs.has_secrets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        flow: ${{ fromJSON(github.event.inputs.flow == 'all' &&
+          '["onboarding","main-navigation","reading","sharing","exit","auth","rewards-ads","vip-purchase","character-chat"]' ||
+          format('["{0}"]', github.event.inputs.flow)) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: debug-apk
+
+      - name: Prepare flow workspace
+        run: |
+          cp .maestro/flows/${{ matrix.flow }}.yaml .maestro/flow.yaml
+          rm -rf .maestro/flows
+
+      - name: Install Maestro CLI
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro Cloud — ${{ matrix.flow }}
+        env:
+          MAESTRO_CLOUD_API_KEY: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+        run: |
+          maestro cloud \
+            --api-key "$MAESTRO_CLOUD_API_KEY" \
+            --project-id "${{ secrets.MAESTRO_PROJECT_ID }}" \
+            --app-file app-debug.apk \
+            --name "${{ matrix.flow }}" \
+            --device-locale tr_TR \
+            --timeout 600 \
+            .maestro/

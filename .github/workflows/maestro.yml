@@ -1,7 +1,8 @@
-name: Maestro Cloud — Mobile UI Tests
+name: Android Build — APK Validation
 
-# Aura Stories APK build + Maestro Cloud paralel test pipeline
-# Her flow ayrı job, biri kırılsa diğerleri çalışmaya devam eder
+# Aura Stories APK build ve doğrulama hattı.
+# Next.js static export → Capacitor sync → assembleDebug → APK verify.
+# Her push ve PR'da çalışır.
 
 on:
   push:
@@ -11,9 +12,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ═══════════════════════════════════════════════════════════════
-  # BUILD — APK üret (tek sefer, tüm test job'ları paylaşır)
-  # ═══════════════════════════════════════════════════════════════
   build:
     name: Build APK
     runs-on: ubuntu-latest
@@ -53,9 +51,6 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || 'ci-dummy' }}
-          # Maestro cihazında gerçek AdMob SDK'sı AÇILMAMALI: rewards-ads
-          # akışı simülasyon zamanlamasına göre yazıldı + otomasyona reklam
-          # göstermek AdMob "geçersiz trafik" ihlalidir (hesap riski)
           NEXT_PUBLIC_ADMOB_MODE: simulation
 
       - name: Verify build output
@@ -87,60 +82,3 @@ jobs:
           name: debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 1
-
-  # ═══════════════════════════════════════════════════════════════
-  # TEST — 9 flow, paralel matrix job
-  # ═══════════════════════════════════════════════════════════════
-  test:
-    name: "${{ matrix.flow }}"
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        flow:
-          - onboarding
-          - main-navigation
-          - reading
-          - sharing
-          - exit
-          - auth
-          - rewards-ads
-          - vip-purchase
-          - character-chat
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: debug-apk
-
-      - name: Prepare flow workspace
-        run: |
-          # Hedef flow'u flow.yaml yap, diğerlerini sil
-          # (Maestro Cloud workspace'teki TÜM .yaml'leri keşfedip çalıştırır)
-          cp .maestro/flows/${{ matrix.flow }}.yaml .maestro/flow.yaml
-          rm -rf .maestro/flows
-
-      - name: Install Maestro CLI
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-
-      - name: Run Maestro Cloud — ${{ matrix.flow }}
-        env:
-          MAESTRO_CLOUD_API_KEY: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
-        run: |
-          maestro cloud \
-            --api-key "$MAESTRO_CLOUD_API_KEY" \
-            --project-id "${{ secrets.MAESTRO_PROJECT_ID }}" \
-            --app-file app-debug.apk \
-            --name "${{ matrix.flow }}" \
-            --device-locale tr_TR \
-            --timeout 600 \
-            .maestro/
