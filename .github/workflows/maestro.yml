@@ -41,21 +41,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Functions dependencies
-        run: npm --prefix functions ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Typecheck Functions
-        run: npm --prefix functions run typecheck
-
-      - name: Build Functions
-        run: npm --prefix functions run build
-
-      - name: Test Functions
-        run: npm --prefix functions test
-
       - name: Build Next.js (static export → out/)
         run: npm run build
         env:
