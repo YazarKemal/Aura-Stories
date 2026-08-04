@@ -159,6 +159,7 @@ export async function reserveCredits(
 /**
  * PENDING ledger'ı COMPLETED olarak işaretler.
  * Yalnızca status == 'pending' ise çalışır.
+ * @deprecated Yeni kod finalizeTransaction kullanmalı.
  */
 export async function completeTransaction(
   uid: string,
@@ -167,14 +168,69 @@ export async function completeTransaction(
 ): Promise<void> {
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(txLedgerRef(uid, operationId));
-    if (!snap.exists) return; // Yoksa sessizce çık
-
+    if (!snap.exists) return;
     const entry = snap.data() as LedgerEntry;
-    if (entry.status !== 'pending') return; // Zaten sonuçlanmış
-
+    if (entry.status !== 'pending') return;
     tx.update(txLedgerRef(uid, operationId), {
-      status: 'completed',
-      completedAt: FieldValue.serverTimestamp(),
+      status: 'completed', completedAt: FieldValue.serverTimestamp(),
+      ...(resultDigest ? { resultDigest } : {}),
+    });
+  });
+}
+
+/**
+ * ATOMİK FINALIZE: ledger tamamlama + entitlement güncelleme
+ * TEK Firestore transaction içinde yapılır.
+ * Entitlement başarısızsa ledger completed OLMAZ.
+ */
+export async function finalizeTransaction(
+  uid: string,
+  operationId: string,
+  storyId: string,
+  action: 'chapter_unlock' | 'force_fate' | 'full_access',
+  chapterNumber?: number,
+  resultDigest?: string
+): Promise<void> {
+  await db().runTransaction(async (tx) => {
+    // 1. Ledger'ı oku ve doğrula
+    const snap = await tx.get(txLedgerRef(uid, operationId));
+    if (!snap.exists) throw { code: 'LEDGER_NOT_FOUND' };
+    const entry = snap.data() as LedgerEntry;
+    if (entry.status !== 'pending') throw { code: 'NOT_PENDING' };
+
+    // 2. Entitlement'ı güncelle
+    const eref = entitlementRef(uid, storyId);
+    const esnap = await tx.get(eref);
+    const current = esnap.exists ? esnap.data()! : { hasFullAccess: false, unlockedChapters: [] as number[] };
+    const unlocked: number[] = [...(current.unlockedChapters || [])];
+
+    if (action === 'full_access') {
+      tx.set(eref, { hasFullAccess: true, unlockedChapters: unlocked, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } else if (chapterNumber != null && !unlocked.includes(chapterNumber)) {
+      unlocked.push(chapterNumber);
+      tx.set(eref, { unlockedChapters: unlocked, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+
+    // 3. Ledger'ı completed yap
+    tx.update(txLedgerRef(uid, operationId), {
+      status: 'completed', completedAt: FieldValue.serverTimestamp(),
+      ...(resultDigest ? { resultDigest } : {}),
+    });
+  });
+}
+
+export async function finalizeSimpleTransaction(
+  uid: string,
+  operationId: string,
+  resultDigest?: string
+): Promise<void> {
+  await db().runTransaction(async (tx) => {
+    const snap = await tx.get(txLedgerRef(uid, operationId));
+    if (!snap.exists) return;
+    const entry = snap.data() as LedgerEntry;
+    if (entry.status !== 'pending') return;
+    tx.update(txLedgerRef(uid, operationId), {
+      status: 'completed', completedAt: FieldValue.serverTimestamp(),
       ...(resultDigest ? { resultDigest } : {}),
     });
   });

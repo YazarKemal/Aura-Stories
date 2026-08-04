@@ -90,16 +90,9 @@ export const chapterOutputSchema = z.object({
 // ── Action-Based Economy ──────────────────────────────────────
 // Client yalnızca ACTION gönderir — AMOUNT GÖNDEREMEZ
 
-export const unlockActionSchema = z.object({
+export const fullAccessActionSchema = z.object({
   operationId: z.string().min(1).max(200),
   storyId: z.string().min(1).max(100),
-  chapterNumber: z.number().int().positive().max(200),
-}).strict();
-
-export const forceFateActionSchema = z.object({
-  operationId: z.string().min(1).max(200),
-  storyId: z.string().min(1).max(100),
-  chapterNumber: z.number().int().positive().max(200),
 }).strict();
 
 // ── Daily Gift ────────────────────────────────────────────────

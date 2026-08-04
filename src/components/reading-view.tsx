@@ -116,7 +116,7 @@ type ReadingMode = 'scroll' | 'swipe' | 'flip';
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
   const { online } = useNetwork();
-  const { userState, unlockWithVote, forceFateChoice, saveGeneratedChapter, getStoryEngine, addCredits } = useUserState();
+  const { userState, saveGeneratedChapter, getStoryEngine } = useUserState();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -474,70 +474,34 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // ── AI Story Generation ──────────────────────────────────
   // isGeneratingRef: state gecikmesinden etkilenmeyen çift-tık kilidi
   const isGeneratingRef = useRef(false);
-  // Reklam izleyince yarım kalan akışı otomatik tamamlamak için bekleyen aksiyon
   const pendingAdActionRef = useRef<
     { kind: 'unlock' } | { kind: 'forceFate'; option: 'A' | 'B'; optionText: string } | null
   >(null);
-  // API hatasında iade edilecek jeton miktarı (çift iade önlemli)
-  const pendingRefundRef = useRef<number>(0);
-  const refundedRequestRef = useRef<Set<number>>(new Set());
 
+  // TEK yetkili ücretlendirme noktası: generateStory Function.
+  // İstemci kredi DÜŞMEZ, İADE ETMEZ. Refund yalnızca Functions tarafında.
   const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false, operationId?: string) => {
-    // ── Auth guard — giriş yapmamış kullanıcı AI üretimi yapamaz ──
     if (!userState.user?.uid) {
-      toast({
-        title: "Giriş Yapmanız Gerekiyor",
-        description: "AI hikaye üretimi için lütfen giriş yapın.",
-        variant: "destructive",
-      });
-      // İade: caller'ın harcadığı jetonu geri ver
-      if (pendingRefundRef.current > 0) {
-        const refundKey = Date.now();
-        if (!refundedRequestRef.current.has(refundKey)) {
-          refundedRequestRef.current.add(refundKey);
-          addCredits(pendingRefundRef.current);
-          pendingRefundRef.current = 0;
-        }
-      }
-      isGeneratingRef.current = false;
-      setIsGeneratingStory(false);
+      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
       return;
     }
-
-    if (!skipGuard) {
-      if (isGeneratingRef.current) return;
-      isGeneratingRef.current = true;
-      setIsGeneratingStory(true);
-    }
+    if (!skipGuard) { if (isGeneratingRef.current) return; isGeneratingRef.current = true; setIsGeneratingStory(true); }
     if (!online) {
       toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
-      // İade
-      if (pendingRefundRef.current > 0) {
-        addCredits(pendingRefundRef.current);
-        pendingRefundRef.current = 0;
-      }
-      isGeneratingRef.current = false;
-      setIsGeneratingStory(false);
-      return;
+      isGeneratingRef.current = false; setIsGeneratingStory(false); return;
     }
 
     const chapterNum = engine.activeChapter + 1;
     setForceChoiceLabel(isForce ? optionText : null);
-
-    const storyOpId = operationId || `story_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const storyOpId = operationId || `story_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
 
     try {
       const data = await generateStoryChapter({
-        storyId: story.id,
-        storyTitle: story.title,
-        storyAuthor: story.author,
-        storySynopsis: story.synopsis,
-        storyTags: story.tags,
+        storyId: story.id, storyTitle: story.title, storyAuthor: story.author,
+        storySynopsis: story.synopsis, storyTags: story.tags,
         previousChapters: engine.generatedChapters.map(gc => ({
-          chapterNumber: gc.chapterNumber,
-          title: gc.title,
-          content: gc.content,
+          chapterNumber: gc.chapterNumber, title: gc.title, content: gc.content,
           chosenOption: gc.triggeredBy?.optionText,
         })),
         chosenFate: { option, text: optionText, isForceChoice: isForce },
@@ -545,109 +509,43 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       }, storyOpId, action);
 
       const chapter = {
-        chapterNumber: chapterNum,
-        title: data.title,
-        content: data.content,
-        optionA: data.optionA,
-        optionB: data.optionB,
+        chapterNumber: chapterNum, title: data.title, content: data.content,
+        optionA: data.optionA, optionB: data.optionB,
         triggeredBy: { chapterNumber: chapterNum - 1, selectedOption: option as 'A' | 'B', optionText, isForceChoice: isForce },
         generatedAt: new Date().toISOString(),
       };
-
       saveGeneratedChapter(story.id, chapter);
       setVotedOption(null);
-
-      // Okuma günlüğü prompt'u
-      setJournalQuote('');
-      setJournalEmotion('');
-      setShowJournalPrompt(true);
-
-      toast({
-        title: `✨ ${data.title}`,
-        description: 'Yeni bölüm hazır! Hikaye devam ediyor...',
-      });
+      setJournalQuote(''); setJournalEmotion(''); setShowJournalPrompt(true);
+      toast({ title: `✨ ${data.title}`, description: 'Yeni bölüm hazır! Hikaye devam ediyor...' });
     } catch (err: any) {
-      const msg = err.name === 'AbortError'
-        ? 'Hikaye üretimi zaman aşımına uğradı. Lütfen tekrar deneyin.'
-        : err.message || 'Hikaye üretilirken bir hata oluştu.';
-      toast({
-        title: err.name === 'AbortError' ? '⏱️ Zaman Aşımı' : '⚠️ Hata',
-        description: msg,
-        variant: 'destructive',
-      });
-      // ── API hatasında jeton İADESİ (çift iade önlemli) ──
-      if (pendingRefundRef.current > 0) {
-        const refundKey = Date.now();
-        if (!refundedRequestRef.current.has(refundKey)) {
-          refundedRequestRef.current.add(refundKey);
-          const amount = pendingRefundRef.current;
-          addCredits(amount);
-          toast({
-            title: "Jeton İade Edildi",
-            description: `Hikaye üretilemedi. ${amount} jeton hesabınıza iade edildi.`,
-            variant: "default",
-          });
-        }
-        pendingRefundRef.current = 0;
-      }
+      toast({ title: '⚠️ Hata', description: err.message || 'Hikaye üretilemedi.', variant: 'destructive' });
     } finally {
-      isGeneratingRef.current = false;
-      setIsGeneratingStory(false);
-      setForceChoiceLabel(null);
+      isGeneratingRef.current = false; setIsGeneratingStory(false); setForceChoiceLabel(null);
     }
   };
 
   const handleUnlockAndGenerate = async () => {
     if (isGeneratingRef.current) return;
-    // ── Auth guard ──
     if (!userState.user?.uid) {
       toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
       return;
     }
-    if (userState.credits < 15) {
-      pendingAdActionRef.current = { kind: 'unlock' };
-      setIsAdModalOpen(true);
-      return;
-    }
-    isGeneratingRef.current = true;
-    setIsGeneratingStory(true);
-    const ok = await unlockWithVote(story.id);
-    if (!ok) {
-      isGeneratingRef.current = false;
-      setIsGeneratingStory(false);
-      toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
-      return;
-    }
-    // API hatasında iade için jeton miktarını kaydet
-    pendingRefundRef.current = 15;
-    const unlockOpId = `unlock_${userState.user?.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // generateStory Function TEK yetkili ücretlendirme noktasıdır.
+    // İstemci kredi DÜŞMEZ — unlockWithVote çağrılmaz.
+    const unlockOpId = `unlock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true, unlockOpId);
   };
 
   const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
     if (isGeneratingRef.current) return;
-    // ── Auth guard ──
     if (!userState.user?.uid) {
       toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
       return;
     }
-    if (userState.credits < FORCE_FATE_COST) {
-      pendingAdActionRef.current = { kind: 'forceFate', option, optionText };
-      setIsAdModalOpen(true);
-      return;
-    }
-    isGeneratingRef.current = true;
-    setIsGeneratingStory(true);
-    const ok = await forceFateChoice(story.id, engine.activeChapter, option, optionText);
-    if (!ok) {
-      isGeneratingRef.current = false;
-      setIsGeneratingStory(false);
-      toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
-      return;
-    }
-    // API hatasında iade için jeton miktarını kaydet
-    pendingRefundRef.current = FORCE_FATE_COST;
-    const forceOpId = `force_${userState.user?.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // generateStory Function TEK yetkili ücretlendirme noktasıdır.
+    // İstemci kredi DÜŞMEZ — forceFateChoice çağrılmaz.
+    const forceOpId = `force_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await handleGenerateStory(option, optionText, true, true, forceOpId);
   };
 

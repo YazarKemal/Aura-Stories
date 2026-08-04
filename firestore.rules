@@ -66,14 +66,16 @@ service cloud.firestore {
       // ── Progress (client yalnızca güvenli okuma alanlarını yazabilir) ──
       match /progress/{storyId} {
         allow read: if isOwner(uid) || isAdmin();
-        // hasFullAccess ve unlockedChapters IMMUTABLE — yalnızca Admin SDK
+        // keys().hasOnly: hasFullAccess/unlockedChapters KABUL EDİLMEZ
+        // Bu alanlar yalnızca Admin SDK ile entitlements üzerinden yazılır
         allow create, update: if isOwner(uid)
-          && (!('hasFullAccess' in request.resource.data) || request.resource.data.hasFullAccess == false)
-          && (!('unlockedChapters' in request.resource.data) || request.resource.data.unlockedChapters.size() == 0)
+          && request.resource.data.keys().hasOnly(['activeChapter', 'fateChoices', 'generatedChapters'])
           && request.resource.data.activeChapter is number
+          && request.resource.data.activeChapter >= 1
+          && request.resource.data.activeChapter <= 200
           && request.resource.data.fateChoices is list
-          && request.resource.data.generatedChapters is list
           && request.resource.data.fateChoices.size() <= 200
+          && request.resource.data.generatedChapters is list
           && request.resource.data.generatedChapters.size() <= 200;
         allow delete: if false;
       }
@@ -153,7 +155,11 @@ service cloud.firestore {
         && request.resource.data.contentType in ['story','chat']
         && request.resource.data.contentPreview is string && request.resource.data.contentPreview.size() <= 500
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 200
-        && request.resource.data.createdAt is string && request.resource.data.createdAt.size() <= 50;
+        && request.resource.data.createdAt is string && request.resource.data.createdAt.size() <= 50
+        // Opsiyonel alanlar — varsa tür/uzunluk doğrulaması
+        && (!('chapterNumber' in request.resource.data) || request.resource.data.chapterNumber is number)
+        && (!('characterName' in request.resource.data) || (request.resource.data.characterName is string && request.resource.data.characterName.size() <= 100))
+        && (!('messageId' in request.resource.data) || (request.resource.data.messageId is string && request.resource.data.messageId.size() <= 100));
         // NOT: serverCreatedAt client'dan KABUL EDİLMEZ (keys().hasOnly dışında)
 
       allow read, update, delete: if isAdmin();

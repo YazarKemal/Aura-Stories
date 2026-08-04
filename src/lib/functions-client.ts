@@ -36,18 +36,11 @@ export async function callCharacterChat(
 // ── Action-Based Economy ──────────────────────────────────────
 // Client yalnızca ACTION gönderir — AMOUNT YOK
 
-export async function callUnlockChapter(
-  operationId: string, storyId: string, chapterNumber: number
+export async function callPurchaseFullAccess(
+  operationId: string, storyId: string
 ): Promise<{ success: boolean; balanceAfter: number }> {
-  const fn = httpsCallable<{ operationId: string; storyId: string; chapterNumber: number }, { success: boolean; balanceAfter: number }>(functions(), 'unlockChapter');
-  return (await fn({ operationId, storyId, chapterNumber }) as CR<{ success: boolean; balanceAfter: number }>).data;
-}
-
-export async function callForceFate(
-  operationId: string, storyId: string, chapterNumber: number
-): Promise<{ success: boolean; balanceAfter: number }> {
-  const fn = httpsCallable<{ operationId: string; storyId: string; chapterNumber: number }, { success: boolean; balanceAfter: number }>(functions(), 'forceFate');
-  return (await fn({ operationId, storyId, chapterNumber }) as CR<{ success: boolean; balanceAfter: number }>).data;
+  const fn = httpsCallable<{ operationId: string; storyId: string }, { success: boolean; balanceAfter: number }>(functions(), 'purchaseFullAccess');
+  return (await fn({ operationId, storyId }) as CR<{ success: boolean; balanceAfter: number }>).data;
 }
 
 export async function callClaimDailyGift(operationId: string): Promise<{ success: boolean; amount: number; balanceAfter: number }> {

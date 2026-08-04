@@ -55,7 +55,7 @@ const REPORT_REASONS = [
 
 export function CharacterChatView({ story, activeCharacter, onBack }: CharacterChatViewProps) {
   const char = activeCharacter;
-  const { spendCredits, addCredits, userState } = useUserState();
+  const { userState } = useUserState();
   const { toast } = useToast();
   const { online } = useNetwork();
 
@@ -80,8 +80,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportTargetMsg, setReportTargetMsg] = useState<Message | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
-  // Çift iadeyi önlemek için refund yapılmış AI çağrılarını takip et
-  const refundedRef = useRef<Set<string>>(new Set());
 
   // ── Mobile keyboard handling ──────────────────────────────
   useEffect(() => {
@@ -199,8 +197,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
 
-    // API çağrısı için benzersiz request ID (çift iade önleme)
-    const requestId = `chat-${Date.now()}`;
+    // API çağrısı — kredi kontrolü server-side
 
     try {
       const result = await sendToAPI(updatedHistory, chatOpId);
@@ -227,17 +224,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       }
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
-
-      // ── API hatasında jeton İADESİ (çift iade önlemli) ──
-      if (!refundedRef.current.has(requestId)) {
-        refundedRef.current.add(requestId);
-        addCredits(5);
-        toast({
-          title: "Jeton İade Edildi",
-          description: "AI yanıtı alınamadı. 5 jeton hesabınıza iade edildi.",
-          variant: "default",
-        });
-      }
+      // Refund yalnızca Functions refundTransaction tarafından yapılır.
 
       const errMsg: Message = {
         id: `err-${Date.now()}`,
@@ -249,7 +236,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       setIsLoading(false);
       sendLockRef.current = false;
     }
-  }, [inputText, isLoading, messages, sendToAPI, online, spendCredits, addCredits, toast, userState.user?.uid, story.id, char.id]);
+  }, [inputText, isLoading, messages, sendToAPI, online, toast, userState.user?.uid, story.id, char.id]);
 
   // Reklam ödülü sonrası yarım kalan mesajı otomatik gönder
   const handleAdReward = (earned: number) => {

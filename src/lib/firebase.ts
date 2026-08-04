@@ -299,6 +299,43 @@ export async function getJournalEntries(uid: string): Promise<JournalEntry[]> {
 
 export { auth, db, app };
 
+// ── Entitlements (server-authoritative) ───────────────────────
+
+export interface StoryEntitlement {
+  hasFullAccess: boolean;
+  unlockedChapters: number[];
+  updatedAt?: string;
+}
+
+/** Kullanıcının bir hikaye için entitlement'ını Firestore'dan oku */
+export async function getEntitlement(uid: string, storyId: string): Promise<StoryEntitlement | null> {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'entitlements', storyId));
+    return snap.exists() ? (snap.data() as StoryEntitlement) : null;
+  } catch { return null; }
+}
+
+/** Kullanıcının tüm entitlement'larını yükle */
+export async function loadAllEntitlements(uid: string): Promise<Record<string, StoryEntitlement>> {
+  try {
+    const snap = await getDocs(collection(db, 'users', uid, 'entitlements'));
+    const result: Record<string, StoryEntitlement> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as StoryEntitlement; });
+    return result;
+  } catch { return {}; }
+}
+
+/** Entitlement değişikliklerini gerçek zamanlı dinle */
+export function onEntitlementSnapshot(
+  uid: string,
+  storyId: string,
+  callback: (entitlement: StoryEntitlement | null) => void
+) {
+  return onSnapshot(doc(db, 'users', uid, 'entitlements', storyId), (snap) => {
+    callback(snap.exists() ? (snap.data() as StoryEntitlement) : null);
+  });
+}
+
 // ── Content Reporting (AI moderation) ─────────────────────────
 
 export interface ContentReport {
