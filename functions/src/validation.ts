@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ── Length Limits (sunucu tarafı sabit, istemciden DEĞİŞTİRİLEMEZ) ──
+// ── Length Limits ─────────────────────────────────────────────
 
 const CHAT_MSG_MAX_LENGTH = 2000;
 const CHAT_MAX_MESSAGES = 30;
@@ -9,8 +9,7 @@ const MAX_PREVIOUS_CHAPTERS = 10;
 const STORY_SYNOPSIS_MAX_LENGTH = 3000;
 const STORY_LONG_SYNOPSIS_MAX_LENGTH = 10000;
 
-// ── Character Chat ───────────────────────────────────────────
-// operationId zorunlu — idempotency için
+// ── Chat ──────────────────────────────────────────────────────
 
 const chatMessageSchema = z.object({
   text: z.string().min(1).max(CHAT_MSG_MAX_LENGTH),
@@ -45,10 +44,9 @@ export const characterChatInputSchema = z.object({
   operationId: z.string().min(1).max(200),
 }).strict();
 
-// AI fonksiyonları için operationId'li şema
 export const chatOperationSchema = characterChatInputSchema;
 
-// ── Story Generation ────────────────────────────────────────
+// ── Story Generation ──────────────────────────────────────────
 
 const previousChapterSchema = z.object({
   chapterNumber: z.number().int().positive().max(200),
@@ -74,13 +72,13 @@ export const generateStoryInputSchema = z.object({
   chapterNumber: z.number().int().positive().max(200),
 }).strict();
 
-// operationId + isForceChoice (maliyet belirleme için)
+/** Client yalnızca ACTION enum gönderir — amount/model/temperature GÖNDEREMEZ */
 export const storyGenerateOperationSchema = generateStoryInputSchema.extend({
   operationId: z.string().min(1).max(200),
-  isForceChoice: z.boolean(),
+  action: z.enum(['chapter_unlock', 'force_fate']),
 }).strict();
 
-// ── Generated Output ────────────────────────────────────────
+// ── Output ────────────────────────────────────────────────────
 
 export const chapterOutputSchema = z.object({
   title: z.string().min(3).max(120),
@@ -89,19 +87,23 @@ export const chapterOutputSchema = z.object({
   optionB: z.string().min(5).max(300),
 });
 
-// ── Economy Operations ──────────────────────────────────────
+// ── Action-Based Economy ──────────────────────────────────────
+// Client yalnızca ACTION gönderir — AMOUNT GÖNDEREMEZ
 
-export const economyOperationSchema = z.object({
-  amount: z.number().int().positive().max(10000),
+export const unlockActionSchema = z.object({
   operationId: z.string().min(1).max(200),
-  detail: z.string().min(1).max(200),
+  storyId: z.string().min(1).max(100),
+  chapterNumber: z.number().int().positive().max(200),
 }).strict();
+
+export const forceFateActionSchema = z.object({
+  operationId: z.string().min(1).max(200),
+  storyId: z.string().min(1).max(100),
+  chapterNumber: z.number().int().positive().max(200),
+}).strict();
+
+// ── Daily Gift ────────────────────────────────────────────────
 
 export const claimGiftOperationSchema = z.object({
   operationId: z.string().min(1).max(200),
-}).strict();
-
-export const adRewardOperationSchema = z.object({
-  operationId: z.string().min(1).max(200),
-  mode: z.enum(['simulation', 'production']).optional(),
 }).strict();

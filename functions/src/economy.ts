@@ -1,302 +1,334 @@
 /**
- * Server-Authoritative Economy Module
+ * Server-Authoritative Economy Module — v3.0.0
  *
- * TÜM jeton işlemleri bu modül üzerinden Firestore transaction ile yapılır.
- * İstemci credits/role/vipUntil alanlarını DOĞRUDAN DEĞİŞTİREMEZ
- * (firestore.rules ile korunur).
+ * TÜM jeton işlemleri Firestore transaction içinde atomik olarak yapılır.
+ * İstemci amount, detail, mode veya herhangi bir ekonomik parametre GÖNDEREMEZ.
+ * Maliyetler sunucu sabitlerinden okunur, istemci yalnızca action enum gönderir.
  *
- * İşlemler:
- *   spendCredits   — jeton harcama (negatif bakiyeye izin VERMEZ)
- *   addCredits     — jeton ekleme (admin veya Functions tarafından)
- *   claimDailyGift — günlük hediye (UTC gün penceresi)
- *   recordTransaction — işlem defterine kayıt
+ * Action'lar:
+ *   chat_message    — 5 jeton
+ *   chapter_unlock  — 15 jeton
+ *   force_fate      — 50 jeton
+ *   full_access     — 75 jeton
+ *
+ * Ledger status akışı:
+ *   pending → completed | refunded | failed
  */
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// ── Ekonomi sabitleri (istemci sabitleriyle EŞLEŞMELİ) ──────
+// ── Sabitler ──────────────────────────────────────────────────
 
-export const CHAT_MESSAGE_COST = 5;
-export const CHAPTER_UNLOCK_COST = 15;
-export const FORCE_FATE_COST = 50;
-export const FULL_ACCESS_COST = 75;
-export const AD_REWARD_AMOUNT = 5;
+export const COST = {
+  chat_message: 5,
+  chapter_unlock: 15,
+  force_fate: 50,
+  full_access: 75,
+} as const;
+
+export type EconomyAction = keyof typeof COST;
+
 export const DAILY_GIFT_AMOUNT = 50;
 export const INITIAL_CREDITS = 200;
 
-// ── Types ────────────────────────────────────────────────────
+// ── Ledger Types ──────────────────────────────────────────────
 
-export interface TransactionRecord {
+export type LedgerStatus = 'pending' | 'completed' | 'refunded' | 'failed';
+
+export interface LedgerEntry {
   uid: string;
-  operation: 'spend' | 'add' | 'daily_gift' | 'ad_reward';
-  amount: number;
-  /** Benzersiz işlem kimliği — idempotency için */
   operationId: string;
-  detail: string;
+  action: EconomyAction | 'daily_gift' | 'ad_reward' | 'refund';
+  cost: number;
+  storyId?: string;
+  /** Yalnızca AI çağrılarında: iade için kaynak operationId */
+  parentOperationId?: string;
+  status: LedgerStatus;
+  balanceBefore: number;
   balanceAfter: number;
   createdAt: FieldValue;
+  completedAt?: FieldValue;
+  /** Tamamlanan AI yanıtının hash'i veya özeti */
+  resultDigest?: string;
 }
 
-export interface SpendResult {
-  success: true;
-  balanceAfter: number;
-  alreadyProcessed?: boolean;
-}
-
-export interface ClaimGiftResult {
-  success: true;
-  amount: number;
-  balanceAfter: number;
-}
-
-// ── Helpers ──────────────────────────────────────────────────
+// ── Firestore helpers ─────────────────────────────────────────
 
 let _db: ReturnType<typeof getFirestore> | null = null;
-function db() {
-  if (!_db) _db = getFirestore();
-  return _db;
+function db() { if (!_db) _db = getFirestore(); return _db; }
+
+function userRef(uid: string) { return db().collection('users').doc(uid); }
+function txLedgerRef(uid: string, opId: string) {
+  return db().collection('users').doc(uid).collection('transactions').doc(opId);
+}
+function entitlementRef(uid: string, storyId: string) {
+  return db().collection('users').doc(uid).collection('entitlements').doc(storyId);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORE: Transaction-içi kredi rezervasyonu
+// ═══════════════════════════════════════════════════════════════
+
+export interface ReserveResult {
+  balanceAfter: number;
+  balanceBefore: number;
+  alreadyReserved: boolean;
+  /** Daha önce rezerve edilmişse mevcut ledger */
+  existingLedger?: LedgerEntry;
 }
 
 /**
- * İşlemin daha önce yapılıp yapılmadığını kontrol eder.
- * Idempotency: aynı operationId ile tekrar çağrılırsa
- * jeton İKİNCİ KEZ düşülmez.
- */
-async function checkIdempotency(
-  uid: string,
-  operationId: string
-): Promise<TransactionRecord | null> {
-  const snap = await db()
-    .collection('users').doc(uid)
-    .collection('transactions')
-    .doc(operationId)
-    .get();
-  return snap.exists ? (snap.data() as TransactionRecord) : null;
-}
-
-/**
- * Kullanıcı belgesini transaction içinde okur.
- * Returns the user document snapshot.
- */
-function userRef(uid: string) {
-  return db().collection('users').doc(uid);
-}
-
-function txRef(uid: string, operationId: string) {
-  return db().collection('users').doc(uid)
-    .collection('transactions').doc(operationId);
-}
-
-// ── Public API ────────────────────────────────────────────────
-
-/**
- * Jeton harcar. Negatif bakiyeye İZİN VERMEZ.
- * Firestore transaction ile atomiktir.
- * Aynı operationId tekrar çağrılırsa jeton düşmez, mevcut sonucu döner.
+ * Kredi rezerve eder (PENDING ledger oluşturur).
+ * TÜM idempotency kontrolü transaction İÇİNDE yapılır.
  *
- * @returns SpendResult — success + yeni bakiye
- * @throws  'INSUFFICIENT_CREDITS'  — yetersiz bakiye
- * @throws  'USER_NOT_FOUND'        — kullanıcı belgesi yok
+ * Aynı operationId ile tekrar çağrılırsa:
+ * - Aynı action/cost/storyId → mevcut ledger döner, ücretlendirilmez
+ * - Farklı action/cost → FAILED_PRECONDITION
  */
-export async function spendCredits(
+export async function reserveCredits(
   uid: string,
-  amount: number,
+  action: EconomyAction,
   operationId: string,
-  detail: string
-): Promise<SpendResult> {
-  if (amount <= 0) {
-    throw new Error('Harcama miktarı pozitif olmalıdır.');
-  }
-
-  // Idempotency kontrolü
-  const existing = await checkIdempotency(uid, operationId);
-  if (existing) {
-    return { success: true, balanceAfter: existing.balanceAfter, alreadyProcessed: true };
-  }
+  storyId?: string
+): Promise<ReserveResult> {
+  const cost = COST[action];
 
   try {
-    const result = await db().runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef(uid));
-      if (!userSnap.exists) {
-        throw { code: 'USER_NOT_FOUND' };
+    return await db().runTransaction(async (tx) => {
+      // 1. Ledger kontrolü (transaction içinde)
+      const existingSnap = await tx.get(txLedgerRef(uid, operationId));
+      const existing = existingSnap.exists ? existingSnap.data() as LedgerEntry : null;
+
+      if (existing) {
+        // Idempotency: aynı işlem tekrar gelirse
+        if (existing.action === action && existing.cost === cost && existing.storyId === (storyId || existing.storyId)) {
+          if (existing.status === 'completed') {
+            // Zaten tamamlanmış — duplicate, AI tekrar çalıştırılmaz
+            return { balanceAfter: existing.balanceAfter, balanceBefore: existing.balanceBefore, alreadyReserved: true, existingLedger: existing };
+          }
+          if (existing.status === 'pending') {
+            // Aynı anda ikinci çağrı — pending'i dön
+            return { balanceAfter: existing.balanceAfter, balanceBefore: existing.balanceBefore, alreadyReserved: true, existingLedger: existing };
+          }
+          if (existing.status === 'refunded' || existing.status === 'failed') {
+            // İade edilmiş/başarısız işlem tekrar kullanılamaz
+            throw { code: 'ALREADY_FINALIZED', message: 'Bu işlem daha önce sonuçlandı, yeni operationId ile tekrar deneyin.' };
+          }
+        } else {
+          // Aynı operationId farklı parametrelerle → reddet
+          throw { code: 'IDEMPOTENCY_MISMATCH', message: `Aynı operationId farklı parametrelerle geldi. Beklenen: ${existing.action}/${existing.cost}, gelen: ${action}/${cost}.` };
+        }
       }
+
+      // 2. Kullanıcı bakiyesini oku
+      const userSnap = await tx.get(userRef(uid));
+      if (!userSnap.exists) throw { code: 'USER_NOT_FOUND' };
 
       const data = userSnap.data()!;
       const currentCredits: number = data.credits ?? 0;
 
-      if (currentCredits < amount) {
-        throw { code: 'INSUFFICIENT_CREDITS' };
+      if (currentCredits < cost) {
+        throw { code: 'INSUFFICIENT_CREDITS', current: currentCredits, needed: cost };
       }
 
-      const newBalance = currentCredits - amount;
+      const newBalance = currentCredits - cost;
 
-      // Atomik güncelleme
+      // 3. Atomik: bakiye düş + PENDING ledger oluştur
       tx.update(userRef(uid), { credits: newBalance });
 
-      // İşlem defteri
-      tx.set(txRef(uid, operationId), {
+      tx.set(txLedgerRef(uid, operationId), {
         uid,
-        operation: 'spend',
-        amount: -amount,
         operationId,
-        detail,
+        action,
+        cost,
+        storyId: storyId || null,
+        status: 'pending',
+        balanceBefore: currentCredits,
         balanceAfter: newBalance,
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return { balanceAfter: newBalance };
+      return { balanceAfter: newBalance, balanceBefore: currentCredits, alreadyReserved: false };
     });
-
-    return { success: true, balanceAfter: result.balanceAfter };
   } catch (err: any) {
-    if (err?.code === 'INSUFFICIENT_CREDITS') {
-      throw { code: 'INSUFFICIENT_CREDITS', message: `Yetersiz bakiye. Gereken: ${amount}, mevcut: yetersiz.` };
-    }
-    if (err?.code === 'USER_NOT_FOUND') {
-      throw { code: 'USER_NOT_FOUND', message: 'Kullanıcı bulunamadı.' };
-    }
-    throw err;
+    // Kodlu hataları yeniden fırlat
+    if (err?.code) throw err;
+    throw { code: 'TRANSACTION_FAILED', message: err?.message };
   }
 }
 
 /**
- * Jeton ekler (pozitif bakiye değişimi).
- * Yalnızca Functions (Admin SDK) tarafından çağrılabilir.
- * İstemci bu fonksiyonu DOĞRUDAN ÇAĞIRAMAZ.
+ * PENDING ledger'ı COMPLETED olarak işaretler.
+ * Yalnızca status == 'pending' ise çalışır.
  */
-export async function addCredits(
+export async function completeTransaction(
   uid: string,
-  amount: number,
   operationId: string,
-  operation: TransactionRecord['operation'],
-  detail: string
-): Promise<{ balanceAfter: number }> {
-  if (amount <= 0) {
-    throw new Error('Eklenen miktar pozitif olmalıdır.');
-  }
+  resultDigest?: string
+): Promise<void> {
+  await db().runTransaction(async (tx) => {
+    const snap = await tx.get(txLedgerRef(uid, operationId));
+    if (!snap.exists) return; // Yoksa sessizce çık
 
-  const existing = await checkIdempotency(uid, operationId);
-  if (existing) {
-    return { balanceAfter: existing.balanceAfter };
-  }
+    const entry = snap.data() as LedgerEntry;
+    if (entry.status !== 'pending') return; // Zaten sonuçlanmış
 
-  const result = await db().runTransaction(async (tx) => {
-    const userSnap = await tx.get(userRef(uid));
-    if (!userSnap.exists) {
-      throw { code: 'USER_NOT_FOUND' };
-    }
-
-    const data = userSnap.data()!;
-    const currentCredits: number = data.credits ?? 0;
-    const newBalance = currentCredits + amount;
-
-    tx.update(userRef(uid), { credits: newBalance });
-
-    tx.set(txRef(uid, operationId), {
-      uid,
-      operation,
-      amount,
-      operationId,
-      detail,
-      balanceAfter: newBalance,
-      createdAt: FieldValue.serverTimestamp(),
+    tx.update(txLedgerRef(uid, operationId), {
+      status: 'completed',
+      completedAt: FieldValue.serverTimestamp(),
+      ...(resultDigest ? { resultDigest } : {}),
     });
-
-    return { balanceAfter: newBalance };
   });
-
-  return { balanceAfter: result.balanceAfter };
 }
 
 /**
- * Günlük hediyeyi talep eder. Sunucu UTC gün penceresi kullanır.
- * İstemci saatine GÜVENMEZ.
+ * PENDING ledger'ı REFUNDED yapar ve bakiyeyi İADE eder.
+ * Transaction içinde atomiktir — çift iade İMKANSIZDIR.
+ * Yalnızca status == 'pending' ise çalışır.
  */
+export async function refundTransaction(
+  uid: string,
+  operationId: string
+): Promise<boolean> {
+  try {
+    return await db().runTransaction(async (tx) => {
+      const snap = await tx.get(txLedgerRef(uid, operationId));
+      if (!snap.exists) return false;
+
+      const entry = snap.data() as LedgerEntry;
+      if (entry.status !== 'pending') return false; // Zaten sonuçlanmış — iade yok
+
+      // Kullanıcı bakiyesini oku
+      const userSnap = await tx.get(userRef(uid));
+      const currentCredits: number = userSnap.exists ? (userSnap.data()?.credits ?? 0) : 0;
+      const refundedBalance = currentCredits + entry.cost;
+
+      // Atomik: bakiye iadesi + ledger güncelleme
+      tx.update(userRef(uid), { credits: refundedBalance });
+
+      const refundOpId = `refund_${operationId}`;
+
+      tx.update(txLedgerRef(uid, operationId), {
+        status: 'refunded',
+        completedAt: FieldValue.serverTimestamp(),
+      });
+
+      // İade kaydı
+      tx.set(txLedgerRef(uid, refundOpId), {
+        uid,
+        operationId: refundOpId,
+        action: 'refund',
+        cost: entry.cost,
+        parentOperationId: operationId,
+        status: 'completed',
+        balanceBefore: currentCredits,
+        balanceAfter: refundedBalance,
+        createdAt: FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Daha önce COMPLETED olan bir ledger'ı sorgular.
+ * AI replay koruması: tamamlanmış işlem tekrar çağrılırsa sonuç dönebilir.
+ */
+export async function getCompletedLedger(
+  uid: string,
+  operationId: string
+): Promise<LedgerEntry | null> {
+  const snap = await txLedgerRef(uid, operationId).get();
+  if (!snap.exists) return null;
+  const entry = snap.data() as LedgerEntry;
+  return entry.status === 'completed' ? entry : null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DAILY GIFT
+// ═══════════════════════════════════════════════════════════════
+
 export async function claimDailyGift(
   uid: string,
   operationId: string
-): Promise<ClaimGiftResult> {
-  // Idempotency kontrolü
-  const existing = await checkIdempotency(uid, operationId);
-  if (existing) {
-    return {
-      success: true,
-      amount: DAILY_GIFT_AMOUNT,
-      balanceAfter: existing.balanceAfter,
-    };
-  }
+): Promise<{ amount: number; balanceAfter: number }> {
+  const today = new Date().toISOString().slice(0, 10);
 
-  const today = new Date().toISOString().slice(0, 10); // "2026-08-04"
+  return await db().runTransaction(async (tx) => {
+    // Idempotency
+    const existingSnap = await tx.get(txLedgerRef(uid, operationId));
+    if (existingSnap.exists) {
+      const e = existingSnap.data() as LedgerEntry;
+      return { amount: DAILY_GIFT_AMOUNT, balanceAfter: e.balanceAfter };
+    }
 
-  try {
-    const result = await db().runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef(uid));
-      if (!userSnap.exists) {
-        throw { code: 'USER_NOT_FOUND' };
-      }
+    const userSnap = await tx.get(userRef(uid));
+    if (!userSnap.exists) throw { code: 'USER_NOT_FOUND' };
 
-      const data = userSnap.data()!;
-      const lastClaimed: string | null = data.lastGiftClaimedAt ?? null;
-      const lastClaimedDay = lastClaimed ? lastClaimed.slice(0, 10) : null;
+    const data = userSnap.data()!;
+    const lastClaimed: string | null = data.lastGiftClaimedAt ?? null;
+    const lastDay = lastClaimed ? lastClaimed.slice(0, 10) : null;
+    if (lastDay === today) throw { code: 'ALREADY_CLAIMED' };
 
-      // Aynı UTC günü içinde ikinci talep reddedilir
-      if (lastClaimedDay === today) {
-        throw { code: 'ALREADY_CLAIMED', message: 'Bugün zaten hediyenizi aldınız.' };
-      }
+    const current = data.credits ?? 0;
+    const newBalance = current + DAILY_GIFT_AMOUNT;
 
-      const currentCredits: number = data.credits ?? 0;
-      const newBalance = currentCredits + DAILY_GIFT_AMOUNT;
-
-      // Atomik güncelleme: hem bakiye hem tarih
-      tx.update(userRef(uid), {
-        credits: newBalance,
-        lastGiftClaimedAt: new Date().toISOString(),
-      });
-
-      tx.set(txRef(uid, operationId), {
-        uid,
-        operation: 'daily_gift',
-        amount: DAILY_GIFT_AMOUNT,
-        operationId,
-        detail: `Günlük hediye — ${today}`,
-        balanceAfter: newBalance,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
-      return { balanceAfter: newBalance };
+    tx.update(userRef(uid), {
+      credits: newBalance,
+      lastGiftClaimedAt: new Date().toISOString(),
     });
 
-    return { success: true, amount: DAILY_GIFT_AMOUNT, balanceAfter: result.balanceAfter };
-  } catch (err: any) {
-    if (err?.code === 'ALREADY_CLAIMED') throw err;
-    if (err?.code === 'USER_NOT_FOUND') throw err;
-    throw err;
-  }
+    tx.set(txLedgerRef(uid, operationId), {
+      uid, operationId, action: 'daily_gift', cost: DAILY_GIFT_AMOUNT,
+      status: 'completed', balanceBefore: current, balanceAfter: newBalance,
+      createdAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { amount: DAILY_GIFT_AMOUNT, balanceAfter: newBalance };
+  });
 }
 
-/**
- * Reklam ödülü jetonu ekler.
- * KAPALI TEST: simulation modunda gerçek Firestore kredisi YAZMAZ.
- * Gerçek AdMob production doğrulaması hazır olana kadar
- * bu fonksiyon simülasyon modunu kontrol eder.
- */
-export async function grantAdReward(
+// ═══════════════════════════════════════════════════════════════
+// ENTITLEMENTS (server-only writes)
+// ═══════════════════════════════════════════════════════════════
+
+export async function grantEntitlement(
   uid: string,
-  operationId: string,
-  mode: 'simulation' | 'production'
-): Promise<{ balanceAfter: number; simulated: boolean }> {
-  if (mode === 'simulation') {
-    // Simülasyon modunda gerçek kredi YAZILMAZ
-    return { balanceAfter: -1, simulated: true };
-  }
+  storyId: string,
+  action: 'chapter_unlock' | 'force_fate' | 'full_access',
+  chapterNumber?: number
+): Promise<void> {
+  await db().runTransaction(async (tx) => {
+    const ref = entitlementRef(uid, storyId);
+    const snap = await tx.get(ref);
+    const current = snap.exists ? snap.data()! : { hasFullAccess: false, unlockedChapters: [] as number[] };
 
-  // TODO(prod): AdMob server-side verification (SSV) callback ile
-  // reward doğrulanana kadar production moda GEÇMEYİN.
+    const unlocked: number[] = [...(current.unlockedChapters || [])];
+
+    if (action === 'full_access') {
+      tx.set(ref, { hasFullAccess: true, unlockedChapters: unlocked, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } else if (chapterNumber != null && !unlocked.includes(chapterNumber)) {
+      unlocked.push(chapterNumber);
+      tx.set(ref, { unlockedChapters: unlocked, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AD REWARD (her zaman simülasyon — SSV yok)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Reklam ödülü — KAPALI TEST: her zaman simülasyon.
+ * Gerçek Firestore kredisi YAZILMAZ.
+ * AdMob SSV uygulanana kadar production moda GEÇİLMEZ.
+ */
+export async function grantAdReward(): Promise<{ balanceAfter: number; simulated: true }> {
+  // TODO(prod): AdMob server-side verification (SSV) callback
+  // uygulanana kadar gerçek kredi YAZILMAZ.
   // Bkz: https://developers.google.com/admob/android/rewarded-video-ssv
-
-  const result = await addCredits(
-    uid, AD_REWARD_AMOUNT, operationId, 'ad_reward',
-    'Reklam ödülü'
-  );
-
-  return { balanceAfter: result.balanceAfter, simulated: false };
+  return { balanceAfter: -1, simulated: true };
 }

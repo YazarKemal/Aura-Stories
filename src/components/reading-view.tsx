@@ -525,6 +525,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setForceChoiceLabel(isForce ? optionText : null);
 
     const storyOpId = operationId || `story_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
 
     try {
       const data = await generateStoryChapter({
@@ -541,7 +542,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         })),
         chosenFate: { option, text: optionText, isForceChoice: isForce },
         chapterNumber: chapterNum,
-      }, storyOpId, isForce);
+      }, storyOpId, action);
 
       const chapter = {
         chapterNumber: chapterNum,

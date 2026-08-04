@@ -376,39 +376,25 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   // ── Spend Credits (Firestore atomic) ─────────────────────
 
-  const spendCredits = useCallback(async (amount: number, operationId?: string, detail?: string): Promise<boolean> => {
+  const spendCredits = useCallback(async (amount: number, _operationId?: string, _detail?: string): Promise<boolean> => {
+    // DEPRECATED: Artık tüm jeton işlemleri AI Functions tarafından
+    // server-side transaction ile yapılır. Bu fonksiyon yalnızca
+    // misafir kullanıcı local state ve Functions migration öncesi
+    // geriye dönük uyumluluk için tutulur.
+    // KAPALI TEST: Functions deploy edilmeden ekonomi çalışmaz.
     if (spendLockRef.current) return false;
     spendLockRef.current = true;
     try {
       const uid = userState.user?.uid;
       if (!uid) {
-        // Misafir kullanıcı — local state'ten düş
         if (userState.credits < amount) return false;
         setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
         return true;
       }
-      // Bakiye kontrolü
       if (userState.credits < amount) return false;
-
-      // Server-authoritative: Functions üzerinden harca
-      try {
-        const { callSpendCredits } = await import('@/lib/functions-client');
-        const opId = operationId || `spend_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const result = await callSpendCredits(amount, opId, detail || 'Jeton harcama');
-        setUserState(prev => ({ ...prev, credits: result.balanceAfter }));
-        return true;
-      } catch (err) {
-        console.warn('[SpendCredits] Functions hatası:', err);
-        // Fallback: doğrudan Firestore (Functions deploy edilmemişse)
-        try {
-          await updateFirestoreCredits(uid, -amount);
-          setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
-          return true;
-        } catch (fallbackErr) {
-          console.warn('[SpendCredits] Firestore fallback hatası:', fallbackErr);
-          return false;
-        }
-      }
+      // FAIL CLOSED: Functions çalışmıyorsa işlem başarısız
+      console.warn('[SpendCredits] DEPRECATED — ekonomi işlemleri artık AI Functions tarafından yapılır.');
+      return false;
     } finally {
       spendLockRef.current = false;
     }
@@ -510,7 +496,6 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     if (isGiftClaimedToday(userState.lastGiftClaimedAt)) return false;
 
     try {
-      // Server-authoritative: Functions UTC zamanı kullanır
       const { callClaimDailyGift } = await import('@/lib/functions-client');
       const opId = `gift_${uid}_${Date.now()}`;
       const result = await callClaimDailyGift(opId);
@@ -521,24 +506,9 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       }));
       return true;
     } catch (err: any) {
-      // ALREADY_CLAIMED → sessizce false dön
-      if (err?.message?.includes('already') || err?.message?.includes('aldınız')) {
-        return false;
-      }
+      if (err?.message?.includes('aldınız')) return false;
       console.warn('[DailyGift] Functions hatası:', err);
-      // Fallback: doğrudan Firestore
-      try {
-        await firestoreClaimDailyGift(uid);
-        setUserState(prev => ({
-          ...prev,
-          credits: prev.credits + 50,
-          lastGiftClaimedAt: new Date().toISOString(),
-        }));
-        return true;
-      } catch (fallbackErr) {
-        console.warn('[DailyGift] Fallback hatası:', fallbackErr);
-        return false;
-      }
+      return false; // FAIL CLOSED — fallback yok
     }
   }, [userState.user?.uid, userState.lastGiftClaimedAt]);
 

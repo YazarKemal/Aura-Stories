@@ -1,75 +1,53 @@
 // ── Aura Stories Firestore Security Rules ──────────────────────
-// Sürüm: 2.0.0 — Server-authoritative economy
+// Sürüm: 3.0.0 — Server-authoritative economy + entitlements
 //
 // GÜVENLİK MODELİ:
-// - Kullanıcı kendi profilinde yalnızca name/email/avatar değiştirebilir
-// - credits, role, vipUntil, lastGiftClaimedAt SUNUCU KONTROLLÜDÜR
-// - Admin tanımlaması custom claims (request.auth.token.admin) ile yapılır
-// - rateLimits, transactions belgeleri yalnızca Functions tarafından yazılır
-// - Tüm kritik işlemler Firestore transaction ile atomiktir
+// - credits/role/vipUntil/lastGiftClaimedAt/createdAt: SUNUCU KONTROLLÜ
+// - Admin: request.auth.token.admin custom claims
+// - rateLimits, transactions, entitlements: yalnızca Functions/Admin SDK
+// - progress: hasFullAccess/unlockedChapters client tarafından DEĞİŞTİRİLEMEZ
+// - contentReports: keys().hasOnly + serverCreatedAt istemciden KABUL EDİLMEZ
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ═══════════════════════════════════════════════════════════
-    // YARDIMCI FONKSİYONLAR
-    // ═══════════════════════════════════════════════════════════
-
-    function isAdmin() {
-      return request.auth != null &&
-        request.auth.token.admin == true;
-    }
-
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
-    }
+    function isAdmin() { return request.auth != null && request.auth.token.admin == true; }
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
 
     // ═══════════════════════════════════════════════════════════
     // KULLANICI PROFİLİ
     // ═══════════════════════════════════════════════════════════
     match /users/{uid} {
 
-      // ── CREATE: yalnızca güvenli ilk kayıt ──────────────
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
-          'uid', 'email', 'name', 'role', 'credits',
-          'createdAt', 'level', 'readHours', 'wordsRead',
-          'streak', 'lastGiftClaimedAt', 'vipUntil'
+          'uid','email','name','role','credits','createdAt',
+          'level','readHours','wordsRead','streak',
+          'lastGiftClaimedAt','vipUntil'
         ])
         && request.resource.data.uid == uid
         && request.resource.data.role == 'user'
         && request.resource.data.credits == 200
         && request.resource.data.vipUntil == null
         && request.resource.data.lastGiftClaimedAt == null
-        && request.resource.data.level == 1
-        && request.resource.data.readHours == 0
-        && request.resource.data.wordsRead == 0
-        && request.resource.data.streak == 0
-        && request.resource.data.email is string
-        && request.resource.data.name is string
-        && request.resource.data.email.size() <= 200
-        && request.resource.data.name.size() <= 100;
+        && request.resource.data.level == 1 && request.resource.data.readHours == 0
+        && request.resource.data.wordsRead == 0 && request.resource.data.streak == 0
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
 
-      // ── READ: kendi profilini veya admin ────────────────
       allow read: if isOwner(uid) || isAdmin();
 
-      // ── UPDATE: yalnızca güvenli profil alanları ────────
-      // Kullanıcı credits/role/vipUntil/lastGiftClaimedAt/level/
-      // readHours/wordsRead/streak/uid/createdAt DEĞİŞTİREMEZ.
-      // Bu alanlar yalnızca Functions (Admin SDK) tarafından yazılır.
+      // UPDATE: yalnızca name/email değiştirilebilir
+      // credits/role/vipUntil/lastGiftClaimedAt/createdAt IMMUTABLE
       allow update: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
-          'uid', 'email', 'name', 'role', 'credits',
-          'createdAt', 'level', 'readHours', 'wordsRead',
-          'streak', 'lastGiftClaimedAt', 'vipUntil'
+          'uid','email','name','role','credits','createdAt',
+          'level','readHours','wordsRead','streak',
+          'lastGiftClaimedAt','vipUntil'
         ])
-        // Hassas alanlar aynı kalmalı
         && request.resource.data.credits == resource.data.credits
         && request.resource.data.role == resource.data.role
         && request.resource.data.vipUntil == resource.data.vipUntil
@@ -78,75 +56,67 @@ service cloud.firestore {
         && request.resource.data.readHours == resource.data.readHours
         && request.resource.data.wordsRead == resource.data.wordsRead
         && request.resource.data.streak == resource.data.streak
-        && request.resource.data.uid == resource.data.uid;
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
 
-      // ── DELETE: yasak ──────────────────────────────────
       allow delete: if false;
 
-      // ═══════════════════════════════════════════════════════
-      // ALT KOLEKSİYONLAR
-      // ═══════════════════════════════════════════════════════
-
-      // ── Progress ───────────────────────────────────────
+      // ── Progress (client yalnızca güvenli okuma alanlarını yazabilir) ──
       match /progress/{storyId} {
         allow read: if isOwner(uid) || isAdmin();
+        // hasFullAccess ve unlockedChapters IMMUTABLE — yalnızca Admin SDK
         allow create, update: if isOwner(uid)
-          && request.resource.data.keys().hasAll([
-            'storyId', 'activeChapter', 'unlockedChapters',
-            'hasFullAccess', 'fateChoices', 'generatedChapters'
-          ])
-          && request.resource.data.storyId is string
-          && request.resource.data.storyId.size() <= 100
+          && (!('hasFullAccess' in request.resource.data) || request.resource.data.hasFullAccess == false)
+          && (!('unlockedChapters' in request.resource.data) || request.resource.data.unlockedChapters.size() == 0)
           && request.resource.data.activeChapter is number
-          && request.resource.data.unlockedChapters is list
+          && request.resource.data.fateChoices is list
           && request.resource.data.generatedChapters is list
-          && request.resource.data.unlockedChapters.size() <= 200
+          && request.resource.data.fateChoices.size() <= 200
           && request.resource.data.generatedChapters.size() <= 200;
         allow delete: if false;
       }
 
-      // ── Chat Messages ──────────────────────────────────
+      // ── Entitlements — YALNIZCA Functions ──────────────────
+      match /entitlements/{storyId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false; // Admin SDK only
+      }
+
+      // ── Transactions (ledger) — YALNIZCA Functions ─────────
+      match /transactions/{operationId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false; // Admin SDK only
+      }
+
+      // ── Chat Messages ──────────────────────────────────────
       match /chats/{storyId}/{characterId}/messages/{msgId} {
         allow read: if isOwner(uid) || isAdmin();
         allow create: if isOwner(uid)
-          && request.resource.data.keys().hasOnly([
-            'id', 'text', 'sender', 'timestamp'
-          ])
-          && request.resource.data.id is string
-          && request.resource.data.id.size() <= 100
-          && request.resource.data.text is string
-          && request.resource.data.text.size() <= 4000
-          && request.resource.data.sender in ['user', 'character', 'system']
-          && request.resource.data.timestamp is string
-          && request.resource.data.timestamp.size() <= 50;
+          && request.resource.data.keys().hasOnly(['id','text','sender','timestamp'])
+          && request.resource.data.id is string && request.resource.data.id.size() <= 100
+          && request.resource.data.text is string && request.resource.data.text.size() <= 4000
+          && request.resource.data.sender in ['user','character','system']
+          && request.resource.data.timestamp is string && request.resource.data.timestamp.size() <= 50;
         allow update, delete: if false;
       }
 
-      // ── Journal ────────────────────────────────────────
+      // ── Journal ────────────────────────────────────────────
       match /journal/{date} {
         allow read: if isOwner(uid) || isAdmin();
         allow create, update: if isOwner(uid)
-          && request.resource.data.keys().hasOnly([
-            'date', 'storyId', 'storyTitle', 'chapterNumber',
-            'minutesRead', 'emotion', 'quote'
-          ])
-          && request.resource.data.date is string
-          && request.resource.data.date.size() <= 20
-          && request.resource.data.storyId is string
-          && request.resource.data.storyId.size() <= 100
-          && request.resource.data.storyTitle is string
-          && request.resource.data.storyTitle.size() <= 200
-          && request.resource.data.emotion is string
-          && request.resource.data.emotion.size() <= 50
-          && request.resource.data.quote is string
-          && request.resource.data.quote.size() <= 1000;
+          && request.resource.data.keys().hasOnly(['date','storyId','storyTitle','chapterNumber','minutesRead','emotion','quote'])
+          && request.resource.data.date is string && request.resource.data.date.size() <= 20
+          && request.resource.data.storyId is string && request.resource.data.storyId.size() <= 100
+          && request.resource.data.storyTitle is string && request.resource.data.storyTitle.size() <= 200
+          && request.resource.data.emotion is string && request.resource.data.emotion.size() <= 50
+          && request.resource.data.quote is string && request.resource.data.quote.size() <= 1000;
         allow delete: if false;
       }
 
-      // ── Rate Limits — YALNIZCA FUNCTIONS ───────────────
+      // ── Rate Limits — YALNIZCA Functions ───────────────────
       match /rateLimits/{operation} {
-        // İstemci rate limit belgelerini OKUYAMAZ ve YAZAMAZ.
-        // Bu belgeler yalnızca Firebase Admin SDK ile Functions tarafından yönetilir.
         allow read, write: if false;
       }
     }
@@ -171,36 +141,22 @@ service cloud.firestore {
     // AI İÇERİK RAPORLARI
     // ═══════════════════════════════════════════════════════════
     match /contentReports/{docId} {
-      allow create: if isAuthenticated()
+      allow create: if isAuth()
         && request.resource.data.keys().hasOnly([
-          'uid', 'storyId', 'storyTitle', 'chapterNumber',
-          'contentType', 'characterName', 'contentPreview',
-          'messageId', 'reason', 'createdAt', 'serverCreatedAt'
+          'uid','storyId','storyTitle','chapterNumber',
+          'contentType','characterName','contentPreview',
+          'messageId','reason','createdAt'
         ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.storyId is string
-        && request.resource.data.storyId.size() <= 100
-        && request.resource.data.storyTitle is string
-        && request.resource.data.storyTitle.size() <= 200
-        && request.resource.data.contentType in ['story', 'chat']
-        && request.resource.data.contentPreview is string
-        && request.resource.data.contentPreview.size() <= 500
-        && request.resource.data.reason is string
-        && request.resource.data.reason.size() <= 200
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() <= 50;
+        && request.resource.data.storyId is string && request.resource.data.storyId.size() <= 100
+        && request.resource.data.storyTitle is string && request.resource.data.storyTitle.size() <= 200
+        && request.resource.data.contentType in ['story','chat']
+        && request.resource.data.contentPreview is string && request.resource.data.contentPreview.size() <= 500
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 200
+        && request.resource.data.createdAt is string && request.resource.data.createdAt.size() <= 50;
+        // NOT: serverCreatedAt client'dan KABUL EDİLMEZ (keys().hasOnly dışında)
 
       allow read, update, delete: if isAdmin();
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // İŞLEM DEFTERİ (ledger)
-    // ═══════════════════════════════════════════════════════════
-    match /transactions/{txId} {
-      // Yalnızca Functions (Admin SDK) yazabilir
-      allow read: if isOwner(resource.data.uid) || isAdmin();
-      allow create: if false;  // Admin SDK only
-      allow update, delete: if false;
     }
 
     // ═══════════════════════════════════════════════════════════

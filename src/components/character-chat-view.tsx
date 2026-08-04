@@ -178,15 +178,9 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       return;
     }
 
-    // Jeton kontrolü — mesaj başına 5 jeton (server-authoritative)
+    // Kredi kontrolü: AI function SERVER-SIDE yapar.
+    // İstemci ön harcama YAPMAZ — çift ücretlendirme olmasın.
     const chatOpId = `chat_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const creditsSpent = await spendCredits(5, chatOpId, 'Chat mesajı');
-    if (!creditsSpent) {
-      setIsAdModalOpen(true);
-      sendLockRef.current = false;
-      setIsLoading(false);
-      return;
-    }
 
     setError(null);
     setInputText('');
