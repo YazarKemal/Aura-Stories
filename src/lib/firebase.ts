@@ -316,6 +316,8 @@ export interface ContentReport {
   characterName?: string;
   /** İçeriğin ilk 500 karakteri (özet/referans) */
   contentPreview: string;
+  /** Mesaj ID'si (chat raporları için) */
+  messageId?: string;
   /** Rapor nedeni */
   reason: string;
   /** Oluşturulma zamanı (ISO) */

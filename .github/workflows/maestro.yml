@@ -50,10 +50,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ci-dummy' }}
-          # Statik export'ta NEXT_PUBLIC_* build ANINDA gömülür — chat'in
-          # CI APK'sında çalışması için gerçek key şart (dummy fallback YOK:
-          # secret eksikse chat ekranda açıkça hata verir, sessizce geçmez)
-          NEXT_PUBLIC_DEEPSEEK_API_KEY: ${{ secrets.NEXT_PUBLIC_DEEPSEEK_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'ci-dummy' }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || 'ci-dummy' }}
           # Maestro cihazında gerçek AdMob SDK'sı AÇILMAMALI: rewards-ads
           # akışı simülasyon zamanlamasına göre yazıldı + otomasyona reklam
           # göstermek AdMob "geçersiz trafik" ihlalidir (hesap riski)
