@@ -119,7 +119,7 @@ interface UserStateContextType {
   /** Admin rolü — sadece UI ayrıcalıkları için. Jeton bypass'ı YOKTUR. */
   isAdmin: boolean;
   /** Jeton harca (Firestore atomic). Bakiye yetersizse false döner. */
-  spendCredits: (amount: number) => Promise<boolean>;
+  spendCredits: (amount: number, operationId?: string, detail?: string) => Promise<boolean>;
   /** Günlük hediye — bugün alınmış mı? */
   isGiftClaimedToday: boolean;
   /** Günlük hediyeyi al (Firestore'a yazar + 50 jeton) */
@@ -376,7 +376,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
 
   // ── Spend Credits (Firestore atomic) ─────────────────────
 
-  const spendCredits = useCallback(async (amount: number): Promise<boolean> => {
+  const spendCredits = useCallback(async (amount: number, operationId?: string, detail?: string): Promise<boolean> => {
     if (spendLockRef.current) return false;
     spendLockRef.current = true;
     try {
@@ -389,14 +389,25 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       }
       // Bakiye kontrolü
       if (userState.credits < amount) return false;
-      // Firestore'dan düş
+
+      // Server-authoritative: Functions üzerinden harca
       try {
-        await updateFirestoreCredits(uid, -amount);
-        setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
+        const { callSpendCredits } = await import('@/lib/functions-client');
+        const opId = operationId || `spend_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const result = await callSpendCredits(amount, opId, detail || 'Jeton harcama');
+        setUserState(prev => ({ ...prev, credits: result.balanceAfter }));
         return true;
       } catch (err) {
-        console.warn('[SpendCredits] Firestore hatası:', err);
-        return false;
+        console.warn('[SpendCredits] Functions hatası:', err);
+        // Fallback: doğrudan Firestore (Functions deploy edilmemişse)
+        try {
+          await updateFirestoreCredits(uid, -amount);
+          setUserState(prev => ({ ...prev, credits: prev.credits - amount }));
+          return true;
+        } catch (fallbackErr) {
+          console.warn('[SpendCredits] Firestore fallback hatası:', fallbackErr);
+          return false;
+        }
       }
     } finally {
       spendLockRef.current = false;
@@ -499,16 +510,35 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     if (isGiftClaimedToday(userState.lastGiftClaimedAt)) return false;
 
     try {
-      await firestoreClaimDailyGift(uid);
+      // Server-authoritative: Functions UTC zamanı kullanır
+      const { callClaimDailyGift } = await import('@/lib/functions-client');
+      const opId = `gift_${uid}_${Date.now()}`;
+      const result = await callClaimDailyGift(opId);
       setUserState(prev => ({
         ...prev,
-        credits: prev.credits + 50,
+        credits: result.balanceAfter,
         lastGiftClaimedAt: new Date().toISOString(),
       }));
       return true;
-    } catch (err) {
-      console.warn('[DailyGift] Firestore hatası:', err);
-      return false;
+    } catch (err: any) {
+      // ALREADY_CLAIMED → sessizce false dön
+      if (err?.message?.includes('already') || err?.message?.includes('aldınız')) {
+        return false;
+      }
+      console.warn('[DailyGift] Functions hatası:', err);
+      // Fallback: doğrudan Firestore
+      try {
+        await firestoreClaimDailyGift(uid);
+        setUserState(prev => ({
+          ...prev,
+          credits: prev.credits + 50,
+          lastGiftClaimedAt: new Date().toISOString(),
+        }));
+        return true;
+      } catch (fallbackErr) {
+        console.warn('[DailyGift] Fallback hatası:', fallbackErr);
+        return false;
+      }
     }
   }, [userState.user?.uid, userState.lastGiftClaimedAt]);
 

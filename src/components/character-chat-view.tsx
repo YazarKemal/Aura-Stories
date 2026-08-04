@@ -137,7 +137,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   }, [userState.user?.uid, story.id, char.id]);
 
   const sendToAPI = useCallback(
-    async (history: Message[]): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
+    async (history: Message[], operationId: string): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
       const conversationMessages = history
         .filter((m): m is Message & { sender: 'user' | 'character' } => m.sender === 'user' || m.sender === 'character')
         .map(m => ({ text: m.text, sender: m.sender }));
@@ -146,6 +146,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         storyLongSynopsis: story.longSynopsis, storyTags: story.tags,
         storyAuthor: story.author, characterName: char.name,
         messages: conversationMessages,
+        operationId,
       });
       return { text: result.text, memoryUpdates: result.memoryUpdates };
     },
@@ -177,8 +178,9 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       return;
     }
 
-    // Jeton kontrolü — mesaj başına 5 jeton
-    const creditsSpent = await spendCredits(5);
+    // Jeton kontrolü — mesaj başına 5 jeton (server-authoritative)
+    const chatOpId = `chat_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const creditsSpent = await spendCredits(5, chatOpId, 'Chat mesajı');
     if (!creditsSpent) {
       setIsAdModalOpen(true);
       sendLockRef.current = false;
@@ -207,7 +209,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     const requestId = `chat-${Date.now()}`;
 
     try {
-      const result = await sendToAPI(updatedHistory);
+      const result = await sendToAPI(updatedHistory, chatOpId);
 
       const aiMsg: Message = { id: `ai-${Date.now()}`, text: result.text, sender: 'character', timestamp: new Date() };
 

@@ -7,9 +7,24 @@ import { callDeepSeek } from './deepseek';
 import { buildStoryPrompt, buildChatPrompt } from './prompts';
 import { checkRateLimit } from './rate-limiter';
 import {
+  spendCredits,
+  addCredits,
+  claimDailyGift,
+  grantAdReward,
+  CHAT_MESSAGE_COST,
+  CHAPTER_UNLOCK_COST,
+  FORCE_FATE_COST,
+  AD_REWARD_AMOUNT,
+} from './economy';
+import {
   characterChatInputSchema,
   generateStoryInputSchema,
   chapterOutputSchema,
+  economyOperationSchema,
+  claimGiftOperationSchema,
+  adRewardOperationSchema,
+  storyGenerateOperationSchema,
+  chatOperationSchema,
 } from './validation';
 
 import type {
@@ -27,21 +42,11 @@ setGlobalOptions({
 });
 
 // ── Sabit sunucu kontrollü parametreler ──────────────────────
-// İstemci bu değerleri DEĞİŞTİREMEZ.
 
-/** DeepSeek için sabit model */
 const DEEPSEEK_MODEL = 'deepseek-chat';
-
-/** Story generation için sabit max_tokens */
 const STORY_MAX_TOKENS = 1500;
-
-/** Chat için sabit max_tokens */
 const CHAT_MAX_TOKENS = 600;
-
-/** Chat fonksiyonu timeout (sn) */
 const CHAT_TIMEOUT_SECONDS = 30;
-
-/** Story fonksiyonu timeout (sn) */
 const STORY_TIMEOUT_SECONDS = 55;
 
 // ── Auth helper ──────────────────────────────────────────────
@@ -55,11 +60,6 @@ function requireAuth(request: { auth?: { uid: string } }): string {
 
 // ── Safe error logger ────────────────────────────────────────
 
-/**
- * Hata log'larında API anahtarı, token veya hassas veri SIZDIRMAZ.
- * deepseek.ts zaten kendi hata mesajlarını sanitize eder —
- * burada yalnızca hata tipi ve ilk 100 karakter loglanır.
- */
 function logError(context: string, err: unknown): void {
   if (err instanceof Error) {
     const message = err.message.slice(0, 150);
@@ -90,6 +90,16 @@ function parseStoryJson(raw: string): GenerateStoryOutput {
   return result.data;
 }
 
+// ── Helpers ──────────────────────────────────────────────────
+
+function makeOperationId(uid: string, prefix: string): string {
+  return `${prefix}_${uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI FUNCTIONS (kredi kontrollü)
+// ═══════════════════════════════════════════════════════════════
+
 // ── characterChat ────────────────────────────────────────────
 
 export const characterChat = onCall<CharacterChatOutput>(
@@ -98,29 +108,41 @@ export const characterChat = onCall<CharacterChatOutput>(
     memory: '256MiB',
     timeoutSeconds: CHAT_TIMEOUT_SECONDS,
     concurrency: 1,
-
-    // TODO(prod): Kapalı test başarılı olduktan sonra enforceAppCheck: true yap.
-    // Öncesinde Google Play Console → App Integrity → Play Integrity API
-    // etkinleştirilmeli. Capacitor Android'de debug token Firebase Console'a
-    // kaydedilmeli. Bkz: https://firebase.google.com/docs/app-check/capacitor
-    // enforceAppCheck: true,
+    // TODO(prod): enforceAppCheck: true
   },
   async (request) => {
     const uid = requireAuth(request);
 
-    const parseResult = characterChatInputSchema.safeParse(request.data);
+    // operationId zorunlu — idempotency için
+    const parseResult = chatOperationSchema.safeParse(request.data);
     if (!parseResult.success) {
       const issues = parseResult.error.issues.map(i => i.message).join(', ');
       throw new HttpsError('invalid-argument', `Geçersiz parametre: ${issues}`);
     }
 
     const input = parseResult.data;
+    const operationId = input.operationId;
 
-    // Rate limit kontrolü (Firestore tabanlı, localStorage'a GÜVENMEZ)
+    // Rate limit kontrolü
     await checkRateLimit(uid, 'characterChat');
 
-    // System prompt SUNUCU TARAFINDA oluşturulur.
-    // İstemci systemPrompt, model, max_tokens veya API endpoint GÖNDEREMEZ.
+    // ── SERVER-SIDE KREDİ KONTROLÜ ──────────────────────────
+    // İstemci spendCredits çağırsa bile sunucu TEKRAR kontrol eder.
+    // Idempotency sayesinde aynı operationId çift ücretlendirilmez.
+    let creditSpent = false;
+    try {
+      await spendCredits(uid, CHAT_MESSAGE_COST, operationId, 'Chat mesajı');
+      creditSpent = true;
+    } catch (err: any) {
+      if (err?.code === 'INSUFFICIENT_CREDITS') {
+        throw new HttpsError('failed-precondition', 'Yetersiz jeton. Lütfen jeton kazanın.');
+      }
+      if (err?.code === 'USER_NOT_FOUND') {
+        throw new HttpsError('not-found', 'Kullanıcı bulunamadı.');
+      }
+      throw new HttpsError('internal', 'Jeton işlemi başarısız.');
+    }
+
     const systemPrompt = buildChatPrompt(input);
 
     const messages = [
@@ -146,7 +168,22 @@ export const characterChat = onCall<CharacterChatOutput>(
       };
     } catch (err: unknown) {
       logError('characterChat', err);
-      throw new HttpsError('internal', 'AI yanıtı alınamadı. Lütfen tekrar deneyin.');
+
+      // ── DeepSeek hatasında jeton İADESİ (tek sefer) ─────
+      if (creditSpent) {
+        try {
+          await addCredits(
+            uid, CHAT_MESSAGE_COST,
+            `refund_${operationId}`,
+            'add',
+            'Chat API hatası — iade'
+          );
+        } catch (refundErr) {
+          logError('characterChat/refund', refundErr);
+        }
+      }
+
+      throw new HttpsError('internal', 'AI yanıtı alınamadı. Jetonunuz iade edildi.');
     }
   }
 );
@@ -159,26 +196,42 @@ export const generateStory = onCall<GenerateStoryOutput>(
     memory: '512MiB',
     timeoutSeconds: STORY_TIMEOUT_SECONDS,
     concurrency: 1,
-
-    // TODO(prod): Kapalı test başarılı olduktan sonra enforceAppCheck: true yap.
-    // enforceAppCheck: true,
+    // TODO(prod): enforceAppCheck: true
   },
   async (request) => {
     const uid = requireAuth(request);
 
-    const parseResult = generateStoryInputSchema.safeParse(request.data);
+    const parseResult = storyGenerateOperationSchema.safeParse(request.data);
     if (!parseResult.success) {
       const issues = parseResult.error.issues.map(i => i.message).join(', ');
       throw new HttpsError('invalid-argument', `Geçersiz parametre: ${issues}`);
     }
 
     const input = parseResult.data;
+    const operationId = input.operationId;
 
-    // Rate limit kontrolü (Firestore tabanlı)
+    // Hikaye tipine göre jeton maliyeti (istemci sabitleriyle eşleşir)
+    const cost = input.isForceChoice ? FORCE_FATE_COST : CHAPTER_UNLOCK_COST;
+
+    // Rate limit kontrolü
     await checkRateLimit(uid, 'generateStory');
 
-    // System prompt SUNUCU TARAFINDA oluşturulur.
-    // İstemci systemPrompt, model, max_tokens veya API endpoint GÖNDEREMEZ.
+    // ── SERVER-SIDE KREDİ KONTROLÜ ──────────────────────────
+    let creditSpent = false;
+    try {
+      await spendCredits(uid, cost, operationId,
+        input.isForceChoice ? 'Kader zorlama' : 'Bölüm açma');
+      creditSpent = true;
+    } catch (err: any) {
+      if (err?.code === 'INSUFFICIENT_CREDITS') {
+        throw new HttpsError('failed-precondition', `Yetersiz jeton. Gereken: ${cost}.`);
+      }
+      if (err?.code === 'USER_NOT_FOUND') {
+        throw new HttpsError('not-found', 'Kullanıcı bulunamadı.');
+      }
+      throw new HttpsError('internal', 'Jeton işlemi başarısız.');
+    }
+
     const systemPrompt = buildStoryPrompt(input);
 
     try {
@@ -197,7 +250,109 @@ export const generateStory = onCall<GenerateStoryOutput>(
     } catch (err: unknown) {
       if (err instanceof HttpsError) throw err;
       logError('generateStory', err);
-      throw new HttpsError('internal', 'Hikaye üretilemedi. Lütfen tekrar deneyin.');
+
+      // ── DeepSeek hatasında jeton İADESİ (tek sefer) ─────
+      if (creditSpent) {
+        try {
+          await addCredits(
+            uid, cost,
+            `refund_${operationId}`,
+            'add',
+            `Hikaye API hatası — iade (${cost} jeton)`
+          );
+        } catch (refundErr) {
+          logError('generateStory/refund', refundErr);
+        }
+      }
+
+      throw new HttpsError('internal', 'Hikaye üretilemedi. Jetonunuz iade edildi.');
     }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// EKONOMİ FUNCTIONS (server-authoritative)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Jeton harcama. İstemci bu fonksiyonu kullanarak güvenli
+ * şekilde jeton harcar. Firestore transaction ile atomiktir.
+ *
+ * KULLANIM:
+ *   - Chat mesajı:         amount=5
+ *   - Bölüm açma (vote):   amount=15
+ *   - Kader zorlama:       amount=50
+ *   - Tam erişim:          amount=75
+ */
+export const spendCreditsCallable = onCall<{ success: boolean; balanceAfter: number }>(
+  { memory: '128MiB', timeoutSeconds: 10 },
+  async (request) => {
+    const uid = requireAuth(request);
+    const parseResult = economyOperationSchema.safeParse(request.data);
+    if (!parseResult.success) {
+      throw new HttpsError('invalid-argument',
+        `Geçersiz parametre: ${parseResult.error.issues.map(i => i.message).join(', ')}`);
+    }
+
+    const { amount, operationId, detail } = parseResult.data;
+
+    try {
+      const result = await spendCredits(uid, amount, operationId, detail);
+      return { success: true, balanceAfter: result.balanceAfter };
+    } catch (err: any) {
+      if (err?.code === 'INSUFFICIENT_CREDITS') {
+        throw new HttpsError('failed-precondition', err.message || 'Yetersiz bakiye.');
+      }
+      throw new HttpsError('internal', 'Jeton işlemi başarısız.');
+    }
+  }
+);
+
+/**
+ * Günlük hediye. Sunucu UTC zamanı kullanır,
+ * istemci saatine GÜVENMEZ.
+ */
+export const claimDailyGiftCallable = onCall<{ success: boolean; amount: number; balanceAfter: number }>(
+  { memory: '128MiB', timeoutSeconds: 10 },
+  async (request) => {
+    const uid = requireAuth(request);
+    const parseResult = claimGiftOperationSchema.safeParse(request.data);
+    if (!parseResult.success) {
+      throw new HttpsError('invalid-argument',
+        `Geçersiz parametre: ${parseResult.error.issues.map(i => i.message).join(', ')}`);
+    }
+
+    const { operationId } = parseResult.data;
+
+    try {
+      const result = await claimDailyGift(uid, operationId);
+      return { success: true, amount: result.amount, balanceAfter: result.balanceAfter };
+    } catch (err: any) {
+      if (err?.code === 'ALREADY_CLAIMED') {
+        throw new HttpsError('failed-precondition', 'Bugün zaten hediyenizi aldınız.');
+      }
+      throw new HttpsError('internal', 'Hediye alınamadı.');
+    }
+  }
+);
+
+/**
+ * Reklam ödülü jetonu ekler.
+ * Simulation modunda gerçek kredi YAZILMAZ.
+ */
+export const grantAdRewardCallable = onCall<{ success: boolean; balanceAfter: number; simulated: boolean }>(
+  { memory: '128MiB', timeoutSeconds: 10 },
+  async (request) => {
+    const uid = requireAuth(request);
+    const parseResult = adRewardOperationSchema.safeParse(request.data);
+    if (!parseResult.success) {
+      throw new HttpsError('invalid-argument',
+        `Geçersiz parametre: ${parseResult.error.issues.map(i => i.message).join(', ')}`);
+    }
+
+    const { operationId, mode } = parseResult.data;
+
+    const result = await grantAdReward(uid, operationId, mode || 'simulation');
+    return { success: true, balanceAfter: result.balanceAfter, simulated: result.simulated };
   }
 );

@@ -482,7 +482,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const pendingRefundRef = useRef<number>(0);
   const refundedRequestRef = useRef<Set<number>>(new Set());
 
-  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false) => {
+  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false, operationId?: string) => {
     // ── Auth guard — giriş yapmamış kullanıcı AI üretimi yapamaz ──
     if (!userState.user?.uid) {
       toast({
@@ -524,8 +524,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     const chapterNum = engine.activeChapter + 1;
     setForceChoiceLabel(isForce ? optionText : null);
 
+    const storyOpId = operationId || `story_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     try {
       const data = await generateStoryChapter({
+        storyId: story.id,
         storyTitle: story.title,
         storyAuthor: story.author,
         storySynopsis: story.synopsis,
@@ -538,7 +541,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         })),
         chosenFate: { option, text: optionText, isForceChoice: isForce },
         chapterNumber: chapterNum,
-      });
+      }, storyOpId, isForce);
 
       const chapter = {
         chapterNumber: chapterNum,
@@ -616,7 +619,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }
     // API hatasında iade için jeton miktarını kaydet
     pendingRefundRef.current = 15;
-    await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true);
+    const unlockOpId = `unlock_${userState.user?.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true, unlockOpId);
   };
 
   const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
@@ -642,7 +646,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }
     // API hatasında iade için jeton miktarını kaydet
     pendingRefundRef.current = FORCE_FATE_COST;
-    await handleGenerateStory(option, optionText, true, true);
+    const forceOpId = `force_${userState.user?.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await handleGenerateStory(option, optionText, true, true, forceOpId);
   };
 
   // Reklam ödülü sonrası yarım kalan akışı otomatik tamamla.

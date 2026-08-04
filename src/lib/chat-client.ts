@@ -27,6 +27,8 @@ export interface ChatRequestPayload {
   storyAuthor: string;
   characterName: string;
   messages: { text: string; sender: 'user' | 'character' }[];
+  /** Benzersiz işlem ID — idempotency için (server-authoritative) */
+  operationId: string;
   /** Lore memory verisi — system prompt sunucuda bundan oluşturulur */
   memoryContext?: {
     personality: string;
@@ -114,6 +116,7 @@ export async function sendChatMessage(
       storyAuthor: payload.storyAuthor,
       characterName: payload.characterName,
       messages: payload.messages,
+      operationId: payload.operationId,
       memoryContext,
     });
     aiText = result.text;

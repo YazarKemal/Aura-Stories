@@ -18,6 +18,7 @@ export interface PreviousChapter {
 }
 
 export interface GenerateStoryPayload {
+  storyId?: string;
   storyTitle: string;
   storyAuthor: string;
   storySynopsis: string;
@@ -43,17 +44,18 @@ export interface GenerateStoryResult {
  */
 export async function generateStoryChapter(
   payload: GenerateStoryPayload,
+  operationId: string,
+  isForceChoice: boolean,
   _timeoutMs: number = 20000
 ): Promise<GenerateStoryResult> {
   if (!payload.storyTitle || !payload.chosenFate) {
     throw new Error('storyTitle ve chosenFate zorunludur');
   }
 
-  // Dinamik import — Firebase Functions SDK sadece çağrı anında yüklenir
   const { callGenerateStory } = await import('@/lib/functions-client');
 
   try {
-    return await callGenerateStory(payload);
+    return await callGenerateStory({ ...payload, operationId, isForceChoice });
   } catch (err: unknown) {
     if (err instanceof Error) {
       const msg = err.message;

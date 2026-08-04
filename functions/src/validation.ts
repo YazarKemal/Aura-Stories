@@ -10,6 +10,7 @@ const STORY_SYNOPSIS_MAX_LENGTH = 3000;
 const STORY_LONG_SYNOPSIS_MAX_LENGTH = 10000;
 
 // ── Character Chat ───────────────────────────────────────────
+// operationId zorunlu — idempotency için
 
 const chatMessageSchema = z.object({
   text: z.string().min(1).max(CHAT_MSG_MAX_LENGTH),
@@ -40,10 +41,12 @@ export const characterChatInputSchema = z.object({
   storyAuthor: z.string().max(100).optional(),
   characterName: z.string().min(1).max(100),
   messages: z.array(chatMessageSchema).min(1).max(CHAT_MAX_MESSAGES),
-  // Lore memory verisi — system prompt sunucuda bundan oluşturulur.
-  // İstemci HAM system prompt veya model/temperature/max_tokens GÖNDEREMEZ.
   memoryContext: memoryContextSchema.optional(),
-}).strict(); // Bilinmeyen alanları reddet
+  operationId: z.string().min(1).max(200),
+}).strict();
+
+// AI fonksiyonları için operationId'li şema
+export const chatOperationSchema = characterChatInputSchema;
 
 // ── Story Generation ────────────────────────────────────────
 
@@ -69,7 +72,13 @@ export const generateStoryInputSchema = z.object({
   previousChapters: z.array(previousChapterSchema).max(MAX_PREVIOUS_CHAPTERS),
   chosenFate: chosenFateSchema,
   chapterNumber: z.number().int().positive().max(200),
-}).strict(); // Bilinmeyen alanları reddet
+}).strict();
+
+// operationId + isForceChoice (maliyet belirleme için)
+export const storyGenerateOperationSchema = generateStoryInputSchema.extend({
+  operationId: z.string().min(1).max(200),
+  isForceChoice: z.boolean(),
+}).strict();
 
 // ── Generated Output ────────────────────────────────────────
 
@@ -79,3 +88,20 @@ export const chapterOutputSchema = z.object({
   optionA: z.string().min(5).max(300),
   optionB: z.string().min(5).max(300),
 });
+
+// ── Economy Operations ──────────────────────────────────────
+
+export const economyOperationSchema = z.object({
+  amount: z.number().int().positive().max(10000),
+  operationId: z.string().min(1).max(200),
+  detail: z.string().min(1).max(200),
+}).strict();
+
+export const claimGiftOperationSchema = z.object({
+  operationId: z.string().min(1).max(200),
+}).strict();
+
+export const adRewardOperationSchema = z.object({
+  operationId: z.string().min(1).max(200),
+  mode: z.enum(['simulation', 'production']).optional(),
+}).strict();
