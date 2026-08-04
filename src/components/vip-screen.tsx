@@ -25,7 +25,13 @@ interface VIPScreenProps {
 }
 
 export function VIPScreen({ onBack }: VIPScreenProps) {
-  const { userState, recordVipAdWatch, setVipTier, resetVipProgress, grantVip, isVipActive } = useUserState();
+  const { userState } = useUserState();
+  // Kapalı test: VIP devre dışı — tüm fonksiyonlar noop
+  const recordVipAdWatch = () => {};
+  const setVipTier = (_t: string) => {};
+  const resetVipProgress = () => {};
+  const grantVip = (_ms: number) => {};
+  const isVipActive = () => false;
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [vipUnlocked, setVipUnlocked] = useState(false);
 

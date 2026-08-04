@@ -3,19 +3,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { getRewardedAdUnitId, initializeAdMob, AD_REWARD_AMOUNT, isCapacitorAvailable, isSimulationForced } from '@/lib/admob-config';
 import {
-  onAuthChange,
-  firebaseLogin,
-  firebaseRegister,
-  firebaseLogout,
-  getFirestoreUser,
-  createFirestoreUser,
-  updateFirestoreCredits,
-  updateVipUntil,
-  claimDailyGift as firestoreClaimDailyGift,
-  isGiftClaimedToday,
-  onUserSnapshot,
-  loadAllProgress,
-  saveProgress,
+  auth, onAuthChange, firebaseLogin, firebaseRegister, firebaseLogout,
+  getFirestoreUser, createFirestoreUser, isGiftClaimedToday,
+  onUserSnapshot, loadAllProgress, saveProgress,
   type StoryProgress,
 } from '@/lib/firebase';
 
@@ -89,59 +79,25 @@ export interface UserState {
 
 interface UserStateContextType {
   userState: UserState;
-  unlockNextChapter: (storyId: string, totalChapters: number) => boolean;
-  buyFullAccess: (storyId: string) => boolean;
   getCurrentChapter: (storyId: string) => number;
   isChapterAccessible: (storyId: string, chapter: number) => boolean;
-  addCredits: (amount: number) => void;
 
   // ── Story Engine ──────────────────────────────────────────
-  /** Spend 15 credits to unlock the next chapter via community vote (Firestore atomic) */
-  unlockWithVote: (storyId: string) => Promise<boolean>;
-  /** Spend 50 credits to force a specific fate choice immediately (Firestore atomic) */
-  forceFateChoice: (storyId: string, chapterNumber: number, option: 'A' | 'B', optionText: string) => Promise<boolean>;
-  /** Save an AI-generated chapter to the story engine */
   saveGeneratedChapter: (storyId: string, chapter: GeneratedChapter) => void;
-  /** Get the latest fate options for a story */
   getLatestFateOptions: (storyId: string) => { optionA: string; optionB: string } | null;
-  /** Get the engine state for a story */
   getStoryEngine: (storyId: string) => StoryEngineState;
 
   // ── Authentication ──────────────────────────────────────
-  /** Giriş yap (Firebase). Başarısızsa Firebase hata kodunu döner */
   login: (email: string, password: string, name?: string) => Promise<{ ok: boolean; code?: string }>;
-  /** Kayıt ol (Firebase). Başarısızsa Firebase hata kodunu döner */
   register: (name: string, email: string, password: string) => Promise<{ ok: boolean; code?: string }>;
-  /** Çıkış yap. State ve Firebase oturumunu temizler */
   logout: () => void;
-  /** Kullanıcı giriş yapmış mı? */
   isLoggedIn: () => boolean;
-  /** Admin rolü — sadece UI ayrıcalıkları için. Jeton bypass'ı YOKTUR. */
+  /** Admin — Firebase Auth custom claims (token.admin), Firestore role ALANINA dayanmaz */
   isAdmin: boolean;
-  /** Jeton harca (Firestore atomic). Bakiye yetersizse false döner. */
-  spendCredits: (amount: number, operationId?: string, detail?: string) => Promise<boolean>;
-  /** Günlük hediye — bugün alınmış mı? */
+
+  // ── Economy — tümü server-authoritative, client amount GÖNDEREMEZ ──
   isGiftClaimedToday: boolean;
-  /** Günlük hediyeyi al (Firestore'a yazar + 50 jeton) */
   claimDailyGift: () => Promise<boolean>;
-
-  // ── VIP Ad Tracking ──────────────────────────────────────
-  /** Reklam izlendiğinde VIP kademe sayacını artır. Kalıcıdır (localStorage). */
-  recordVipAdWatch: () => void;
-  /** VIP kademesini değiştir ve sayacı sıfırla */
-  setVipTier: (tierId: string) => void;
-  /** VIP ilerlemesini sıfırla (kademe tamamlandığında) */
-  resetVipProgress: () => void;
-  /** VIP kazandır: şu andan itibaren durationMs süreyle. Kalıcı (localStorage + Firestore) */
-  grantVip: (durationMs: number) => void;
-  /** VIP şu an aktif mi? (vipUntil gelecekte mi) */
-  isVipActive: () => boolean;
-
-  // ── Rewarded Ads ──────────────────────────────────────────
-  /** Simulate watching a rewarded ad. Returns the amount of credits earned. */
-  watchAd: () => Promise<number>;
-  /** Whether an ad is currently being "watched" */
-  isWatchingAd: boolean;
 }
 
 // ── Pricing ──────────────────────────────────────────────────
@@ -226,8 +182,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         if (prev.user?.uid) {
           const engine = prev.storyEngines[storyId] || { fateChoices: [], generatedChapters: [], activeChapter: 1 };
           saveProgress(prev.user.uid, storyId, {
-            storyId, activeChapter: engine.activeChapter,
-            unlockedChapters: updatedChapters, hasFullAccess: ss.hasFullAccess,
+            activeChapter: engine.activeChapter,
             fateChoices: engine.fateChoices,
             generatedChapters: engine.generatedChapters.map(gc => ({
               chapterNumber: gc.chapterNumber, title: gc.title,
@@ -274,7 +229,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         // Üye kullanıcıda önce Firestore'a yaz (atomic) — hata varsa harcama iptal
         if (userState.user?.uid) {
           try {
-            await updateFirestoreCredits(userState.user.uid, -CHAPTER_UNLOCK_COST);
+            return false; // DEPRECATED — server-authoritative economy
           } catch (err) {
             console.warn('[UnlockWithVote] Firestore hatası:', err);
             return false;
@@ -298,7 +253,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         // Üye kullanıcıda önce Firestore'a yaz (atomic) — hata varsa harcama iptal
         if (userState.user?.uid) {
           try {
-            await updateFirestoreCredits(userState.user.uid, -FORCE_FATE_COST);
+            return false; // DEPRECATED
           } catch (err) {
             console.warn('[ForceFate] Firestore hatası:', err);
             return false;
@@ -337,10 +292,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
         // Firestore'a kaydet
         if (prev.user?.uid) {
           const progress: StoryProgress = {
-            storyId,
             activeChapter: updated.activeChapter,
-            unlockedChapters: prev.storyStates[storyId]?.unlockedChapters || [1],
-            hasFullAccess: prev.storyStates[storyId]?.hasFullAccess || false,
             fateChoices: updated.fateChoices,
             generatedChapters: updated.generatedChapters.map(gc => ({
               chapterNumber: gc.chapterNumber, title: gc.title,
@@ -404,7 +356,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   // Firestore'a jeton değişimini yazar. Admin dahil HERKES bu yolu kullanır.
   const syncCreditsToFirestore = useCallback(async (uid: string, delta: number) => {
     try {
-      await updateFirestoreCredits(uid, delta);
+      // noop — server-authoritative
     } catch (err) {
       console.warn('[Firestore] Kredi senkronizasyonu başarısız:', err);
     }
@@ -473,11 +425,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     setUserState(prev => {
       persistVip(prev.vipAdsWatched, prev.vipSelectedTier, until);
       // Girişliyse Firestore'a da yaz — cihazlar arası senkron
-      if (prev.user?.uid) {
-        updateVipUntil(prev.user.uid, new Date(until).toISOString()).catch(err =>
-          console.warn('[VIP] Firestore vipUntil yazılamadı:', err)
-        );
-      }
+      // Kapalı test: VIP devre dışı, Firestore yazılmaz
       return { ...prev, vipUntil: until };
     });
   }, []);
@@ -565,8 +513,8 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
                 activeChapter: p.activeChapter || 1,
               };
               states[storyId] = {
-                unlockedChapters: p.unlockedChapters || [1],
-                hasFullAccess: p.hasFullAccess || false,
+                unlockedChapters: [1],
+                hasFullAccess: false,
               };
             }
             return { ...prev, storyEngines: engines, storyStates: states };
@@ -604,9 +552,19 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Admin rolü kontrolü — sadece UI ayrıcalıkları için.
-  // KESİNLİKLE jeton bypass'ı YOKTUR.
-  const isAdmin = userState.user?.role === 'admin';
+  // Admin rolü — Firebase Auth custom claims (token.admin).
+  // Firestore user.role alanı admin yetkisinin KAYNAĞI DEĞİLDİR.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!auth.currentUser) { setIsAdmin(false); return; }
+      try {
+        const token = await auth.currentUser.getIdTokenResult();
+        setIsAdmin(token.claims.admin === true);
+      } catch { setIsAdmin(false); }
+    };
+    checkAdmin();
+  }, [userState.user?.uid]);
 
   const login = useCallback(async (email: string, password: string, _name?: string): Promise<{ ok: boolean; code?: string }> => {
     try {
@@ -781,14 +739,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   return (
     <UserStateContext.Provider
       value={{
-        userState, unlockNextChapter, buyFullAccess, getCurrentChapter, isChapterAccessible, addCredits,
-        unlockWithVote, forceFateChoice, saveGeneratedChapter, getLatestFateOptions, getStoryEngine,
-        recordVipAdWatch, setVipTier, resetVipProgress, grantVip, isVipActive,
+        userState, getCurrentChapter, isChapterAccessible,
+        saveGeneratedChapter, getLatestFateOptions, getStoryEngine,
         login, register, logout, isLoggedIn, isAdmin,
-        spendCredits,
         isGiftClaimedToday: isGiftClaimedTodayValue,
         claimDailyGift: claimDailyGiftFn,
-        watchAd, isWatchingAd,
       }}
     >
       {children}

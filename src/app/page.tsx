@@ -28,7 +28,7 @@ import { useUserState } from '@/lib/user-state';
 import { maybeShowInterstitial } from '@/lib/interstitial-ads';
 
 export default function Home() {
-  const { isVipActive } = useUserState();
+  const isVipActive = () => false; // Kapalı test: VIP devre dışı
   // Varsayılan state'ler — SSR ile uyumlu, hydration hatası yok
   const [isLoading, setIsLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);

@@ -28,7 +28,10 @@ export function PurchaseModal({
   characterName,
   characterChapter,
 }: PurchaseModalProps) {
-  const { userState, unlockNextChapter, buyFullAccess, getCurrentChapter } = useUserState();
+  const { userState, getCurrentChapter } = useUserState();
+  // Kapalı test: ekonomi server-side, client fonksiyonlar noop
+  const unlockNextChapter = (_sid: string, _t: number) => false;
+  const buyFullAccess = (_sid: string) => false;
   const [purchaseResult, setPurchaseResult] = useState<'success' | 'insufficient' | null>(null);
   const [purchaseType, setPurchaseType] = useState<'chapter' | 'full' | null>(null);
 

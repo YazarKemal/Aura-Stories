@@ -33,7 +33,8 @@ interface Task {
 }
 
 export function RewardsScreen() {
-  const { userState, addCredits } = useUserState();
+  const { userState } = useUserState();
+  const addCredits = (_amount: number) => {}; // noop — server-authoritative
   const { toast } = useToast();
   const [checkedIn, setCheckedIn] = useState(userState.streak > 0 && userState.lastGiftClaimedAt ? new Date(userState.lastGiftClaimedAt).toDateString() === new Date().toDateString() : false);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);

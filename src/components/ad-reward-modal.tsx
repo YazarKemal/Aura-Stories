@@ -18,7 +18,10 @@ interface AdRewardModalProps {
 type AdPhase = 'intro' | 'watching' | 'complete';
 
 export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps) {
-  const { watchAd, isWatchingAd, userState } = useUserState();
+  const { userState } = useUserState();
+  // Kapalı test: reklam ödülleri devre dışı
+  const watchAd = async () => 0;
+  const isWatchingAd = false;
   const { toast } = useToast();
   const { online } = useNetwork();
   const [phase, setPhase] = useState<AdPhase>('intro');

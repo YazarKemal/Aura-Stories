@@ -212,12 +212,10 @@ export async function seedStoriesToFirestore(stories: Story[], categories: Categ
 // ── Reading Progress (Firestore) ───────────────────────────
 
 export interface StoryProgress {
-  storyId: string;
   activeChapter: number;
-  unlockedChapters: number[];
-  hasFullAccess: boolean;
   fateChoices: { chapterNumber: number; selectedOption: string; optionText: string; isForceChoice: boolean }[];
   generatedChapters: { chapterNumber: number; title: string; content: string; optionA: string; optionB: string }[];
+  /** Entitlement verisi — yalnızca entitlements/{storyId} koleksiyonundan okunur, progress'ten DEĞİL */
 }
 
 /** Kullanıcının tüm hikaye ilerlemelerini Firestore'dan yükle */
@@ -367,11 +365,12 @@ export interface ContentReport {
  */
 export async function submitContentReport(report: ContentReport): Promise<void> {
   try {
-    const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+    const { collection, addDoc } = await import('firebase/firestore');
+    // serverCreatedAt gönderilmez — firestore.rules client'dan KABUL ETMEZ
+    // createdAt istemci tarafından ISO string olarak gönderilir
     await addDoc(collection(db, 'contentReports'), {
       ...report,
       createdAt: report.createdAt || new Date().toISOString(),
-      serverCreatedAt: serverTimestamp(),
     });
   } catch (err) {
     console.warn('[Firestore] İçerik raporu kaydedilemedi:', err);
