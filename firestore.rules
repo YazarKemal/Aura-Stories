@@ -1,0 +1,85 @@
+// ── Aura Stories Firestore Security Rules ──────────────────────
+// Sürüm: 1.0.0 — Google Play kapalı test
+//
+// Mevcut koleksiyonlar:
+//   users/{uid}          — Kullanıcı profili
+//   stories/{storyId}    — Hikaye içeriği
+//   categories/{catId}   — Kategori listesi
+//   contentReports/{doc} — AI içerik raporları
+//
+// NOT: Bu kurallar mevcut Firebase projesinin mevcut kuralları
+// GÖRÜLMEDEN yazılmıştır. Deploy öncesi Firebase Console'daki
+// mevcut kurallarla birleştirilmeli veya değiştirilmelidir.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Kullanıcı profili ──────────────────────────────────
+    match /users/{uid} {
+      // Kullanıcı kendi profilini okuyabilir
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // Kendi oluşturma ve güncelleme
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+      // Silme yasak
+      allow delete: if false;
+
+      // ── Kullanıcı alt koleksiyonları ──────────────────────
+      match /progress/{storyId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /chats/{storyId}/{characterId}/messages/{msgId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /journal/{date} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /rateLimits/{operation} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // ── Hikayeler (herkese açık okuma) ─────────────────────
+    match /stories/{storyId} {
+      allow read: if true;
+      // Yalnızca admin yazabilir
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ── Kategoriler (herkese açık okuma) ───────────────────
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ── AI İçerik Raporları ────────────────────────────────
+    //
+    // Güvenlik:
+    // - create: yalnızca giriş yapmış kullanıcı, uid = request.auth.uid
+    // - read/update/delete: yalnızca admin
+    // - Alan uzunluk validasyonu
+    match /contentReports/{docId} {
+      // Kullanıcı kendi raporunu oluşturabilir
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.storyId is string
+        && request.resource.data.storyId.size() <= 100
+        && request.resource.data.storyTitle is string
+        && request.resource.data.storyTitle.size() <= 200
+        && request.resource.data.contentType in ['story', 'chat']
+        && request.resource.data.contentPreview is string
+        && request.resource.data.contentPreview.size() <= 500
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 200
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() <= 50;
+
+      // İstemci raporları okuyamaz, güncelleyemez, silemez
+      allow read, update, delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}

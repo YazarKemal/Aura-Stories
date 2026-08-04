@@ -116,7 +116,7 @@ type ReadingMode = 'scroll' | 'swipe' | 'flip';
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
   const { online } = useNetwork();
-  const { userState, unlockWithVote, forceFateChoice, saveGeneratedChapter, getStoryEngine } = useUserState();
+  const { userState, unlockWithVote, forceFateChoice, saveGeneratedChapter, getStoryEngine, addCredits } = useUserState();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -301,14 +301,40 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     setIsShareSheetOpen(true);
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = async () => {
     if (!reportReason) return;
     setIsReportSheetOpen(false);
-    toast({
-      title: "Rapor İletildi",
-      description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
-      variant: "default",
-    });
+
+    try {
+      // Mevcut bölüm içeriğinden referans al
+      const currentChapter = engine?.generatedChapters?.find(
+        (ch: { chapterNumber: number }) => ch.chapterNumber === engine.activeChapter
+      );
+      const contentPreview = currentChapter?.content?.slice(0, 500) || '';
+
+      const { submitContentReport } = await import('@/lib/firebase');
+      await submitContentReport({
+        uid: userState.user?.uid || null,
+        storyId: story.id,
+        storyTitle: story.title,
+        chapterNumber: engine.activeChapter || null,
+        contentType: 'story',
+        contentPreview,
+        reason: reportReason,
+        createdAt: new Date().toISOString(),
+      });
+      toast({
+        title: "Rapor İletildi",
+        description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
+        variant: "default",
+      });
+    } catch {
+      toast({
+        title: "Hata",
+        description: "Rapor iletilemedi. Lütfen tekrar deneyin.",
+        variant: "destructive",
+      });
+    }
     setReportReason(null);
   };
 
@@ -452,8 +478,32 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   const pendingAdActionRef = useRef<
     { kind: 'unlock' } | { kind: 'forceFate'; option: 'A' | 'B'; optionText: string } | null
   >(null);
+  // API hatasında iade edilecek jeton miktarı (çift iade önlemli)
+  const pendingRefundRef = useRef<number>(0);
+  const refundedRequestRef = useRef<Set<number>>(new Set());
 
   const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false) => {
+    // ── Auth guard — giriş yapmamış kullanıcı AI üretimi yapamaz ──
+    if (!userState.user?.uid) {
+      toast({
+        title: "Giriş Yapmanız Gerekiyor",
+        description: "AI hikaye üretimi için lütfen giriş yapın.",
+        variant: "destructive",
+      });
+      // İade: caller'ın harcadığı jetonu geri ver
+      if (pendingRefundRef.current > 0) {
+        const refundKey = Date.now();
+        if (!refundedRequestRef.current.has(refundKey)) {
+          refundedRequestRef.current.add(refundKey);
+          addCredits(pendingRefundRef.current);
+          pendingRefundRef.current = 0;
+        }
+      }
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
+      return;
+    }
+
     if (!skipGuard) {
       if (isGeneratingRef.current) return;
       isGeneratingRef.current = true;
@@ -461,6 +511,11 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     }
     if (!online) {
       toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
+      // İade
+      if (pendingRefundRef.current > 0) {
+        addCredits(pendingRefundRef.current);
+        pendingRefundRef.current = 0;
+      }
       isGeneratingRef.current = false;
       setIsGeneratingStory(false);
       return;
@@ -516,6 +571,21 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         description: msg,
         variant: 'destructive',
       });
+      // ── API hatasında jeton İADESİ (çift iade önlemli) ──
+      if (pendingRefundRef.current > 0) {
+        const refundKey = Date.now();
+        if (!refundedRequestRef.current.has(refundKey)) {
+          refundedRequestRef.current.add(refundKey);
+          const amount = pendingRefundRef.current;
+          addCredits(amount);
+          toast({
+            title: "Jeton İade Edildi",
+            description: `Hikaye üretilemedi. ${amount} jeton hesabınıza iade edildi.`,
+            variant: "default",
+          });
+        }
+        pendingRefundRef.current = 0;
+      }
     } finally {
       isGeneratingRef.current = false;
       setIsGeneratingStory(false);
@@ -525,13 +595,16 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleUnlockAndGenerate = async () => {
     if (isGeneratingRef.current) return;
+    // ── Auth guard ──
+    if (!userState.user?.uid) {
+      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
+      return;
+    }
     if (userState.credits < 15) {
-      // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
       pendingAdActionRef.current = { kind: 'unlock' };
       setIsAdModalOpen(true);
       return;
     }
-    // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
     isGeneratingRef.current = true;
     setIsGeneratingStory(true);
     const ok = await unlockWithVote(story.id);
@@ -541,19 +614,23 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
       return;
     }
-    // After unlock, auto-vote for the leading option
+    // API hatasında iade için jeton miktarını kaydet
+    pendingRefundRef.current = 15;
     await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true);
   };
 
   const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
     if (isGeneratingRef.current) return;
+    // ── Auth guard ──
+    if (!userState.user?.uid) {
+      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
+      return;
+    }
     if (userState.credits < FORCE_FATE_COST) {
-      // Upsell: toast yerine reklam teklifi — tam ihtiyaç anında jeton kazandır
       pendingAdActionRef.current = { kind: 'forceFate', option, optionText };
       setIsAdModalOpen(true);
       return;
     }
-    // Kilidi jeton harcamadan ÖNCE al — çift tık iki kez düşüremesin
     isGeneratingRef.current = true;
     setIsGeneratingStory(true);
     const ok = await forceFateChoice(story.id, engine.activeChapter, option, optionText);
@@ -563,6 +640,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       toast({ title: '⚠️ İşlem Başarısız', description: 'Jeton harcanamadı. Lütfen tekrar deneyin.', variant: 'destructive' });
       return;
     }
+    // API hatasında iade için jeton miktarını kaydet
+    pendingRefundRef.current = FORCE_FATE_COST;
     await handleGenerateStory(option, optionText, true, true);
   };
 
