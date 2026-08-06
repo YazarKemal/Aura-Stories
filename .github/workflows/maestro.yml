@@ -79,7 +79,7 @@ jobs:
 
       - name: Production dependency audit
         run: |
-          npm audit --omit=dev --audit-level=high || echo "::warning::Root has high/critical vulnerabilities — see audit report"
+          npm audit --omit=dev --audit-level=high
           npm --prefix functions audit --omit=dev --audit-level=high
 
       - name: Verify build output
@@ -111,3 +111,33 @@ jobs:
           name: debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 1
+
+  functions-node20:
+    name: Functions — Node 20 Runtime Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install functions dependencies
+        run: npm --prefix functions ci
+
+      - name: Functions typecheck
+        run: npm --prefix functions run typecheck
+
+      - name: Functions build
+        run: npm --prefix functions run build
+
+      - name: Functions unit tests
+        run: npm --prefix functions test
+
+      - name: Functions production audit
+        run: npm --prefix functions audit --omit=dev --audit-level=high
