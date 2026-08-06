@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ── Length Limits (sunucu tarafı sabit, istemciden DEĞİŞTİRİLEMEZ) ──
+// ── Length Limits ─────────────────────────────────────────────
 
 const CHAT_MSG_MAX_LENGTH = 2000;
 const CHAT_MAX_MESSAGES = 30;
@@ -9,7 +9,7 @@ const MAX_PREVIOUS_CHAPTERS = 10;
 const STORY_SYNOPSIS_MAX_LENGTH = 3000;
 const STORY_LONG_SYNOPSIS_MAX_LENGTH = 10000;
 
-// ── Character Chat ───────────────────────────────────────────
+// ── Chat ──────────────────────────────────────────────────────
 
 const chatMessageSchema = z.object({
   text: z.string().min(1).max(CHAT_MSG_MAX_LENGTH),
@@ -40,12 +40,13 @@ export const characterChatInputSchema = z.object({
   storyAuthor: z.string().max(100).optional(),
   characterName: z.string().min(1).max(100),
   messages: z.array(chatMessageSchema).min(1).max(CHAT_MAX_MESSAGES),
-  // Lore memory verisi — system prompt sunucuda bundan oluşturulur.
-  // İstemci HAM system prompt veya model/temperature/max_tokens GÖNDEREMEZ.
   memoryContext: memoryContextSchema.optional(),
-}).strict(); // Bilinmeyen alanları reddet
+  operationId: z.string().min(1).max(200),
+}).strict();
 
-// ── Story Generation ────────────────────────────────────────
+export const chatOperationSchema = characterChatInputSchema;
+
+// ── Story Generation ──────────────────────────────────────────
 
 const previousChapterSchema = z.object({
   chapterNumber: z.number().int().positive().max(200),
@@ -69,9 +70,15 @@ export const generateStoryInputSchema = z.object({
   previousChapters: z.array(previousChapterSchema).max(MAX_PREVIOUS_CHAPTERS),
   chosenFate: chosenFateSchema,
   chapterNumber: z.number().int().positive().max(200),
-}).strict(); // Bilinmeyen alanları reddet
+}).strict();
 
-// ── Generated Output ────────────────────────────────────────
+/** Client yalnızca ACTION enum gönderir — amount/model/temperature GÖNDEREMEZ */
+export const storyGenerateOperationSchema = generateStoryInputSchema.extend({
+  operationId: z.string().min(1).max(200),
+  action: z.enum(['chapter_unlock', 'force_fate']),
+}).strict();
+
+// ── Output ────────────────────────────────────────────────────
 
 export const chapterOutputSchema = z.object({
   title: z.string().min(3).max(120),
@@ -79,3 +86,17 @@ export const chapterOutputSchema = z.object({
   optionA: z.string().min(5).max(300),
   optionB: z.string().min(5).max(300),
 });
+
+// ── Action-Based Economy ──────────────────────────────────────
+// Client yalnızca ACTION gönderir — AMOUNT GÖNDEREMEZ
+
+export const fullAccessActionSchema = z.object({
+  operationId: z.string().min(1).max(200),
+  storyId: z.string().min(1).max(100),
+}).strict();
+
+// ── Daily Gift ────────────────────────────────────────────────
+
+export const claimGiftOperationSchema = z.object({
+  operationId: z.string().min(1).max(200),
+}).strict();

@@ -19,33 +19,20 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { AdRewardModal } from '@/components/ad-reward-modal';
 import { useUserState } from '@/lib/user-state';
+import { ENABLE_VIP, CLOSED_TEST_UNAVAILABLE_MESSAGE } from '@/lib/release-flags';
 
 interface VIPScreenProps {
   onBack: () => void;
 }
 
 export function VIPScreen({ onBack }: VIPScreenProps) {
-  const { userState, recordVipAdWatch, setVipTier, resetVipProgress, grantVip, isVipActive } = useUserState();
+  const { userState } = useUserState();
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
-  const [vipUnlocked, setVipUnlocked] = useState(false);
+  const [adsWatched, setAdsWatched] = useState(0);
+  const [selectedTier, setSelectedTier] = useState('7days');
 
-  const adsWatched = userState.vipAdsWatched;
-  const selectedTier = userState.vipSelectedTier;
-
-  const handleAdReward = (amount: number) => {
-    recordVipAdWatch();
-    const next = adsWatched + 1;
-
-    // Seçili kademenin reklam hedefine ulaşıldı mı?
-    const tier = adTiers.find(t => t.id === selectedTier);
-    if (tier && next >= tier.ads) {
-      grantVip(tier.durationMs); // Kalıcı VIP — localStorage + girişliyse Firestore
-      setVipUnlocked(true);
-      setTimeout(() => {
-        resetVipProgress();
-        setVipUnlocked(false);
-      }, 3000);
-    }
+  const handleAdReward = (_amount: number) => {
+    // noop — yalnızca ENABLE_VIP true iken anlamlı
   };
 
   const perks = [
@@ -80,123 +67,129 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
         </button>
       </header>
 
-      <div className="relative z-10 px-8 pb-32 flex flex-col gap-10">
-        {/* Hero */}
-        <div className="flex flex-col items-center text-center gap-4 py-4">
-          <div className="relative mb-4">
-            <div className="absolute inset-0 bg-amber-400/20 blur-2xl rounded-full scale-150 animate-pulse" />
-            <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 flex items-center justify-center shadow-[0_0_50px_rgba(251,191,36,0.3)] border-2 border-white/20">
-              <Crown className="w-12 h-12 text-[#1A0B2E] drop-shadow-md" />
+      {!ENABLE_VIP ? (
+        /* ── Kapalı test: VIP devre dışı ──────────────────── */
+        <div className="relative z-10 px-8 pb-32 flex flex-col items-center justify-center gap-8 flex-1">
+          <div className="flex flex-col items-center text-center gap-6 py-8">
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-amber-400/10 blur-2xl rounded-full scale-150" />
+              <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-amber-200/30 via-amber-400/20 to-amber-600/30 flex items-center justify-center border-2 border-white/10">
+                <Crown className="w-12 h-12 text-amber-400/50 drop-shadow-md" />
+              </div>
             </div>
+            <h1 className="text-3xl font-headline font-black text-white tracking-tighter leading-none">Aura VIP</h1>
+            <p className="text-white/60 text-sm max-w-[280px]">{CLOSED_TEST_UNAVAILABLE_MESSAGE}</p>
           </div>
-          <h1 className="text-4xl font-headline font-black text-white tracking-tighter leading-none">Aura VIP Ol</h1>
-          <p className="text-white/60 text-sm max-w-[280px]">Reklam izleyerek VIP ayrıcalıkları kazan. Hiçbir ödeme yok!</p>
-        </div>
-
-        {/* Perks */}
-        <section className="grid grid-cols-1 gap-4">
-          <h3 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mb-2 text-center">VIP AYRICALIKLARI</h3>
-          <div className="grid grid-cols-1 gap-3">
-            {perks.map((perk) => {
-              const Icon = perk.icon;
-              return (
-                <div key={perk.id} className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                  <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center bg-white/5", perk.color)}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-white">{perk.title}</span>
-                    <span className="text-[10px] text-white/50">{perk.desc}</span>
-                  </div>
-                  <div className="ml-auto">
-                    <Check className="w-4 h-4 text-amber-400" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Ad-Watch Tiers */}
-        <section className="flex flex-col gap-4">
-          <h3 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mb-2 text-center">REKLAM İZLEYEREK VIP KAZAN</h3>
-          <div className="flex flex-col gap-3">
-            {adTiers.map((tier) => {
-              const isSelected = selectedTier === tier.id;
-              const progress = isSelected ? adsWatched : 0;
-              const pct = Math.min(100, Math.round((progress / tier.ads) * 100));
-              return (
-                <div
-                  key={tier.id}
-                  onClick={() => { setVipTier(tier.id); setVipUnlocked(false); }}
-                  className={cn(
-                    "p-5 rounded-3xl transition-all duration-300 border-2 relative overflow-hidden cursor-pointer active:scale-[0.98]",
-                    isSelected
-                      ? "bg-primary/20 border-amber-400 shadow-[0_10px_30px_rgba(155,103,212,0.2)]"
-                      : "bg-white/5 border-white/10 hover:border-white/20"
-                  )}
-                >
-                  {tier.popular && (
-                    <div className="absolute top-0 right-0">
-                      <div className="bg-amber-400 text-[#1A0B2E] text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-tighter">EN AVANTAJLI</div>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black uppercase tracking-widest text-white">{tier.title}</span>
-                      <span className="text-[10px] text-amber-400 font-bold">{tier.ads} reklam izle → {tier.reward}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isSelected && progress > 0 && (
-                        <span className="text-xs font-black text-amber-400">{progress}/{tier.ads}</span>
-                      )}
-                      <Tv className={cn("w-5 h-5", isSelected ? "text-amber-400" : "text-white/30")} />
-                    </div>
-                  </div>
-                  {/* Progress bar (visible when selected) */}
-                  {isSelected && (
-                    <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 transition-all duration-500 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* VIP Unlocked Banner */}
-        {vipUnlocked && (
-          <div className="p-4 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-center animate-in fade-in zoom-in-95 duration-300">
-            <p className="text-amber-400 font-black text-sm">🎉 Tebrikler! VIP Kazanıldı!</p>
-            <p className="text-amber-300/70 text-[10px] mt-1">VIP ayrıcalıkların aktif edildi.</p>
-          </div>
-        )}
-
-        {/* Info */}
-        <div className="text-center space-y-2 opacity-40">
-           <p className="text-[9px] text-white leading-relaxed">Bir kademe seç, reklam izleyerek ilerle. Hedefe ulaşınca VIP süren hesabına eklenir.</p>
-           <div className="flex justify-center gap-4 text-[9px] font-bold text-white uppercase tracking-tighter">
-             <span>Kullanım Koşulları</span>
-             <span>Gizlilik Politikası</span>
-           </div>
-        </div>
-      </div>
-
-      {/* Sticky Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-8 pt-4 bg-gradient-to-t from-[#0F071A] via-[#0F071A] to-transparent z-[460] max-w-md mx-auto">
-        {(vipUnlocked || isVipActive()) ? (
           <Button
             onClick={onBack}
-            className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-green-400 to-emerald-600 text-white text-xl font-black shadow-[0_15px_40px_rgba(52,211,153,0.4)] hover:scale-[1.02] active:scale-95 transition-all"
+            className="w-full h-14 rounded-2xl bg-white/10 border border-white/10 text-white font-bold hover:bg-white/20 transition-all"
           >
-            <Sparkles className="w-6 h-6" />
-            VIP Aktif — Keşfetmeye Dön
+            Geri Dön
           </Button>
-        ) : (
+        </div>
+      ) : (
+        /* ── VIP aktif — normal içerik ───────────────────── */
+        <div className="relative z-10 px-8 pb-32 flex flex-col gap-10">
+          {/* Hero */}
+          <div className="flex flex-col items-center text-center gap-4 py-4">
+            <div className="relative mb-4">
+              <div className="absolute inset-0 bg-amber-400/20 blur-2xl rounded-full scale-150 animate-pulse" />
+              <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 flex items-center justify-center shadow-[0_0_50px_rgba(251,191,36,0.3)] border-2 border-white/20">
+                <Crown className="w-12 h-12 text-[#1A0B2E] drop-shadow-md" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-headline font-black text-white tracking-tighter leading-none">Aura VIP Ol</h1>
+            <p className="text-white/60 text-sm max-w-[280px]">Reklam izleyerek VIP ayrıcalıkları kazan. Hiçbir ödeme yok!</p>
+          </div>
+
+          {/* Perks */}
+          <section className="grid grid-cols-1 gap-4">
+            <h3 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mb-2 text-center">VIP AYRICALIKLARI</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {perks.map((perk) => {
+                const Icon = perk.icon;
+                return (
+                  <div key={perk.id} className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                    <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center bg-white/5", perk.color)}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-white">{perk.title}</span>
+                      <span className="text-[10px] text-white/50">{perk.desc}</span>
+                    </div>
+                    <div className="ml-auto">
+                      <Check className="w-4 h-4 text-amber-400" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Ad-Watch Tiers */}
+          <section className="flex flex-col gap-4">
+            <h3 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mb-2 text-center">REKLAM İZLEYEREK VIP KAZAN</h3>
+            <div className="flex flex-col gap-3">
+              {adTiers.map((tier) => {
+                const isSelected = selectedTier === tier.id;
+                const progress = isSelected ? adsWatched : 0;
+                const pct = Math.min(100, Math.round((progress / tier.ads) * 100));
+                return (
+                  <div
+                    key={tier.id}
+                    onClick={() => { setSelectedTier(tier.id); }}
+                    className={cn(
+                      "p-5 rounded-3xl transition-all duration-300 border-2 relative overflow-hidden cursor-pointer active:scale-[0.98]",
+                      isSelected
+                        ? "bg-primary/20 border-amber-400 shadow-[0_10px_30px_rgba(155,103,212,0.2)]"
+                        : "bg-white/5 border-white/10 hover:border-white/20"
+                    )}
+                  >
+                    {tier.popular && (
+                      <div className="absolute top-0 right-0">
+                        <div className="bg-amber-400 text-[#1A0B2E] text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-tighter">EN AVANTAJLI</div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black uppercase tracking-widest text-white">{tier.title}</span>
+                        <span className="text-[10px] text-amber-400 font-bold">{tier.ads} reklam izle → {tier.reward}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isSelected && progress > 0 && (
+                          <span className="text-xs font-black text-amber-400">{progress}/{tier.ads}</span>
+                        )}
+                        <Tv className={cn("w-5 h-5", isSelected ? "text-amber-400" : "text-white/30")} />
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 transition-all duration-500 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Info */}
+          <div className="text-center space-y-2 opacity-40">
+             <p className="text-[9px] text-white leading-relaxed">VIP özelliği reklam izleyerek kazanılır.</p>
+             <div className="flex justify-center gap-4 text-[9px] font-bold text-white uppercase tracking-tighter">
+               <span>Kullanım Koşulları</span>
+               <span>Gizlilik Politikası</span>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Bottom Button — yalnızca ENABLE_VIP true iken */}
+      {ENABLE_VIP && (
+        <div className="fixed bottom-0 left-0 right-0 p-8 pt-4 bg-gradient-to-t from-[#0F071A] via-[#0F071A] to-transparent z-[460] max-w-md mx-auto">
           <Button
             onClick={() => setIsAdModalOpen(true)}
             className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-[#1A0B2E] text-xl font-black shadow-[0_15px_40px_rgba(251,191,36,0.4)] hover:scale-[1.02] active:scale-95 transition-all animate-pulse-subtle flex items-center justify-center gap-3"
@@ -204,10 +197,12 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
             <Tv className="w-6 h-6" />
             Reklam İzle ({adsWatched}/{adTiers.find(t => t.id === selectedTier)?.ads || '?'})
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
+      {ENABLE_VIP && (
+        <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
+      )}
     </div>
   );
 }

@@ -1,78 +1,55 @@
 /**
  * Firebase Functions İstemcisi — Aura Stories
  *
- * DeepSeek API çağrıları Firebase Functions üzerinden yapılır.
- * Bu modül, client-side httpsCallable sarmalayıcılarını sağlar.
- *
- * GÜVENLİK:
- * - API anahtarı (DEEPSEEK_API_KEY) yalnızca Firebase Functions
- *   tarafında Secret Manager'da saklanır — istemciye GÖMÜLMEZ.
- * - İstemci systemPrompt, model, max_tokens, temperature
- *   veya API endpoint parametresi GÖNDEREMEZ.
- * - Tüm çağrılar Firebase Auth ile kimlik doğrulamalıdır.
- * - Rate limiting sunucu tarafında Firestore tabanlı uygulanır.
+ * Ekonomi işlemleri action enum ile yapılır.
+ * İstemci amount, detail, mode GÖNDEREMEZ.
  */
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '@/lib/firebase';
-
-import type {
-  GenerateStoryPayload,
-  GenerateStoryResult,
-} from '@/lib/story-client';
-import type {
-  ChatRequestPayload,
-  ChatResponsePayload,
-} from '@/lib/chat-client';
-
-// ── Lazy init ─────────────────────────────────────────────────
+import type { GenerateStoryPayload, GenerateStoryResult } from '@/lib/story-client';
+import type { ChatRequestPayload, ChatResponsePayload } from '@/lib/chat-client';
 
 let _functions: ReturnType<typeof getFunctions> | null = null;
+function functions() { if (!_functions) _functions = getFunctions(app, 'europe-west1'); return _functions; }
+interface CR<T> { readonly data: T; }
 
-function functions() {
-  if (!_functions) {
-    _functions = getFunctions(app, 'europe-west1');
-  }
-  return _functions;
+export function makeOperationId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// ── Type-safe Callable Wrappers ──────────────────────────────
+// ── AI Functions ──────────────────────────────────────────────
 
-interface CallableResult<T> {
-  readonly data: T;
-}
-
-/**
- * Hikaye bölümü üretir.
- * Firebase Functions → generateStory onCall → DeepSeek API
- */
 export async function callGenerateStory(
-  payload: GenerateStoryPayload
+  payload: GenerateStoryPayload & { operationId: string; action: 'chapter_unlock' | 'force_fate' }
 ): Promise<GenerateStoryResult> {
-  const fn = httpsCallable<GenerateStoryPayload, GenerateStoryResult>(
-    functions(),
-    'generateStory'
-  );
-
-  const result: CallableResult<GenerateStoryResult> = await fn(payload);
-  return result.data;
+  const fn = httpsCallable<typeof payload, GenerateStoryResult>(functions(), 'generateStory');
+  return (await fn(payload) as CR<GenerateStoryResult>).data;
 }
 
-/**
- * Karakterle sohbet mesajı gönderir.
- * Firebase Functions → characterChat onCall → DeepSeek API
- *
- * systemPrompt İSTEMCİ TARAFINDAN GÖNDERİLMEZ.
- * Lore memory verisi memoryContext olarak iletilir,
- * system prompt sunucuda buildChatPrompt() ile oluşturulur.
- */
 export async function callCharacterChat(
-  payload: ChatRequestPayload
+  payload: ChatRequestPayload & { operationId: string }
 ): Promise<ChatResponsePayload> {
-  const fn = httpsCallable<ChatRequestPayload, ChatResponsePayload>(
-    functions(),
-    'characterChat'
-  );
+  const fn = httpsCallable<typeof payload, ChatResponsePayload>(functions(), 'characterChat');
+  return (await fn(payload) as CR<ChatResponsePayload>).data;
+}
 
-  const result: CallableResult<ChatResponsePayload> = await fn(payload);
-  return result.data;
+// ── Action-Based Economy ──────────────────────────────────────
+// Client yalnızca ACTION gönderir — AMOUNT YOK
+
+export async function callPurchaseFullAccess(
+  operationId: string, storyId: string
+): Promise<{ success: boolean; balanceAfter: number }> {
+  const fn = httpsCallable<{ operationId: string; storyId: string }, { success: boolean; balanceAfter: number }>(functions(), 'purchaseFullAccess');
+  return (await fn({ operationId, storyId }) as CR<{ success: boolean; balanceAfter: number }>).data;
+}
+
+export async function callClaimDailyGift(operationId: string): Promise<{ success: boolean; amount: number; balanceAfter: number }> {
+  const fn = httpsCallable<{ operationId: string }, { success: boolean; amount: number; balanceAfter: number }>(functions(), 'claimDailyGiftCallable');
+  return (await fn({ operationId }) as CR<{ success: boolean; amount: number; balanceAfter: number }>).data;
+}
+
+export async function callGrantAdReward(): Promise<{ success: boolean; simulated: boolean }> {
+  // HİÇBİR parametre alınmaz — mode/amount YOK
+  const fn = httpsCallable<{}, { success: boolean; simulated: boolean }>(functions(), 'grantAdRewardCallable');
+  return (await fn({}) as CR<{ success: boolean; simulated: boolean }>).data;
 }

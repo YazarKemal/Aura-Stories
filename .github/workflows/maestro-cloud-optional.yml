@@ -111,6 +111,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || 'ci-dummy' }}
           NEXT_PUBLIC_ADMOB_MODE: simulation
+          NEXT_PUBLIC_ENABLE_REWARDED_ADS: false
+          NEXT_PUBLIC_ENABLE_VIP: false
+          NEXT_PUBLIC_ENABLE_FULL_ACCESS_PURCHASE: false
 
       - name: Verify build output
         run: |

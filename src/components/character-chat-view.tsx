@@ -55,7 +55,7 @@ const REPORT_REASONS = [
 
 export function CharacterChatView({ story, activeCharacter, onBack }: CharacterChatViewProps) {
   const char = activeCharacter;
-  const { spendCredits, addCredits, userState } = useUserState();
+  const { userState } = useUserState();
   const { toast } = useToast();
   const { online } = useNetwork();
 
@@ -80,8 +80,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportTargetMsg, setReportTargetMsg] = useState<Message | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
-  // Çift iadeyi önlemek için refund yapılmış AI çağrılarını takip et
-  const refundedRef = useRef<Set<string>>(new Set());
 
   // ── Mobile keyboard handling ──────────────────────────────
   useEffect(() => {
@@ -137,7 +135,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   }, [userState.user?.uid, story.id, char.id]);
 
   const sendToAPI = useCallback(
-    async (history: Message[]): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
+    async (history: Message[], operationId: string): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
       const conversationMessages = history
         .filter((m): m is Message & { sender: 'user' | 'character' } => m.sender === 'user' || m.sender === 'character')
         .map(m => ({ text: m.text, sender: m.sender }));
@@ -146,6 +144,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         storyLongSynopsis: story.longSynopsis, storyTags: story.tags,
         storyAuthor: story.author, characterName: char.name,
         messages: conversationMessages,
+        operationId,
       });
       return { text: result.text, memoryUpdates: result.memoryUpdates };
     },
@@ -177,14 +176,9 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       return;
     }
 
-    // Jeton kontrolü — mesaj başına 5 jeton
-    const creditsSpent = await spendCredits(5);
-    if (!creditsSpent) {
-      setIsAdModalOpen(true);
-      sendLockRef.current = false;
-      setIsLoading(false);
-      return;
-    }
+    // Kredi kontrolü: AI function SERVER-SIDE yapar.
+    // İstemci ön harcama YAPMAZ — çift ücretlendirme olmasın.
+    const chatOpId = `chat_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     setError(null);
     setInputText('');
@@ -203,11 +197,10 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
 
-    // API çağrısı için benzersiz request ID (çift iade önleme)
-    const requestId = `chat-${Date.now()}`;
+    // API çağrısı — kredi kontrolü server-side
 
     try {
-      const result = await sendToAPI(updatedHistory);
+      const result = await sendToAPI(updatedHistory, chatOpId);
 
       const aiMsg: Message = { id: `ai-${Date.now()}`, text: result.text, sender: 'character', timestamp: new Date() };
 
@@ -231,17 +224,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       }
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
-
-      // ── API hatasında jeton İADESİ (çift iade önlemli) ──
-      if (!refundedRef.current.has(requestId)) {
-        refundedRef.current.add(requestId);
-        addCredits(5);
-        toast({
-          title: "Jeton İade Edildi",
-          description: "AI yanıtı alınamadı. 5 jeton hesabınıza iade edildi.",
-          variant: "default",
-        });
-      }
+      // Refund yalnızca Functions refundTransaction tarafından yapılır.
 
       const errMsg: Message = {
         id: `err-${Date.now()}`,
@@ -253,7 +236,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
       setIsLoading(false);
       sendLockRef.current = false;
     }
-  }, [inputText, isLoading, messages, sendToAPI, online, spendCredits, addCredits, toast, userState.user?.uid, story.id, char.id]);
+  }, [inputText, isLoading, messages, sendToAPI, online, toast, userState.user?.uid, story.id, char.id]);
 
   // Reklam ödülü sonrası yarım kalan mesajı otomatik gönder
   const handleAdReward = (earned: number) => {
@@ -281,11 +264,12 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     if (!reportReason || !reportTargetMsg) return;
     setIsReportSheetOpen(false);
     try {
+      const uid = userState.user?.uid;
+      if (!uid) return; // auth zorunlu
       await submitContentReport({
-        uid: userState.user?.uid || null,
+        uid,
         storyId: story.id,
         storyTitle: story.title,
-        chapterNumber: null,
         contentType: 'chat',
         characterName: char.name,
         contentPreview: reportTargetMsg.text.slice(0, 500),

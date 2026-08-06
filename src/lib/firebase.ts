@@ -22,7 +22,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  increment,
   serverTimestamp,
   onSnapshot,
 } from 'firebase/firestore';
@@ -78,8 +77,6 @@ export interface FirestoreUser {
   wordsRead: number;
   streak: number;
   lastGiftClaimedAt: string | null;
-  /** VIP bitiş zamanı (ISO string) — null: VIP yok */
-  vipUntil: string | null;
 }
 
 export async function getFirestoreUser(uid: string): Promise<FirestoreUser | null> {
@@ -104,32 +101,9 @@ export async function createFirestoreUser(
     wordsRead: 0,
     streak: 0,
     lastGiftClaimedAt: null,
-    vipUntil: null,
   };
   await setDoc(doc(db, 'users', uid), user);
   return user;
-}
-
-/** Firestore üzerinden jeton ekle/çıkar. Atomik increment kullanır. */
-export async function updateFirestoreCredits(uid: string, delta: number): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    credits: increment(delta),
-  });
-}
-
-/** VIP bitiş zamanını Firestore'a yaz (ISO string, null = VIP yok). */
-export async function updateVipUntil(uid: string, vipUntilIso: string | null): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    vipUntil: vipUntilIso,
-  });
-}
-
-/** Günlük hediye alındı olarak işaretle. */
-export async function claimDailyGift(uid: string): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    lastGiftClaimedAt: new Date().toISOString(),
-    credits: increment(50),
-  });
 }
 
 /** Bugün hediye alınmış mı? */
@@ -212,12 +186,10 @@ export async function seedStoriesToFirestore(stories: Story[], categories: Categ
 // ── Reading Progress (Firestore) ───────────────────────────
 
 export interface StoryProgress {
-  storyId: string;
   activeChapter: number;
-  unlockedChapters: number[];
-  hasFullAccess: boolean;
   fateChoices: { chapterNumber: number; selectedOption: string; optionText: string; isForceChoice: boolean }[];
   generatedChapters: { chapterNumber: number; title: string; content: string; optionA: string; optionB: string }[];
+  /** Entitlement verisi — yalnızca entitlements/{storyId} koleksiyonundan okunur, progress'ten DEĞİL */
 }
 
 /** Kullanıcının tüm hikaye ilerlemelerini Firestore'dan yükle */
@@ -299,20 +271,72 @@ export async function getJournalEntries(uid: string): Promise<JournalEntry[]> {
 
 export { auth, db, app };
 
+// ── Entitlements (server-authoritative) ───────────────────────
+
+export interface StoryEntitlement {
+  hasFullAccess: boolean;
+  unlockedChapters: number[];
+  updatedAt?: string;
+}
+
+/** Kullanıcının bir hikaye için entitlement'ını Firestore'dan oku */
+export async function getEntitlement(uid: string, storyId: string): Promise<StoryEntitlement | null> {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'entitlements', storyId));
+    return snap.exists() ? (snap.data() as StoryEntitlement) : null;
+  } catch { return null; }
+}
+
+/** Kullanıcının tüm entitlement'larını yükle */
+export async function loadAllEntitlements(uid: string): Promise<Record<string, StoryEntitlement>> {
+  try {
+    const snap = await getDocs(collection(db, 'users', uid, 'entitlements'));
+    const result: Record<string, StoryEntitlement> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as StoryEntitlement; });
+    return result;
+  } catch { return {}; }
+}
+
+/** Entitlement değişikliklerini gerçek zamanlı dinle (tek hikaye) */
+export function onEntitlementSnapshot(
+  uid: string,
+  storyId: string,
+  callback: (entitlement: StoryEntitlement | null) => void
+) {
+  return onSnapshot(doc(db, 'users', uid, 'entitlements', storyId), (snap) => {
+    callback(snap.exists() ? (snap.data() as StoryEntitlement) : null);
+  });
+}
+
+/**
+ * Tüm entitlement koleksiyonunu gerçek zamanlı dinle.
+ * Functions yeni entitlement yazdığında UI otomatik güncellenir.
+ */
+export function onEntitlementsSnapshot(
+  uid: string,
+  callback: (entitlements: Record<string, StoryEntitlement>) => void
+) {
+  return onSnapshot(collection(db, 'users', uid, 'entitlements'), (snap) => {
+    const result: Record<string, StoryEntitlement> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as StoryEntitlement; });
+    callback(result);
+  });
+}
+
 // ── Content Reporting (AI moderation) ─────────────────────────
 
 export interface ContentReport {
-  /** Kullanıcı UID'si (anonim ise null) */
-  uid: string | null;
+  /** Kullanıcı UID'si — rapor göndermek için auth zorunlu */
+  uid: string;
   /** Hikaye ID'si */
   storyId: string;
   /** Hikaye başlığı */
   storyTitle: string;
-  /** Bölüm numarası (hikaye içeriği için) veya null (chat için) */
-  chapterNumber: number | null;
+  /** Bölüm numarası (story raporları için) */
+  chapterNumber?: number;
   /** İçerik tipi: story veya chat */
   contentType: 'story' | 'chat';
-  /** Karakter adı (chat için) */
+  /** Karakter adı (chat raporları için) */
   characterName?: string;
   /** İçeriğin ilk 500 karakteri (özet/referans) */
   contentPreview: string;
@@ -330,12 +354,23 @@ export interface ContentReport {
  */
 export async function submitContentReport(report: ContentReport): Promise<void> {
   try {
-    const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-    await addDoc(collection(db, 'contentReports'), {
-      ...report,
+    const { collection, addDoc } = await import('firebase/firestore');
+
+    const payload: Record<string, unknown> = {
+      uid: report.uid,
+      storyId: report.storyId,
+      storyTitle: report.storyTitle,
+      contentType: report.contentType,
+      contentPreview: report.contentPreview,
+      reason: report.reason,
       createdAt: report.createdAt || new Date().toISOString(),
-      serverCreatedAt: serverTimestamp(),
-    });
+    };
+
+    if (report.chapterNumber != null) payload.chapterNumber = report.chapterNumber;
+    if (report.characterName) payload.characterName = report.characterName;
+    if (report.messageId) payload.messageId = report.messageId;
+
+    await addDoc(collection(db, 'contentReports'), payload);
   } catch (err) {
     console.warn('[Firestore] İçerik raporu kaydedilemedi:', err);
     throw err;

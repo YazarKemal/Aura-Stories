@@ -1,85 +1,175 @@
 // ── Aura Stories Firestore Security Rules ──────────────────────
-// Sürüm: 1.0.0 — Google Play kapalı test
+// Sürüm: 3.0.0 — Server-authoritative economy + entitlements
 //
-// Mevcut koleksiyonlar:
-//   users/{uid}          — Kullanıcı profili
-//   stories/{storyId}    — Hikaye içeriği
-//   categories/{catId}   — Kategori listesi
-//   contentReports/{doc} — AI içerik raporları
-//
-// NOT: Bu kurallar mevcut Firebase projesinin mevcut kuralları
-// GÖRÜLMEDEN yazılmıştır. Deploy öncesi Firebase Console'daki
-// mevcut kurallarla birleştirilmeli veya değiştirilmelidir.
+// GÜVENLİK MODELİ:
+// - credits/role/vipUntil/lastGiftClaimedAt/createdAt: SUNUCU KONTROLLÜ
+// - Admin: request.auth.token.admin custom claims
+// - rateLimits, transactions, entitlements: yalnızca Functions/Admin SDK
+// - progress: hasFullAccess/unlockedChapters client tarafından DEĞİŞTİRİLEMEZ
+// - contentReports: keys().hasOnly + serverCreatedAt istemciden KABUL EDİLMEZ
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Kullanıcı profili ──────────────────────────────────
+    function isAdmin() { return request.auth != null && request.auth.token.admin == true; }
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+
+    // ═══════════════════════════════════════════════════════════
+    // KULLANICI PROFİLİ
+    // ═══════════════════════════════════════════════════════════
     match /users/{uid} {
-      // Kullanıcı kendi profilini okuyabilir
-      allow read: if request.auth != null && request.auth.uid == uid;
-      // Kendi oluşturma ve güncelleme
-      allow create, update: if request.auth != null && request.auth.uid == uid;
-      // Silme yasak
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid','email','name','role','credits','createdAt',
+          'level','readHours','wordsRead','streak',
+          'lastGiftClaimedAt','vipUntil'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'user'
+        && request.resource.data.credits == 200
+        && request.resource.data.vipUntil == null
+        && request.resource.data.lastGiftClaimedAt == null
+        && request.resource.data.level == 1 && request.resource.data.readHours == 0
+        && request.resource.data.wordsRead == 0 && request.resource.data.streak == 0
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      // UPDATE: yalnızca name/email değiştirilebilir
+      // credits/role/vipUntil/lastGiftClaimedAt/createdAt IMMUTABLE
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid','email','name','role','credits','createdAt',
+          'level','readHours','wordsRead','streak',
+          'lastGiftClaimedAt','vipUntil'
+        ])
+        && request.resource.data.credits == resource.data.credits
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.vipUntil == resource.data.vipUntil
+        && request.resource.data.lastGiftClaimedAt == resource.data.lastGiftClaimedAt
+        && request.resource.data.level == resource.data.level
+        && request.resource.data.readHours == resource.data.readHours
+        && request.resource.data.wordsRead == resource.data.wordsRead
+        && request.resource.data.streak == resource.data.streak
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+
       allow delete: if false;
 
-      // ── Kullanıcı alt koleksiyonları ──────────────────────
+      // ── Progress (client yalnızca güvenli okuma alanlarını yazabilir) ──
       match /progress/{storyId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if isOwner(uid) || isAdmin();
+        // keys().hasOnly: hasFullAccess/unlockedChapters KABUL EDİLMEZ
+        // Bu alanlar yalnızca Admin SDK ile entitlements üzerinden yazılır
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['activeChapter', 'fateChoices', 'generatedChapters'])
+          && request.resource.data.activeChapter is number
+          && request.resource.data.activeChapter >= 1
+          && request.resource.data.activeChapter <= 200
+          && request.resource.data.fateChoices is list
+          && request.resource.data.fateChoices.size() <= 200
+          && request.resource.data.generatedChapters is list
+          && request.resource.data.generatedChapters.size() <= 200;
+        allow delete: if false;
       }
+
+      // ── Entitlements — YALNIZCA Functions ──────────────────
+      match /entitlements/{storyId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false; // Admin SDK only
+      }
+
+      // ── Transactions (ledger) — YALNIZCA Functions ─────────
+      match /transactions/{operationId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false; // Admin SDK only
+      }
+
+      // ── Chat Messages ──────────────────────────────────────
       match /chats/{storyId}/{characterId}/messages/{msgId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['id','text','sender','timestamp'])
+          && request.resource.data.id is string && request.resource.data.id.size() <= 100
+          && request.resource.data.text is string && request.resource.data.text.size() <= 4000
+          && request.resource.data.sender in ['user','character','system']
+          && request.resource.data.timestamp is string && request.resource.data.timestamp.size() <= 50;
+        allow update, delete: if false;
       }
+
+      // ── Journal ────────────────────────────────────────────
       match /journal/{date} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['date','storyId','storyTitle','chapterNumber','minutesRead','emotion','quote'])
+          && request.resource.data.date is string && request.resource.data.date.size() <= 20
+          && request.resource.data.storyId is string && request.resource.data.storyId.size() <= 100
+          && request.resource.data.storyTitle is string && request.resource.data.storyTitle.size() <= 200
+          && request.resource.data.emotion is string && request.resource.data.emotion.size() <= 50
+          && request.resource.data.quote is string && request.resource.data.quote.size() <= 1000;
+        allow delete: if false;
       }
+
+      // ── Rate Limits — YALNIZCA Functions ───────────────────
       match /rateLimits/{operation} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if false;
       }
     }
 
-    // ── Hikayeler (herkese açık okuma) ─────────────────────
+    // ═══════════════════════════════════════════════════════════
+    // HİKAYELER
+    // ═══════════════════════════════════════════════════════════
     match /stories/{storyId} {
       allow read: if true;
-      // Yalnızca admin yazabilir
-      allow write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
 
-    // ── Kategoriler (herkese açık okuma) ───────────────────
+    // ═══════════════════════════════════════════════════════════
+    // KATEGORİLER
+    // ═══════════════════════════════════════════════════════════
     match /categories/{catId} {
       allow read: if true;
-      allow write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
 
-    // ── AI İçerik Raporları ────────────────────────────────
-    //
-    // Güvenlik:
-    // - create: yalnızca giriş yapmış kullanıcı, uid = request.auth.uid
-    // - read/update/delete: yalnızca admin
-    // - Alan uzunluk validasyonu
+    // ═══════════════════════════════════════════════════════════
+    // AI İÇERİK RAPORLARI
+    // ═══════════════════════════════════════════════════════════
     match /contentReports/{docId} {
-      // Kullanıcı kendi raporunu oluşturabilir
-      allow create: if request.auth != null
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly([
+          'uid','storyId','storyTitle','chapterNumber',
+          'contentType','characterName','contentPreview',
+          'messageId','reason','createdAt'
+        ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.storyId is string
-        && request.resource.data.storyId.size() <= 100
-        && request.resource.data.storyTitle is string
-        && request.resource.data.storyTitle.size() <= 200
-        && request.resource.data.contentType in ['story', 'chat']
-        && request.resource.data.contentPreview is string
-        && request.resource.data.contentPreview.size() <= 500
-        && request.resource.data.reason is string
-        && request.resource.data.reason.size() <= 200
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() <= 50;
+        && request.resource.data.storyId is string && request.resource.data.storyId.size() <= 100
+        && request.resource.data.storyTitle is string && request.resource.data.storyTitle.size() <= 200
+        && request.resource.data.contentType in ['story','chat']
+        && request.resource.data.contentPreview is string && request.resource.data.contentPreview.size() <= 500
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 200
+        && request.resource.data.createdAt is string && request.resource.data.createdAt.size() <= 50
+        // Opsiyonel alanlar — varsa tür/uzunluk doğrulaması
+        && (!('chapterNumber' in request.resource.data) || request.resource.data.chapterNumber is number)
+        && (!('characterName' in request.resource.data) || (request.resource.data.characterName is string && request.resource.data.characterName.size() <= 100))
+        && (!('messageId' in request.resource.data) || (request.resource.data.messageId is string && request.resource.data.messageId.size() <= 100));
+        // NOT: serverCreatedAt client'dan KABUL EDİLMEZ (keys().hasOnly dışında)
 
-      // İstemci raporları okuyamaz, güncelleyemez, silemez
-      allow read, update, delete: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // GLOBAL: bilinmeyen koleksiyonlara erişimi engelle
+    // ═══════════════════════════════════════════════════════════
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }
