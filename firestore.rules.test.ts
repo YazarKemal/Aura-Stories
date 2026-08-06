@@ -7,7 +7,7 @@
  *
  * CI: firebase emulators:exec --only firestore "npx tsx firestore.rules.test.ts"
  */
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   initializeTestEnvironment,
@@ -29,19 +29,7 @@ let testEnv: RulesTestEnvironment;
 
 const RULES = readFileSync('firestore.rules', 'utf8');
 
-async function setup() {
-  testEnv = await initializeTestEnvironment({
-    projectId: 'aura-stories-test',
-    firestore: { rules: RULES, host: '127.0.0.1', port: 8080 },
-  });
-}
-
-async function teardown() {
-  await testEnv?.cleanup();
-}
-
 async function seedUser(uid: string) {
-  const db = testEnv.authenticatedContext(uid).firestore();
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), 'users', uid), {
       uid, email: 'test@test.com', name: 'Test',
@@ -54,9 +42,28 @@ async function seedUser(uid: string) {
 
 // ═══════════════════════════════════════════════════════════════
 
-describe('users/{uid} — create', () => {
-  beforeEach(setup);
-  afterEach(teardown);
+describe('Firestore Rules', () => {
+  // Tüm testler için tek bir initializeTestEnvironment
+  before(async () => {
+    testEnv = await initializeTestEnvironment({
+      projectId: 'aura-stories-test',
+      firestore: { rules: RULES, host: '127.0.0.1', port: 8080 },
+    });
+  });
+
+  // Her test öncesi Firestore'u temizle (testler bağımsız)
+  beforeEach(async () => {
+    await testEnv.clearFirestore();
+  });
+
+  // Tüm testler bittiğinde ortamı temizle
+  after(async () => {
+    await testEnv.cleanup();
+  });
+
+  // ── users/{uid} — create ──────────────────────────────────
+
+  describe('users/{uid} — create', () => {
 
   it('geçerli kullanıcı create', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -109,10 +116,8 @@ describe('users/{uid} — create', () => {
 
 describe('users/{uid} — update', () => {
   beforeEach(async () => {
-    await setup();
     await seedUser('user1');
   });
-  afterEach(teardown);
 
   it('kullanıcı credits değiştiremez', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -137,8 +142,6 @@ describe('users/{uid} — update', () => {
 });
 
 describe('rateLimits — yazılamaz', () => {
-  beforeEach(setup);
-  afterEach(teardown);
 
   it('kullanıcı rateLimits yazamaz', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -149,8 +152,6 @@ describe('rateLimits — yazılamaz', () => {
 });
 
 describe('transactions — yazılamaz', () => {
-  beforeEach(setup);
-  afterEach(teardown);
 
   it('transaction ledger yazılamaz', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -161,8 +162,6 @@ describe('transactions — yazılamaz', () => {
 });
 
 describe('entitlements — yazılamaz', () => {
-  beforeEach(setup);
-  afterEach(teardown);
 
   it('entitlement yazılamaz', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -174,10 +173,8 @@ describe('entitlements — yazılamaz', () => {
 
 describe('progress — save', () => {
   beforeEach(async () => {
-    await setup();
     await seedUser('user1');
   });
-  afterEach(teardown);
 
   it('geçerli progress save başarılı', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -216,8 +213,6 @@ describe('progress — save', () => {
 });
 
 describe('contentReports', () => {
-  beforeEach(setup);
-  afterEach(teardown);
 
   it('geçerli story report başarılı', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -231,14 +226,20 @@ describe('contentReports', () => {
     );
   });
 
-  it('geçerli chat report başarılı', async () => {
+  it('geçerli chat report başarılı (uygulama payload\'u)', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
+    // Gerçek character-chat-view.tsx payload'u — chapterNumber YOK
     await assertSucceeds(
       addDoc(collection(db, 'contentReports'), {
-        uid: 'user1', storyId: 's1', storyTitle: 'Test Hikaye',
-        contentType: 'chat', contentPreview: 'test içerik',
-        reason: 'Spam', createdAt: new Date().toISOString(),
-        characterName: 'Demir Ağa', messageId: 'msg1',
+        uid: 'user1',
+        storyId: 's1',
+        storyTitle: 'Test Hikaye',
+        contentType: 'chat',
+        contentPreview: 'test içerik',
+        reason: 'Spam',
+        createdAt: new Date().toISOString(),
+        characterName: 'Demir Ağa',
+        messageId: 'msg1',
       })
     );
   });
@@ -268,8 +269,6 @@ describe('contentReports', () => {
 });
 
 describe('admin — stories', () => {
-  beforeEach(setup);
-  afterEach(teardown);
 
   it('admin claim story yazabilir', async () => {
     const db = testEnv.authenticatedContext('admin1', { admin: true }).firestore();
@@ -285,3 +284,4 @@ describe('admin — stories', () => {
     );
   });
 });
+}); // close outer describe('Firestore Rules')

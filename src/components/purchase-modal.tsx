@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Coins, Lock, Crown, Sparkles, BookOpen, Unlock, Zap, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ENABLE_FULL_ACCESS_PURCHASE, CLOSED_TEST_UNAVAILABLE_MESSAGE } from '@/lib/release-flags';
 
 interface PurchaseModalProps {
   isOpen: boolean;
@@ -159,7 +160,24 @@ export function PurchaseModal({
 
         {/* Purchase options */}
         <div className="p-6 pt-4 flex flex-col gap-3">
-          {purchaseResult === 'success' ? (
+          {!ENABLE_FULL_ACCESS_PURCHASE ? (
+            /* ── Kapalı test: satın alma devre dışı ── */
+            <div className="flex flex-col items-center gap-4 py-4 animate-in fade-in duration-300">
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <Lock className="w-6 h-6" />
+              </div>
+              <p className="text-sm text-center text-muted-foreground dark:text-zinc-400 leading-relaxed px-2">
+                {CLOSED_TEST_UNAVAILABLE_MESSAGE}
+              </p>
+              <Button
+                onClick={handleClose}
+                variant="outline"
+                className="rounded-2xl border-primary/30 text-accent font-bold"
+              >
+                Kapat
+              </Button>
+            </div>
+          ) : purchaseResult === 'success' ? (
             <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in zoom-in-95 duration-300">
               <Sparkles className="w-10 h-10 text-primary animate-pulse" />
               <span className="text-sm font-bold text-accent">

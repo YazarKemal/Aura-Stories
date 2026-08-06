@@ -326,17 +326,17 @@ export function onEntitlementsSnapshot(
 // ── Content Reporting (AI moderation) ─────────────────────────
 
 export interface ContentReport {
-  /** Kullanıcı UID'si (anonim ise null) */
-  uid: string | null;
+  /** Kullanıcı UID'si — rapor göndermek için auth zorunlu */
+  uid: string;
   /** Hikaye ID'si */
   storyId: string;
   /** Hikaye başlığı */
   storyTitle: string;
-  /** Bölüm numarası (hikaye içeriği için) veya null (chat için) */
-  chapterNumber: number | null;
+  /** Bölüm numarası (story raporları için) */
+  chapterNumber?: number;
   /** İçerik tipi: story veya chat */
   contentType: 'story' | 'chat';
-  /** Karakter adı (chat için) */
+  /** Karakter adı (chat raporları için) */
   characterName?: string;
   /** İçeriğin ilk 500 karakteri (özet/referans) */
   contentPreview: string;
@@ -355,12 +355,22 @@ export interface ContentReport {
 export async function submitContentReport(report: ContentReport): Promise<void> {
   try {
     const { collection, addDoc } = await import('firebase/firestore');
-    // serverCreatedAt gönderilmez — firestore.rules client'dan KABUL ETMEZ
-    // createdAt istemci tarafından ISO string olarak gönderilir
-    await addDoc(collection(db, 'contentReports'), {
-      ...report,
+
+    const payload: Record<string, unknown> = {
+      uid: report.uid,
+      storyId: report.storyId,
+      storyTitle: report.storyTitle,
+      contentType: report.contentType,
+      contentPreview: report.contentPreview,
+      reason: report.reason,
       createdAt: report.createdAt || new Date().toISOString(),
-    });
+    };
+
+    if (report.chapterNumber != null) payload.chapterNumber = report.chapterNumber;
+    if (report.characterName) payload.characterName = report.characterName;
+    if (report.messageId) payload.messageId = report.messageId;
+
+    await addDoc(collection(db, 'contentReports'), payload);
   } catch (err) {
     console.warn('[Firestore] İçerik raporu kaydedilemedi:', err);
     throw err;

@@ -264,11 +264,12 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     if (!reportReason || !reportTargetMsg) return;
     setIsReportSheetOpen(false);
     try {
+      const uid = userState.user?.uid;
+      if (!uid) return; // auth zorunlu
       await submitContentReport({
-        uid: userState.user?.uid || null,
+        uid,
         storyId: story.id,
         storyTitle: story.title,
-        chapterNumber: null,
         contentType: 'chat',
         characterName: char.name,
         contentPreview: reportTargetMsg.text.slice(0, 500),

@@ -313,11 +313,13 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       const contentPreview = currentChapter?.content?.slice(0, 500) || '';
 
       const { submitContentReport } = await import('@/lib/firebase');
+      const uid = userState.user?.uid;
+      if (!uid) return; // auth zorunlu
       await submitContentReport({
-        uid: userState.user?.uid || null,
+        uid,
         storyId: story.id,
         storyTitle: story.title,
-        chapterNumber: engine.activeChapter || null,
+        chapterNumber: engine.activeChapter,
         contentType: 'story',
         contentPreview,
         reason: reportReason,

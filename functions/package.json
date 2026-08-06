@@ -5,7 +5,8 @@
     "@firebase/util": true,
     "firebase-admin": true,
     "firebase-functions": true,
-    "protobufjs": true
+    "protobufjs": true,
+    "tsx": true
   },
   "main": "lib/index.js",
   "engines": {
@@ -16,8 +17,8 @@
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf lib",
-    "test": "node --test 'src/**/*.test.ts'",
-    "test:unit": "node --test 'src/**/*.test.ts'"
+    "test": "tsx --test src/deepseek.test.ts src/economy.test.ts",
+    "test:unit": "tsx --test src/deepseek.test.ts src/economy.test.ts"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "tsx": "4.19.0",
     "typescript": "^5.7.0"
   }
 }

@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useUserState } from '@/lib/user-state';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Sparkles, Coins, Gift, Clock, Play, CheckCircle, Tv } from 'lucide-react';
+import { Sparkles, Coins, Gift, Clock, Play, CheckCircle, Tv, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useNetwork } from '@/hooks/use-network';
+import { ENABLE_REWARDED_ADS, CLOSED_TEST_UNAVAILABLE_MESSAGE } from '@/lib/release-flags';
 
 interface AdRewardModalProps {
   isOpen: boolean;
@@ -15,27 +16,28 @@ interface AdRewardModalProps {
   onReward?: (amount: number) => void;
 }
 
-type AdPhase = 'intro' | 'watching' | 'complete';
+type AdPhase = 'intro' | 'watching' | 'complete' | 'disabled';
 
 export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps) {
   const { userState } = useUserState();
   // Kapalı test: reklam ödülleri devre dışı
   const watchAd = async () => 0;
-  const isWatchingAd = false;
   const { toast } = useToast();
   const { online } = useNetwork();
   const [phase, setPhase] = useState<AdPhase>('intro');
   const [countdown, setCountdown] = useState(5);
   const [reward, setReward] = useState(0);
-  const [celebration, setCelebration] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setPhase('intro');
+      if (!ENABLE_REWARDED_ADS) {
+        setPhase('disabled');
+      } else {
+        setPhase('intro');
+      }
       setCountdown(5);
       setReward(0);
-      setCelebration(false);
     }
   }, [isOpen]);
 
@@ -47,31 +49,31 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
   }, [phase, countdown]);
 
   const handleStartAd = async () => {
+    if (!ENABLE_REWARDED_ADS) return;
     setPhase('watching');
 
     try {
       const earned = await watchAd();
       onReward?.(earned);
 
-      // Modal'ı hemen kapat, toast bildirimi göster
       onClose();
-      setTimeout(() => {
-        toast({
-          title: `🎉 +${earned} Jeton Kazandınız!`,
-          description: 'Jetonlar cüzdanına eklendi.',
-        });
-      }, 300);
+      // Yalnızca gerçek ödül varsa toast göster
+      if (earned > 0) {
+        setTimeout(() => {
+          toast({
+            title: `🎉 +${earned} Jeton Kazandınız!`,
+            description: 'Jetonlar cüzdanına eklendi.',
+          });
+        }, 300);
+      }
     } catch {
       setPhase('intro');
     }
   };
 
   const handleClose = (open: boolean) => {
-    // Radix Dialog, kontrollü open prop değiştiğinde de onOpenChange'i
-    // tetikler. Sadece kapatma isteğinde (open=false) işlem yap.
     if (open) return;
-    if (phase === 'watching') return; // reklam izlenirken kapatılamaz
-    setCelebration(false);
+    if (phase === 'watching') return;
     onClose();
   };
 
@@ -84,7 +86,8 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
           'relative p-8 pb-6 transition-colors duration-500',
           phase === 'complete' ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950' :
           phase === 'watching' ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950' :
-          'bg-gradient-to-br from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-950'
+          'bg-gradient-to-br from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-950',
+          phase === 'disabled' ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950 dark:to-yellow-950' : ''
         )}>
           <div className="flex flex-col items-center gap-3 text-center">
             {/* Icon */}
@@ -92,9 +95,12 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
               'w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500',
               phase === 'complete' ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 animate-bounce' :
               phase === 'watching' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' :
-              'bg-zinc-100 dark:bg-zinc-800 text-brand-primary dark:text-amber-400'
+              'bg-zinc-100 dark:bg-zinc-800 text-brand-primary dark:text-amber-400',
+              phase === 'disabled' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' : ''
             )}>
-              {phase === 'complete' ? (
+              {phase === 'disabled' ? (
+                <AlertTriangle className="w-10 h-10" />
+              ) : phase === 'complete' ? (
                 <CheckCircle className="w-10 h-10" />
               ) : phase === 'watching' ? (
                 <Tv className="w-10 h-10 animate-pulse" />
@@ -105,26 +111,44 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
 
             {/* Title */}
             <h2 className="text-xl font-headline font-black text-accent dark:text-zinc-100">
-              {phase === 'complete'
-                ? '🎉 Tebrikler!'
-                : phase === 'watching'
-                  ? `⏳ Reklam İzleniyor... ${countdown}s`
-                  : 'Ücretsiz Jeton Kazan'}
+              {phase === 'disabled'
+                ? '🚧 Kapalı Test'
+                : phase === 'complete'
+                  ? '🎉 Tebrikler!'
+                  : phase === 'watching'
+                    ? `⏳ Reklam İzleniyor... ${countdown}s`
+                    : 'Ücretsiz Jeton Kazan'}
             </h2>
 
             {/* Description */}
             <p className="text-sm text-muted-foreground dark:text-zinc-400 leading-relaxed">
-              {phase === 'complete'
-                ? `Reklam izleyerek ${reward} Jeton kazandınız!`
-                : phase === 'watching'
-                  ? 'Lütfen bekleyin, reklamınız oynatılıyor...'
-                  : 'Kısa bir reklam izleyerek ücretsiz jeton kazanabilirsiniz.'}
+              {phase === 'disabled'
+                ? 'Reklam ödülleri kapalı testte devre dışıdır.'
+                : phase === 'complete'
+                  ? `Reklam izleyerek ${reward} Jeton kazandınız!`
+                  : phase === 'watching'
+                    ? 'Lütfen bekleyin, reklamınız oynatılıyor...'
+                    : 'Kısa bir reklam izleyerek ücretsiz jeton kazanabilirsiniz.'}
             </p>
           </div>
         </div>
 
         {/* Body */}
         <div className="p-6 pt-4 flex flex-col gap-4">
+          {phase === 'disabled' && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <p className="text-sm text-center text-muted-foreground dark:text-zinc-400">
+                {CLOSED_TEST_UNAVAILABLE_MESSAGE}
+              </p>
+              <button
+                onClick={() => handleClose(false)}
+                className="w-full h-12 rounded-2xl bg-muted/50 dark:bg-zinc-800 text-accent dark:text-zinc-300 font-bold hover:bg-muted/70 transition-all"
+              >
+                Tamam
+              </button>
+            </div>
+          )}
+
           {phase === 'intro' && (
             <>
               {/* Info cards */}
@@ -201,15 +225,13 @@ export function AdRewardModal({ isOpen, onClose, onReward }: AdRewardModalProps)
           {phase === 'complete' && (
             <div className="flex flex-col items-center gap-5 py-3 animate-in fade-in zoom-in-95 duration-300">
               {/* Celebration emoji row */}
-              {celebration && (
-                <div className="flex items-center gap-1 animate-bounce">
-                  {['🎉', '✨', '🪙', '✨', '🎉'].map((emoji, i) => (
-                    <span key={i} className="text-2xl" style={{ animationDelay: `${i * 100}ms` }}>
-                      {emoji}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center gap-1 animate-bounce">
+                {['🎉', '✨', '🪙', '✨', '🎉'].map((emoji, i) => (
+                  <span key={i} className="text-2xl" style={{ animationDelay: `${i * 100}ms` }}>
+                    {emoji}
+                  </span>
+                ))}
+              </div>
 
               {/* Premium reward card */}
               <div className="w-full p-6 rounded-2xl bg-white dark:bg-[#1C1F2E] border border-gray-100 dark:border-gray-700 shadow-2xl dark:shadow-black/40 flex flex-col items-center gap-4">

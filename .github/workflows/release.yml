@@ -100,6 +100,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
           # DeepSeek API key bilerek ATLANDI — çağrılar Firebase Functions üzerinden gider
           NEXT_PUBLIC_ADMOB_MODE: production
+          NEXT_PUBLIC_ENABLE_REWARDED_ADS: false
+          NEXT_PUBLIC_ENABLE_VIP: false
+          NEXT_PUBLIC_ENABLE_FULL_ACCESS_PURCHASE: false
 
       - name: Verify build output
         run: |
