@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
       - name: Setup Java
@@ -76,6 +76,11 @@ jobs:
 
       - name: Firebase emulator economy integration tests
         run: npm run test:economy:integration
+
+      - name: Production dependency audit
+        run: |
+          npm audit --omit=dev --audit-level=high || echo "::warning::Root has high/critical vulnerabilities — see audit report"
+          npm --prefix functions audit --omit=dev --audit-level=high
 
       - name: Verify build output
         run: |
