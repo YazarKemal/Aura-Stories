@@ -13,9 +13,9 @@ on:
 
 jobs:
   build:
-    name: Build APK
+    name: Build & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -34,14 +34,20 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: actions/setup-android@v3
         with:
           packages: 'platforms;android-36 build-tools;36.0.0'
 
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm ci
 
-      - name: Build Next.js (static export → out/)
+      - name: Install functions dependencies
+        run: npm --prefix functions ci
+
+      - name: Root typecheck
+        run: npx tsc --noEmit
+
+      - name: Root production build
         run: npm run build
         env:
           NODE_ENV: production
@@ -52,6 +58,21 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'ci-dummy' }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID || 'ci-dummy' }}
           NEXT_PUBLIC_ADMOB_MODE: simulation
+
+      - name: Functions typecheck
+        run: npm --prefix functions run typecheck
+
+      - name: Functions build
+        run: npm --prefix functions run build
+
+      - name: Functions unit tests
+        run: npm --prefix functions test
+
+      - name: Firebase emulator rules tests
+        run: npm run test:rules
+
+      - name: Firebase emulator economy integration tests
+        run: npm run test:economy:integration
 
       - name: Verify build output
         run: |

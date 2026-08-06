@@ -27,31 +27,12 @@ interface VIPScreenProps {
 export function VIPScreen({ onBack }: VIPScreenProps) {
   const { userState } = useUserState();
   // Kapalı test: VIP devre dışı — tüm fonksiyonlar noop
-  const recordVipAdWatch = () => {};
-  const setVipTier = (_t: string) => {};
-  const resetVipProgress = () => {};
-  const grantVip = (_ms: number) => {};
-  const isVipActive = () => false;
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
-  const [vipUnlocked, setVipUnlocked] = useState(false);
+  const [adsWatched, setAdsWatched] = useState(0);
+  const [selectedTier, setSelectedTier] = useState('7days');
 
-  const adsWatched = userState.vipAdsWatched;
-  const selectedTier = userState.vipSelectedTier;
-
-  const handleAdReward = (amount: number) => {
-    recordVipAdWatch();
-    const next = adsWatched + 1;
-
-    // Seçili kademenin reklam hedefine ulaşıldı mı?
-    const tier = adTiers.find(t => t.id === selectedTier);
-    if (tier && next >= tier.ads) {
-      grantVip(tier.durationMs); // Kalıcı VIP — localStorage + girişliyse Firestore
-      setVipUnlocked(true);
-      setTimeout(() => {
-        resetVipProgress();
-        setVipUnlocked(false);
-      }, 3000);
-    }
+  const handleAdReward = (_amount: number) => {
+    // Kapalı test: VIP özelliği devre dışı
   };
 
   const perks = [
@@ -134,7 +115,7 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
               return (
                 <div
                   key={tier.id}
-                  onClick={() => { setVipTier(tier.id); setVipUnlocked(false); }}
+                  onClick={() => { setSelectedTier(tier.id); }}
                   className={cn(
                     "p-5 rounded-3xl transition-all duration-300 border-2 relative overflow-hidden cursor-pointer active:scale-[0.98]",
                     isSelected
@@ -174,17 +155,15 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
           </div>
         </section>
 
-        {/* VIP Unlocked Banner */}
-        {vipUnlocked && (
-          <div className="p-4 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-center animate-in fade-in zoom-in-95 duration-300">
-            <p className="text-amber-400 font-black text-sm">🎉 Tebrikler! VIP Kazanıldı!</p>
-            <p className="text-amber-300/70 text-[10px] mt-1">VIP ayrıcalıkların aktif edildi.</p>
-          </div>
-        )}
+        {/* Closed Test Notice */}
+        <div className="p-4 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-center">
+          <p className="text-amber-400 font-black text-sm">🚧 Kapalı Test Sürümü</p>
+          <p className="text-amber-300/70 text-[10px] mt-1">VIP özelliği şu anda kullanılamıyor.</p>
+        </div>
 
         {/* Info */}
         <div className="text-center space-y-2 opacity-40">
-           <p className="text-[9px] text-white leading-relaxed">Bir kademe seç, reklam izleyerek ilerle. Hedefe ulaşınca VIP süren hesabına eklenir.</p>
+           <p className="text-[9px] text-white leading-relaxed">VIP özelliği kapalı test sürümünde devre dışıdır.</p>
            <div className="flex justify-center gap-4 text-[9px] font-bold text-white uppercase tracking-tighter">
              <span>Kullanım Koşulları</span>
              <span>Gizlilik Politikası</span>
@@ -194,7 +173,7 @@ export function VIPScreen({ onBack }: VIPScreenProps) {
 
       {/* Sticky Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 p-8 pt-4 bg-gradient-to-t from-[#0F071A] via-[#0F071A] to-transparent z-[460] max-w-md mx-auto">
-        {(vipUnlocked || isVipActive()) ? (
+        {false ? (
           <Button
             onClick={onBack}
             className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-green-400 to-emerald-600 text-white text-xl font-black shadow-[0_15px_40px_rgba(52,211,153,0.4)] hover:scale-[1.02] active:scale-95 transition-all"

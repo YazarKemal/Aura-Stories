@@ -22,7 +22,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  increment,
   serverTimestamp,
   onSnapshot,
 } from 'firebase/firestore';
@@ -78,8 +77,6 @@ export interface FirestoreUser {
   wordsRead: number;
   streak: number;
   lastGiftClaimedAt: string | null;
-  /** VIP bitiş zamanı (ISO string) — null: VIP yok */
-  vipUntil: string | null;
 }
 
 export async function getFirestoreUser(uid: string): Promise<FirestoreUser | null> {
@@ -104,32 +101,9 @@ export async function createFirestoreUser(
     wordsRead: 0,
     streak: 0,
     lastGiftClaimedAt: null,
-    vipUntil: null,
   };
   await setDoc(doc(db, 'users', uid), user);
   return user;
-}
-
-/** Firestore üzerinden jeton ekle/çıkar. Atomik increment kullanır. */
-export async function updateFirestoreCredits(uid: string, delta: number): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    credits: increment(delta),
-  });
-}
-
-/** VIP bitiş zamanını Firestore'a yaz (ISO string, null = VIP yok). */
-export async function updateVipUntil(uid: string, vipUntilIso: string | null): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    vipUntil: vipUntilIso,
-  });
-}
-
-/** Günlük hediye alındı olarak işaretle. */
-export async function claimDailyGift(uid: string): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    lastGiftClaimedAt: new Date().toISOString(),
-    credits: increment(50),
-  });
 }
 
 /** Bugün hediye alınmış mı? */
@@ -323,7 +297,7 @@ export async function loadAllEntitlements(uid: string): Promise<Record<string, S
   } catch { return {}; }
 }
 
-/** Entitlement değişikliklerini gerçek zamanlı dinle */
+/** Entitlement değişikliklerini gerçek zamanlı dinle (tek hikaye) */
 export function onEntitlementSnapshot(
   uid: string,
   storyId: string,
@@ -331,6 +305,21 @@ export function onEntitlementSnapshot(
 ) {
   return onSnapshot(doc(db, 'users', uid, 'entitlements', storyId), (snap) => {
     callback(snap.exists() ? (snap.data() as StoryEntitlement) : null);
+  });
+}
+
+/**
+ * Tüm entitlement koleksiyonunu gerçek zamanlı dinle.
+ * Functions yeni entitlement yazdığında UI otomatik güncellenir.
+ */
+export function onEntitlementsSnapshot(
+  uid: string,
+  callback: (entitlements: Record<string, StoryEntitlement>) => void
+) {
+  return onSnapshot(collection(db, 'users', uid, 'entitlements'), (snap) => {
+    const result: Record<string, StoryEntitlement> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as StoryEntitlement; });
+    callback(result);
   });
 }
 
