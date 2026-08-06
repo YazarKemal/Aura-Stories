@@ -112,9 +112,11 @@ describe('reserveCredits — idempotency', () => {
   });
 
   it('yetersiz bakiye reddedilir', async () => {
+    // 50 kredili ayrı bir kullanıcı — full_access (75) için yetersiz
+    await seedUser('user-poor', 50);
     const { reserveCredits } = await import('./economy');
     try {
-      await reserveCredits('user1', 'full_access', 'op-poor');
+      await reserveCredits('user-poor', 'full_access', 'op-poor');
       assert.fail('Hata fırlatmalıydı');
     } catch (err: any) {
       assert.equal(err.code, 'INSUFFICIENT_CREDITS');
