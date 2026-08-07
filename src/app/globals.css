@@ -27,25 +27,25 @@
   }
   .dark {
     /* ── Premium Cinematic Dark Theme ───────────────────── */
-    --background: 228 19% 5%;        /* Deep cinematic black #0B0C10 */
-    --foreground: 240 10% 92%;       /* Clean near-white */
-    --card: 228 22% 10%;             /* Frosted glass base #141620 */
+    --background: 228 19% 5%;
+    --foreground: 240 10% 92%;
+    --card: 228 22% 10%;
     --card-foreground: 240 10% 92%;
     --popover: 228 22% 10%;
     --popover-foreground: 240 10% 92%;
-    --primary: 271 91% 65%;          /* Neon lilac #A855F7 */
+    --primary: 271 91% 65%;
     --primary-foreground: 228 19% 5%;
-    --secondary: 228 19% 14%;        /* Deep charcoal */
+    --secondary: 228 19% 14%;
     --secondary-foreground: 240 10% 88%;
     --muted: 228 15% 14%;
-    --muted-foreground: 240 5% 70%;  /* zinc-300/400 — high readability */
-    --accent: 43 96% 58%;            /* Soft gold/amber */
+    --muted-foreground: 240 5% 70%;
+    --accent: 43 96% 58%;
     --accent-foreground: 228 19% 5%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 228 15% 16%;           /* Subtle borders */
+    --border: 228 15% 16%;
     --input: 228 15% 16%;
-    --ring: 271 91% 65%;             /* Match primary glow */
+    --ring: 271 91% 65%;
   }
 }
 
@@ -90,13 +90,21 @@
   scrollbar-width: none;
 }
 
+.aura-touch-target {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Aura Vision kendi kapatma kontrolünü çiziyor; ortak Dialog X'ini ikinci kez gösterme. */
 [role="dialog"]:has(button.glass-morphism) > [data-aura-close] {
   display: none;
 }
 
-/* Dokunmatik cihazlarda paragraf aksiyonları için en az 44px dokunma hedefi sağla.
-   Mevcut görünürlük davranışını koruyoruz; yalnızca mobil hit-area'yı büyütüyoruz. */
+/* Dokunmatik cihazlarda paragraf aksiyonları için en az 44px dokunma hedefi sağla. */
 @media (hover: none) and (pointer: coarse) {
   .group\/para > div[class*="-right-12"],
   .group\/para > div[class*="-right-10"] {
