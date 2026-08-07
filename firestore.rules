@@ -1,5 +1,5 @@
 // ── Aura Stories Firestore Security Rules ──────────────────────
-// Sürüm: 3.0.0 — Server-authoritative economy + entitlements
+// Sürüm: 3.1.0 — Server-authoritative economy + paragraph comments
 //
 // GÜVENLİK MODELİ:
 // - credits/role/vipUntil/lastGiftClaimedAt/createdAt: SUNUCU KONTROLLÜ
@@ -40,8 +40,6 @@ service cloud.firestore {
 
       allow read: if isOwner(uid) || isAdmin();
 
-      // UPDATE: yalnızca name/email değiştirilebilir
-      // credits/role/vipUntil/lastGiftClaimedAt/createdAt IMMUTABLE
       allow update: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'uid','email','name','role','credits','createdAt',
@@ -63,11 +61,8 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // ── Progress (client yalnızca güvenli okuma alanlarını yazabilir) ──
       match /progress/{storyId} {
         allow read: if isOwner(uid) || isAdmin();
-        // keys().hasOnly: hasFullAccess/unlockedChapters KABUL EDİLMEZ
-        // Bu alanlar yalnızca Admin SDK ile entitlements üzerinden yazılır
         allow create, update: if isOwner(uid)
           && request.resource.data.keys().hasOnly(['activeChapter', 'fateChoices', 'generatedChapters'])
           && request.resource.data.activeChapter is number
@@ -80,19 +75,16 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // ── Entitlements — YALNIZCA Functions ──────────────────
       match /entitlements/{storyId} {
         allow read: if isOwner(uid) || isAdmin();
-        allow write: if false; // Admin SDK only
+        allow write: if false;
       }
 
-      // ── Transactions (ledger) — YALNIZCA Functions ─────────
       match /transactions/{operationId} {
         allow read: if isOwner(uid) || isAdmin();
-        allow write: if false; // Admin SDK only
+        allow write: if false;
       }
 
-      // ── Chat Messages ──────────────────────────────────────
       match /chats/{storyId}/{characterId}/messages/{msgId} {
         allow read: if isOwner(uid) || isAdmin();
         allow create: if isOwner(uid)
@@ -104,7 +96,6 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      // ── Journal ────────────────────────────────────────────
       match /journal/{date} {
         allow read: if isOwner(uid) || isAdmin();
         allow create, update: if isOwner(uid)
@@ -117,7 +108,6 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // ── Rate Limits — YALNIZCA Functions ───────────────────
       match /rateLimits/{operation} {
         allow read, write: if false;
       }
@@ -140,6 +130,32 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // PARAGRAF YORUMLARI
+    // paragraphComments/{storyKey}/paragraphs/{paragraphKey}/items/{commentId}
+    // ═══════════════════════════════════════════════════════════
+    match /paragraphComments/{storyKey}/paragraphs/{paragraphKey}/items/{commentId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly([
+          'uid','userName','text','storyTitle','paragraphPreview','createdAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.userName is string
+        && request.resource.data.userName.size() > 0
+        && request.resource.data.userName.size() <= 100
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 800
+        && request.resource.data.storyTitle is string
+        && request.resource.data.storyTitle.size() <= 200
+        && request.resource.data.paragraphPreview is string
+        && request.resource.data.paragraphPreview.size() <= 300
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // AI İÇERİK RAPORLARI
     // ═══════════════════════════════════════════════════════════
     match /contentReports/{docId} {
@@ -156,18 +172,13 @@ service cloud.firestore {
         && request.resource.data.contentPreview is string && request.resource.data.contentPreview.size() <= 500
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 200
         && request.resource.data.createdAt is string && request.resource.data.createdAt.size() <= 50
-        // Opsiyonel alanlar — varsa tür/uzunluk doğrulaması
         && (!('chapterNumber' in request.resource.data) || request.resource.data.chapterNumber is number)
         && (!('characterName' in request.resource.data) || (request.resource.data.characterName is string && request.resource.data.characterName.size() <= 100))
         && (!('messageId' in request.resource.data) || (request.resource.data.messageId is string && request.resource.data.messageId.size() <= 100));
-        // NOT: serverCreatedAt client'dan KABUL EDİLMEZ (keys().hasOnly dışında)
 
       allow read, update, delete: if isAdmin();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // GLOBAL: bilinmeyen koleksiyonlara erişimi engelle
-    // ═══════════════════════════════════════════════════════════
     match /{document=**} {
       allow read, write: if isAdmin();
     }
