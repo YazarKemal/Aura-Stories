@@ -2,7 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { shareAuraStoryImage } from '@/lib/native-share';
-import { speakStoryText, stopStorySpeech } from '@/lib/native-tts';
+import {
+  addTtsProgressListener,
+  speakStoryText,
+  stopStorySpeech,
+  type TtsProgressEvent,
+} from '@/lib/native-tts';
 import { useToast } from '@/hooks/use-toast';
 
 function wrapText(
@@ -107,7 +112,7 @@ function createStoryCard(dialog: HTMLElement): string {
 }
 
 function getReadableStoryText(): string {
-  const paragraphs = Array.from(document.querySelectorAll('.group\\/para p'))
+  const paragraphs = Array.from(document.querySelectorAll('[class*="group/para"] p'))
     .map((node) => node.textContent?.trim())
     .filter((value): value is string => Boolean(value));
 
@@ -125,18 +130,159 @@ function getAudioPanel(button: HTMLButtonElement): HTMLElement | null {
   return null;
 }
 
+function getPlayButton(panel: HTMLElement | null): HTMLButtonElement | null {
+  if (!panel) return null;
+  const buttons = Array.from(panel.querySelectorAll('button')) as HTMLButtonElement[];
+  return buttons.find((candidate) =>
+    candidate.className.includes('w-12') && candidate.className.includes('h-12')
+  ) || null;
+}
+
+function formatClock(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function estimateSpeechDuration(text: string, rate: number): number {
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const wordsPerMinute = 165 * Math.max(0.5, rate);
+  return Math.max(1, (wordCount / wordsPerMinute) * 60);
+}
+
+function updateAudioPanel(
+  panel: HTMLElement | null,
+  progressPercent: number,
+  elapsedSeconds: number,
+  totalSeconds: number,
+) {
+  if (!panel) return;
+  const percent = Math.max(0, Math.min(100, progressPercent));
+
+  const progressRoot = panel.querySelector('[role="progressbar"]') as HTMLElement | null;
+  if (progressRoot) {
+    progressRoot.setAttribute('aria-valuenow', String(Math.round(percent)));
+    const indicator = progressRoot.firstElementChild as HTMLElement | null;
+    if (indicator) indicator.style.transform = `translateX(-${100 - percent}%)`;
+  }
+
+  const timeLabels = Array.from(panel.querySelectorAll('span'))
+    .filter((node) => /^\d{2,}:\d{2}$/.test(node.textContent?.trim() || '')) as HTMLElement[];
+  if (timeLabels[0]) timeLabels[0].textContent = formatClock(elapsedSeconds);
+  if (timeLabels[1]) timeLabels[1].textContent = formatClock(totalSeconds);
+}
+
+function installPasswordVisibilityToggles() {
+  document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach((input) => {
+    if (input.dataset.auraPasswordToggle === 'true') return;
+    input.dataset.auraPasswordToggle = 'true';
+    input.classList.add('pr-20');
+
+    const wrapper = input.parentElement;
+    if (!wrapper) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'absolute right-3 top-1/2 -translate-y-1/2 min-h-9 px-2 rounded-lg text-[11px] font-bold text-primary hover:bg-primary/10 active:scale-95 transition-all z-10';
+    button.textContent = 'Göster';
+    button.setAttribute('aria-label', 'Şifreyi göster');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      button.textContent = showing ? 'Göster' : 'Gizle';
+      button.setAttribute('aria-label', showing ? 'Şifreyi göster' : 'Şifreyi gizle');
+      input.focus();
+    });
+    wrapper.appendChild(button);
+  });
+}
+
 export function MobileNativeBridge() {
   const { toast } = useToast();
   const ttsActiveRef = useRef(false);
+  const ttsFinishingRef = useRef(false);
+  const ttsStartedAtRef = useRef(0);
+  const ttsDurationRef = useRef(0);
+  const activeAudioPanelRef = useRef<HTMLElement | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const stopTtsSafely = async () => {
+    installPasswordVisibilityToggles();
+    const observer = new MutationObserver(() => installPasswordVisibilityToggles());
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let listenerHandle: { remove: () => Promise<void> } | null = null;
+
+    const handleProgress = (event: TtsProgressEvent) => {
+      const panel = activeAudioPanelRef.current;
+      if (!panel) return;
+
+      const elapsed = Math.max(0, (Date.now() - ttsStartedAtRef.current) / 1000);
+      const length = Math.max(1, event.length || 1);
+      const progress = event.state === 'done'
+        ? 100
+        : Math.max(0, Math.min(100, (event.end / length) * 100));
+      const total = Math.max(elapsed, ttsDurationRef.current);
+      updateAudioPanel(panel, progress, elapsed, total);
+
+      if (event.state === 'done') {
+        ttsActiveRef.current = false;
+        if (fallbackTimerRef.current) {
+          clearInterval(fallbackTimerRef.current);
+          fallbackTimerRef.current = null;
+        }
+        updateAudioPanel(panel, 100, total, total);
+
+        const playButton = getPlayButton(panel);
+        if (playButton) {
+          ttsFinishingRef.current = true;
+          setTimeout(() => {
+            playButton.click();
+            ttsFinishingRef.current = false;
+          }, 50);
+        }
+      } else if (event.state === 'error') {
+        ttsActiveRef.current = false;
+        toast({
+          title: 'Sesli okuma durdu',
+          description: 'Android ses motoru okumayı tamamlayamadı.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    void addTtsProgressListener(handleProgress).then((handle) => {
+      listenerHandle = handle;
+    }).catch((error) => {
+      console.warn('[AuraTTS] Progress listener kurulamadı:', error);
+    });
+
+    return () => {
+      if (listenerHandle) void listenerHandle.remove();
+    };
+  }, [toast]);
+
+  useEffect(() => {
+    const stopTtsSafely = async (resetPanel = true) => {
       if (!ttsActiveRef.current) return;
       ttsActiveRef.current = false;
+      if (fallbackTimerRef.current) {
+        clearInterval(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
       try {
         await stopStorySpeech();
       } catch (error) {
         console.warn('[AuraTTS] Ses durdurulamadı:', error);
+      }
+      if (resetPanel) {
+        updateAudioPanel(activeAudioPanelRef.current, 0, 0, ttsDurationRef.current);
       }
     };
 
@@ -147,7 +293,6 @@ export function MobileNativeBridge() {
 
       const label = button.textContent?.replace(/\s+/g, ' ').trim() || '';
 
-      // Android/Web Instagram Story paylaşımı
       if (label.includes('Instagram Hikayesi Olarak Paylaş')) {
         if (button.dataset.auraSharing === 'true') return;
         const dialog = button.closest('[role="dialog"]') as HTMLElement | null;
@@ -178,24 +323,23 @@ export function MobileNativeBridge() {
         return;
       }
 
-      // Hikâyeden çıkarken sesi kes.
       if (button.getAttribute('aria-label') === 'Geri dön') {
         void stopTtsSafely();
         return;
       }
 
-      // Mevcut sesli okuma panelini gerçek TTS motoruna bağla.
       const audioPanel = getAudioPanel(button);
       if (!audioPanel) return;
 
       const panelButtons = Array.from(audioPanel.querySelectorAll('button')) as HTMLButtonElement[];
-      const playButton = panelButtons.find((candidate) =>
-        candidate.className.includes('w-12') && candidate.className.includes('h-12')
-      );
+      const playButton = getPlayButton(audioPanel);
 
       if (button === playButton) {
+        // Native onDone sonrası yalnızca React play/pause ikonunu normale döndür.
+        if (ttsFinishingRef.current) return;
+
         if (ttsActiveRef.current) {
-          await stopTtsSafely();
+          await stopTtsSafely(true);
           return;
         }
 
@@ -211,10 +355,25 @@ export function MobileNativeBridge() {
 
         const speedButton = panelButtons.find((candidate) => /^(1|1\.25|1\.5|2)x$/.test(candidate.textContent?.trim() || ''));
         const rate = Number.parseFloat(speedButton?.textContent || '1') || 1;
+        const duration = estimateSpeechDuration(storyText, rate);
+
+        activeAudioPanelRef.current = audioPanel;
+        ttsStartedAtRef.current = Date.now();
+        ttsDurationRef.current = duration;
+        updateAudioPanel(audioPanel, 0, 0, duration);
 
         try {
           await speakStoryText(storyText, rate);
           ttsActiveRef.current = true;
+
+          // onRangeStart olmayan eski Android TTS motorlarında süre yine canlı aksın.
+          if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
+          fallbackTimerRef.current = setInterval(() => {
+            if (!ttsActiveRef.current) return;
+            const elapsed = Math.max(0, (Date.now() - ttsStartedAtRef.current) / 1000);
+            const fallbackProgress = Math.min(99, (elapsed / Math.max(1, ttsDurationRef.current)) * 100);
+            updateAudioPanel(activeAudioPanelRef.current, fallbackProgress, elapsed, ttsDurationRef.current);
+          }, 500);
         } catch (error) {
           ttsActiveRef.current = false;
           console.error('[AuraTTS] Sesli okuma başlatılamadı:', error);
@@ -227,7 +386,6 @@ export function MobileNativeBridge() {
         return;
       }
 
-      // Player kapatma düğmesi: paneli kapatırken TTS'yi de durdur.
       if (button.className.includes('p-1.5') && button.className.includes('rounded-full')) {
         void stopTtsSafely();
       }
@@ -242,6 +400,7 @@ export function MobileNativeBridge() {
     return () => {
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
       void stopTtsSafely();
     };
   }, [toast]);
