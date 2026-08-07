@@ -1,10 +1,25 @@
 'use client';
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import {
+  Capacitor,
+  registerPlugin,
+  type PluginListenerHandle,
+} from '@capacitor/core';
+
+export interface TtsProgressEvent {
+  state: 'start' | 'progress' | 'done' | 'error';
+  start: number;
+  end: number;
+  length: number;
+}
 
 interface AuraTtsPlugin {
-  speak(options: { text: string; rate?: number; language?: string }): Promise<{ speaking: boolean }>;
+  speak(options: { text: string; rate?: number; language?: string }): Promise<{ speaking: boolean; length?: number }>;
   stop(): Promise<{ speaking: boolean }>;
+  addListener(
+    eventName: 'progress',
+    listenerFunc: (event: TtsProgressEvent) => void
+  ): Promise<PluginListenerHandle>;
 }
 
 const AuraTts = registerPlugin<AuraTtsPlugin>('AuraTts');
@@ -38,4 +53,11 @@ export async function stopStorySpeech(): Promise<void> {
     window.speechSynthesis.cancel();
   }
   webUtterance = null;
+}
+
+export async function addTtsProgressListener(
+  listener: (event: TtsProgressEvent) => void
+): Promise<PluginListenerHandle | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  return AuraTts.addListener('progress', listener);
 }
