@@ -1,6 +1,7 @@
 
 import type {Metadata} from 'next';
 import { Providers } from '@/components/providers';
+import { MobileNativeBridge } from '@/components/mobile-native-bridge';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -34,7 +35,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-[#fcf8ff] dark:bg-[#0D0E12] text-zinc-900 dark:text-zinc-100">
-        <Providers>{children}</Providers>
+        <Providers>
+          <MobileNativeBridge />
+          {children}
+        </Providers>
       </body>
     </html>
   );
