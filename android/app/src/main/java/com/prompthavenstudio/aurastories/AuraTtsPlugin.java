@@ -1,6 +1,7 @@
 package com.prompthavenstudio.aurastories;
 
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -14,6 +15,7 @@ import java.util.Locale;
 public class AuraTtsPlugin extends Plugin {
     private TextToSpeech textToSpeech;
     private boolean ready = false;
+    private volatile int currentTextLength = 0;
 
     @Override
     public void load() {
@@ -24,6 +26,48 @@ public class AuraTtsPlugin extends Plugin {
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     textToSpeech.setLanguage(Locale.getDefault());
                 }
+
+                textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override
+                    public void onStart(String utteranceId) {
+                        JSObject data = new JSObject();
+                        data.put("state", "start");
+                        data.put("start", 0);
+                        data.put("end", 0);
+                        data.put("length", currentTextLength);
+                        notifyListeners("progress", data);
+                    }
+
+                    @Override
+                    public void onRangeStart(String utteranceId, int start, int end, int frame) {
+                        JSObject data = new JSObject();
+                        data.put("state", "progress");
+                        data.put("start", start);
+                        data.put("end", end);
+                        data.put("length", currentTextLength);
+                        notifyListeners("progress", data);
+                    }
+
+                    @Override
+                    public void onDone(String utteranceId) {
+                        JSObject data = new JSObject();
+                        data.put("state", "done");
+                        data.put("start", currentTextLength);
+                        data.put("end", currentTextLength);
+                        data.put("length", currentTextLength);
+                        notifyListeners("progress", data);
+                    }
+
+                    @Override
+                    public void onError(String utteranceId) {
+                        JSObject data = new JSObject();
+                        data.put("state", "error");
+                        data.put("start", 0);
+                        data.put("end", 0);
+                        data.put("length", currentTextLength);
+                        notifyListeners("progress", data);
+                    }
+                });
             }
         });
     }
@@ -52,6 +96,7 @@ public class AuraTtsPlugin extends Plugin {
         float rate = rateValue == null ? 1.0f : rateValue.floatValue();
         rate = Math.max(0.5f, Math.min(rate, 2.0f));
         textToSpeech.setSpeechRate(rate);
+        currentTextLength = text.length();
 
         int result = textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "aura-story");
         if (result == TextToSpeech.ERROR) {
@@ -61,6 +106,7 @@ public class AuraTtsPlugin extends Plugin {
 
         JSObject response = new JSObject();
         response.put("speaking", true);
+        response.put("length", currentTextLength);
         call.resolve(response);
     }
 
@@ -88,6 +134,7 @@ public class AuraTtsPlugin extends Plugin {
             textToSpeech.shutdown();
             textToSpeech = null;
         }
+        currentTextLength = 0;
         ready = false;
     }
 }
