@@ -1,6 +1,5 @@
 package com.prompthavenstudio.aurastories;
 
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Base64;
@@ -58,19 +57,19 @@ public class AuraSharePlugin extends Plugin {
             instagram.setDataAndType(uri, "image/png");
             instagram.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             instagram.setPackage("com.instagram.android");
-            getContext().grantUriPermission(
-                "com.instagram.android",
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            );
 
             try {
+                getContext().grantUriPermission(
+                    "com.instagram.android",
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                );
                 getActivity().startActivity(instagram);
                 JSObject result = new JSObject();
                 result.put("target", "instagram_story");
                 call.resolve(result);
                 return;
-            } catch (ActivityNotFoundException ignored) {
+            } catch (Exception ignored) {
                 // Instagram yoksa veya Story intent'i desteklenmiyorsa Android paylaşım menüsüne düş.
             }
 
