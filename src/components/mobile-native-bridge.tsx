@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { shareAuraStoryImage } from '@/lib/native-share';
+import { useToast } from '@/hooks/use-toast';
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
@@ -105,6 +106,8 @@ function createStoryCard(dialog: HTMLElement): string {
 }
 
 export function MobileNativeBridge() {
+  const { toast } = useToast();
+
   useEffect(() => {
     const handleClick = async (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -130,9 +133,11 @@ export function MobileNativeBridge() {
         await shareAuraStoryImage(dataUrl);
       } catch (error) {
         console.error('[AuraShare] Instagram paylaşımı başarısız:', error);
-        window.dispatchEvent(new CustomEvent('aura:native-share-error', {
-          detail: error instanceof Error ? error.message : 'Instagram paylaşımı başarısız oldu.',
-        }));
+        toast({
+          title: 'Paylaşım başarısız',
+          description: error instanceof Error ? error.message : 'Instagram paylaşımı başlatılamadı.',
+          variant: 'destructive',
+        });
       } finally {
         delete button.dataset.auraSharing;
         button.removeAttribute('aria-busy');
@@ -142,7 +147,7 @@ export function MobileNativeBridge() {
 
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
-  }, []);
+  }, [toast]);
 
   return null;
 }
