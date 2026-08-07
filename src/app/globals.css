@@ -95,12 +95,12 @@
   display: none;
 }
 
-/* Dokunmatik cihazlarda paragraf aksiyonlarını hover'a bağımlı bırakma ve 44px hedef sağla. */
+/* Dokunmatik cihazlarda paragraf aksiyonları için en az 44px dokunma hedefi sağla.
+   Mevcut görünürlük davranışını koruyoruz; yalnızca mobil hit-area'yı büyütüyoruz. */
 @media (hover: none) and (pointer: coarse) {
   .group\/para > div[class*="-right-12"],
   .group\/para > div[class*="-right-10"] {
     right: 0.25rem !important;
-    opacity: 1 !important;
     gap: 0.125rem !important;
   }
 
