@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { shareAuraStoryImage } from '@/lib/native-share';
+import { speakStoryText, stopStorySpeech } from '@/lib/native-tts';
 import { useToast } from '@/hooks/use-toast';
 
 function wrapText(
@@ -105,48 +106,144 @@ function createStoryCard(dialog: HTMLElement): string {
   return canvas.toDataURL('image/png', 1);
 }
 
+function getReadableStoryText(): string {
+  const paragraphs = Array.from(document.querySelectorAll('.group\\/para p'))
+    .map((node) => node.textContent?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(paragraphs)).join('\n\n');
+}
+
+function getAudioPanel(button: HTMLButtonElement): HTMLElement | null {
+  let node: HTMLElement | null = button.parentElement;
+  while (node) {
+    if (node.textContent?.includes('Sesli Okuma') && node.querySelector('button')) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 export function MobileNativeBridge() {
   const { toast } = useToast();
+  const ttsActiveRef = useRef(false);
 
   useEffect(() => {
+    const stopTtsSafely = async () => {
+      if (!ttsActiveRef.current) return;
+      ttsActiveRef.current = false;
+      try {
+        await stopStorySpeech();
+      } catch (error) {
+        console.warn('[AuraTTS] Ses durdurulamadı:', error);
+      }
+    };
+
     const handleClick = async (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       const button = target?.closest('button') as HTMLButtonElement | null;
       if (!button) return;
 
       const label = button.textContent?.replace(/\s+/g, ' ').trim() || '';
-      if (!label.includes('Instagram Hikayesi Olarak Paylaş')) return;
-      if (button.dataset.auraSharing === 'true') return;
 
-      const dialog = button.closest('[role="dialog"]') as HTMLElement | null;
-      if (!dialog) return;
+      // Android/Web Instagram Story paylaşımı
+      if (label.includes('Instagram Hikayesi Olarak Paylaş')) {
+        if (button.dataset.auraSharing === 'true') return;
+        const dialog = button.closest('[role="dialog"]') as HTMLElement | null;
+        if (!dialog) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      button.dataset.auraSharing = 'true';
-      button.setAttribute('aria-busy', 'true');
-      const previousOpacity = button.style.opacity;
-      button.style.opacity = '0.65';
+        event.preventDefault();
+        event.stopPropagation();
+        button.dataset.auraSharing = 'true';
+        button.setAttribute('aria-busy', 'true');
+        const previousOpacity = button.style.opacity;
+        button.style.opacity = '0.65';
 
-      try {
-        const dataUrl = createStoryCard(dialog);
-        await shareAuraStoryImage(dataUrl);
-      } catch (error) {
-        console.error('[AuraShare] Instagram paylaşımı başarısız:', error);
-        toast({
-          title: 'Paylaşım başarısız',
-          description: error instanceof Error ? error.message : 'Instagram paylaşımı başlatılamadı.',
-          variant: 'destructive',
-        });
-      } finally {
-        delete button.dataset.auraSharing;
-        button.removeAttribute('aria-busy');
-        button.style.opacity = previousOpacity;
+        try {
+          const dataUrl = createStoryCard(dialog);
+          await shareAuraStoryImage(dataUrl);
+        } catch (error) {
+          console.error('[AuraShare] Instagram paylaşımı başarısız:', error);
+          toast({
+            title: 'Paylaşım başarısız',
+            description: error instanceof Error ? error.message : 'Instagram paylaşımı başlatılamadı.',
+            variant: 'destructive',
+          });
+        } finally {
+          delete button.dataset.auraSharing;
+          button.removeAttribute('aria-busy');
+          button.style.opacity = previousOpacity;
+        }
+        return;
+      }
+
+      // Hikâyeden çıkarken sesi kes.
+      if (button.getAttribute('aria-label') === 'Geri dön') {
+        void stopTtsSafely();
+        return;
+      }
+
+      // Mevcut sesli okuma panelini gerçek TTS motoruna bağla.
+      const audioPanel = getAudioPanel(button);
+      if (!audioPanel) return;
+
+      const panelButtons = Array.from(audioPanel.querySelectorAll('button')) as HTMLButtonElement[];
+      const playButton = panelButtons.find((candidate) =>
+        candidate.className.includes('w-12') && candidate.className.includes('h-12')
+      );
+
+      if (button === playButton) {
+        if (ttsActiveRef.current) {
+          await stopTtsSafely();
+          return;
+        }
+
+        const storyText = getReadableStoryText();
+        if (!storyText) {
+          toast({
+            title: 'Sesli okuma başlatılamadı',
+            description: 'Okunacak hikâye metni bulunamadı.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const speedButton = panelButtons.find((candidate) => /^(1|1\.25|1\.5|2)x$/.test(candidate.textContent?.trim() || ''));
+        const rate = Number.parseFloat(speedButton?.textContent || '1') || 1;
+
+        try {
+          await speakStoryText(storyText, rate);
+          ttsActiveRef.current = true;
+        } catch (error) {
+          ttsActiveRef.current = false;
+          console.error('[AuraTTS] Sesli okuma başlatılamadı:', error);
+          toast({
+            title: 'Sesli okuma başlatılamadı',
+            description: error instanceof Error ? error.message : 'Android ses motoru kullanılamadı.',
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
+
+      // Player kapatma düğmesi: paneli kapatırken TTS'yi de durdur.
+      if (button.className.includes('p-1.5') && button.className.includes('rounded-full')) {
+        void stopTtsSafely();
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) void stopTtsSafely();
+    };
+
     document.addEventListener('click', handleClick, true);
-    return () => document.removeEventListener('click', handleClick, true);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      void stopTtsSafely();
+    };
   }, [toast]);
 
   return null;
