@@ -35,7 +35,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Singleton — SSR sırasında çift init'i engelle
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -77,6 +76,7 @@ export interface FirestoreUser {
   wordsRead: number;
   streak: number;
   lastGiftClaimedAt: string | null;
+  vipUntil: string | null;
 }
 
 export async function getFirestoreUser(uid: string): Promise<FirestoreUser | null> {
@@ -89,6 +89,10 @@ export async function createFirestoreUser(
   email: string,
   name: string
 ): Promise<FirestoreUser> {
+  // Firestore rules, server-authoritative alanların ilk kullanıcı belgesinde
+  // açıkça bulunmasını bekliyor. vipUntil eksik olduğunda Firebase Auth hesabı
+  // oluşuyor fakat profil belgesi reddediliyor; bu da sonraki kayıt denemesinde
+  // "email-already-in-use" hatasına yol açıyordu.
   const user: FirestoreUser = {
     uid,
     email,
@@ -101,6 +105,7 @@ export async function createFirestoreUser(
     wordsRead: 0,
     streak: 0,
     lastGiftClaimedAt: null,
+    vipUntil: null,
   };
   await setDoc(doc(db, 'users', uid), user);
   return user;
@@ -118,7 +123,6 @@ export function isGiftClaimedToday(lastClaimedAt: string | null | undefined): bo
   );
 }
 
-/** Kullanıcı belgesini gerçek zamanlı dinle. Değişiklik anında callback ateşlenir. */
 export function onUserSnapshot(
   uid: string,
   callback: (user: FirestoreUser | null) => void
@@ -133,7 +137,6 @@ import type { Story, Category } from '@/lib/types';
 
 // ── Stories (Firestore Collection) ──────────────────────────
 
-/** Tüm hikayeleri Firestore'dan çek. Hata durumunda boş dizi döner. */
 export async function getStories(): Promise<Story[]> {
   try {
     const snap = await getDocs(collection(db, 'stories'));
@@ -144,7 +147,6 @@ export async function getStories(): Promise<Story[]> {
   }
 }
 
-/** Hikayeler koleksiyonunu gerçek zamanlı dinle. */
 export function onStoriesSnapshot(callback: (stories: Story[]) => void) {
   return onSnapshot(
     collection(db, 'stories'),
@@ -152,16 +154,12 @@ export function onStoriesSnapshot(callback: (stories: Story[]) => void) {
       callback(snap.docs.map(d => d.data() as Story));
     },
     (err) => {
-      // Hata durumunda callback HİÇ tetiklenmiyordu → çağıranlar sonsuza
-      // kadar loading iskeletinde kalıyordu. Boş dizi ile tetikle,
-      // fallback kararını çağıran versin.
       console.warn('[Firestore] Hikaye dinleyicisi hatası:', err);
       callback([]);
     }
   );
 }
 
-/** Kategorileri Firestore'dan çek. */
 export async function getCategories(): Promise<Category[]> {
   try {
     const snap = await getDocs(collection(db, 'categories'));
@@ -172,7 +170,6 @@ export async function getCategories(): Promise<Category[]> {
   }
 }
 
-/** Seed: mock-data'daki hikaye ve kategorileri Firestore'a yaz (bir kere çalıştır). */
 export async function seedStoriesToFirestore(stories: Story[], categories: Category[]) {
   const { setDoc: seedSetDoc } = await import('firebase/firestore');
   for (const cat of categories) {
@@ -189,10 +186,8 @@ export interface StoryProgress {
   activeChapter: number;
   fateChoices: { chapterNumber: number; selectedOption: string; optionText: string; isForceChoice: boolean }[];
   generatedChapters: { chapterNumber: number; title: string; content: string; optionA: string; optionB: string }[];
-  /** Entitlement verisi — yalnızca entitlements/{storyId} koleksiyonundan okunur, progress'ten DEĞİL */
 }
 
-/** Kullanıcının tüm hikaye ilerlemelerini Firestore'dan yükle */
 export async function loadAllProgress(uid: string): Promise<Record<string, StoryProgress>> {
   try {
     const snap = await getDocs(collection(db, 'users', uid, 'progress'));
@@ -202,7 +197,6 @@ export async function loadAllProgress(uid: string): Promise<Record<string, Story
   } catch { return {}; }
 }
 
-/** Tek bir hikayenin ilerlemesini Firestore'a kaydet */
 export async function saveProgress(uid: string, storyId: string, progress: StoryProgress): Promise<void> {
   try {
     await setDoc(firestoreDoc(db, 'users', uid, 'progress', storyId), progress);
@@ -218,7 +212,6 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-/** Kullanıcının bir karakterle olan sohbet geçmişini yükle */
 export async function loadChatHistory(
   uid: string, storyId: string, characterId: string
 ): Promise<ChatMessage[]> {
@@ -231,7 +224,6 @@ export async function loadChatHistory(
   } catch { return []; }
 }
 
-/** Yeni bir mesajı Firestore'a kaydet */
 export async function saveChatMessage(
   uid: string, storyId: string, characterId: string, message: ChatMessage
 ): Promise<void> {
@@ -279,7 +271,6 @@ export interface StoryEntitlement {
   updatedAt?: string;
 }
 
-/** Kullanıcının bir hikaye için entitlement'ını Firestore'dan oku */
 export async function getEntitlement(uid: string, storyId: string): Promise<StoryEntitlement | null> {
   try {
     const snap = await getDoc(doc(db, 'users', uid, 'entitlements', storyId));
@@ -287,7 +278,6 @@ export async function getEntitlement(uid: string, storyId: string): Promise<Stor
   } catch { return null; }
 }
 
-/** Kullanıcının tüm entitlement'larını yükle */
 export async function loadAllEntitlements(uid: string): Promise<Record<string, StoryEntitlement>> {
   try {
     const snap = await getDocs(collection(db, 'users', uid, 'entitlements'));
@@ -297,7 +287,6 @@ export async function loadAllEntitlements(uid: string): Promise<Record<string, S
   } catch { return {}; }
 }
 
-/** Entitlement değişikliklerini gerçek zamanlı dinle (tek hikaye) */
 export function onEntitlementSnapshot(
   uid: string,
   storyId: string,
@@ -308,10 +297,6 @@ export function onEntitlementSnapshot(
   });
 }
 
-/**
- * Tüm entitlement koleksiyonunu gerçek zamanlı dinle.
- * Functions yeni entitlement yazdığında UI otomatik güncellenir.
- */
 export function onEntitlementsSnapshot(
   uid: string,
   callback: (entitlements: Record<string, StoryEntitlement>) => void
@@ -326,32 +311,18 @@ export function onEntitlementsSnapshot(
 // ── Content Reporting (AI moderation) ─────────────────────────
 
 export interface ContentReport {
-  /** Kullanıcı UID'si — rapor göndermek için auth zorunlu */
   uid: string;
-  /** Hikaye ID'si */
   storyId: string;
-  /** Hikaye başlığı */
   storyTitle: string;
-  /** Bölüm numarası (story raporları için) */
   chapterNumber?: number;
-  /** İçerik tipi: story veya chat */
   contentType: 'story' | 'chat';
-  /** Karakter adı (chat raporları için) */
   characterName?: string;
-  /** İçeriğin ilk 500 karakteri (özet/referans) */
   contentPreview: string;
-  /** Mesaj ID'si (chat raporları için) */
   messageId?: string;
-  /** Rapor nedeni */
   reason: string;
-  /** Oluşturulma zamanı (ISO) */
   createdAt: string;
 }
 
-/**
- * AI içeriğini Firestore'a raporlar.
- * Kullanıcı uygulamadan çıkmadan içeriği bildirebilir.
- */
 export async function submitContentReport(report: ContentReport): Promise<void> {
   try {
     const { collection, addDoc } = await import('firebase/firestore');
