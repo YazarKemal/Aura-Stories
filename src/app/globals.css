@@ -90,6 +90,42 @@
   scrollbar-width: none;
 }
 
+/* Aura Vision kendi kapatma kontrolünü çiziyor; ortak Dialog X'ini ikinci kez gösterme. */
+[role="dialog"]:has(button.glass-morphism) > [data-aura-close] {
+  display: none;
+}
+
+/* Dokunmatik cihazlarda paragraf aksiyonlarını hover'a bağımlı bırakma ve 44px hedef sağla. */
+@media (hover: none) and (pointer: coarse) {
+  .group\/para > div[class*="-right-12"],
+  .group\/para > div[class*="-right-10"] {
+    right: 0.25rem !important;
+    opacity: 1 !important;
+    gap: 0.125rem !important;
+  }
+
+  .group\/para > div[class*="-right-12"] button,
+  .group\/para > div[class*="-right-10"] button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: hsl(var(--background) / 0.88);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
+    backdrop-filter: blur(12px);
+  }
+
+  .group\/para > div[class*="-right-12"] button svg,
+  .group\/para > div[class*="-right-10"] button svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
 @keyframes pulse-subtle {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.03); }
