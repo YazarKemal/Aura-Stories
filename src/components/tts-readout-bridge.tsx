@@ -3,13 +3,15 @@
 import { useEffect } from 'react';
 
 /**
- * TTS oynatıcısının görsel süre alanını deterministik tutar.
+ * TTS oynatıcısının görsel katmanını deterministik tutar.
  *
  * Android TextToSpeech toplam ses dosyası süresi sağlamadığı için sağ tarafta
  * sürekli değişen tahmini bir dakika göstermek yerine native progressbar'ın
  * gerçek karakter ilerlemesini yüzde olarak gösteriyoruz.
  *
- * Playback kontrolüne DOKUNMAZ; mevcut MobileNativeBridge tek playback sahibidir.
+ * Ayrıca ReadingView'de çizilip herhangi bir işlevi olmayan geri/ileri atlama
+ * düğmelerini gizler. Playback kontrolüne dokunmaz; MobileNativeBridge tek
+ * playback sahibidir.
  */
 export function TtsReadoutBridge() {
   useEffect(() => {
@@ -49,7 +51,33 @@ export function TtsReadoutBridge() {
             rightReadout.style.textAlign = 'right';
           }
 
+          // Sol taraftaki elapsed sürede rakam genişliği değişirken layout zıplamasın.
+          const leftReadout = candidates[0];
+          if (leftReadout && leftReadout !== rightReadout) {
+            leftReadout.style.fontVariantNumeric = 'tabular-nums';
+            leftReadout.style.minWidth = '2.75rem';
+          }
+
           progressBar.setAttribute('aria-valuetext', `%${percent} tamamlandı`);
+
+          // ReadingView'deki SkipBack / SkipForward düğmeleri henüz gerçek native
+          // seek desteklemiyor. İşlevsiz kontroller premium UX'i bozduğu için,
+          // gerçek seek gelene kadar yalnızca merkezdeki play/pause kontrolü kalır.
+          const playButton = Array.from(panel.querySelectorAll<HTMLButtonElement>('button'))
+            .find(button => button.className.includes('w-12') && button.className.includes('h-12'));
+          const controlsRow = playButton?.parentElement;
+          if (playButton && controlsRow) {
+            const controlButtons = Array.from(controlsRow.querySelectorAll<HTMLButtonElement>(':scope > button'));
+            for (const button of controlButtons) {
+              if (button !== playButton) {
+                button.style.display = 'none';
+                button.setAttribute('aria-hidden', 'true');
+                button.tabIndex = -1;
+              }
+            }
+            controlsRow.style.justifyContent = 'center';
+            controlsRow.style.gap = '0';
+          }
         }
       });
     };
