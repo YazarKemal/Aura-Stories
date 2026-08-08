@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Story, CharacterRoster } from '@/lib/types';
 import { getUnlockedCharacters, getTotalChapters } from '@/lib/character-roster';
 import { useUserState, CHAPTER_UNLOCK_COST } from '@/lib/user-state';
+import { getReaderPersona, type ReaderPersona } from '@/lib/reader-persona';
 import { CharacterPanel } from './character-panel';
 import { CharacterChatView } from './character-chat-view';
 import { PurchaseModal } from './purchase-modal';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { AdRewardModal } from './ad-reward-modal';
 import {
   ArrowLeft,
   BookOpen,
@@ -17,10 +16,10 @@ import {
   Coins,
   Unlock,
   Crown,
-  ShieldCheck,
   ChevronRight,
   Lock,
-  Gift,
+  UserRound,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +33,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const {
     userState,
     getCurrentChapter,
-    isChapterAccessible,
   } = useUserState();
 
   const currentChapter = getCurrentChapter(story.id);
@@ -44,6 +42,17 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const [activeCharacter, setActiveCharacter] = useState<CharacterRoster | null>(null);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<CharacterRoster | null>(null);
+  const [readerPersona, setReaderPersona] = useState<ReaderPersona | null>(null);
+
+  // Karakter sohbetindeki kullanıcı artık anonim bir "okuyucu" değildir.
+  // Aynı Reader Persona chat-client tarafından AI context'ine de eklenir.
+  useEffect(() => {
+    let cancelled = false;
+    void getReaderPersona().then((persona) => {
+      if (!cancelled) setReaderPersona(persona);
+    });
+    return () => { cancelled = true; };
+  }, [userState.user?.uid]);
 
   // Characters unlocked at or before the current chapter
   const charactersWithStatus = getUnlockedCharacters(story.id, currentChapter);
@@ -54,7 +63,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
       setActiveCharacter(character);
       setPendingCharacter(null);
     } else {
-      // Show purchase modal for locked character
       setPendingCharacter(character);
       setIsPurchaseModalOpen(true);
     }
@@ -69,7 +77,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     setActiveCharacter(null);
   };
 
-  // If a character is selected, show the chat view
   if (activeCharacter) {
     return (
       <CharacterChatView
@@ -105,7 +112,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
                 </h2>
               </div>
               <span className="text-[10px] text-muted-foreground">
-                Karakterlerle Sohbet Et
+                Karakter Odası · Canlı Evren
               </span>
             </div>
           </div>
@@ -130,7 +137,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Chapter indicator — shows range of unlocked chapters */}
             <Badge className={cn(
               'text-white border-none text-xs font-bold px-3 py-1 min-w-[70px] justify-center',
               hasFullAccess ? 'bg-yellow-500' : 'bg-primary'
@@ -141,7 +147,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
               }
             </Badge>
 
-            {/* Unlock button — replaces manual forward navigation */}
             {!hasFullAccess && hasNextChapter && (
               <button
                 onClick={() => setIsPurchaseModalOpen(true)}
@@ -165,7 +170,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
               </button>
             )}
 
-            {/* Buy full access quick button */}
             {!hasFullAccess && (
               <button
                 onClick={() => setIsPurchaseModalOpen(true)}
@@ -178,6 +182,30 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
           </div>
         </div>
 
+        {/* Reader Persona — kullanıcı hikâye evreninin bir katılımcısıdır */}
+        {readerPersona && (
+          <div className="px-5 pt-4 flex-shrink-0">
+            <div className="aura-premium-surface rounded-[1.4rem] px-4 py-3 flex items-center gap-3">
+              <div className="relative w-11 h-11 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <UserRound className="w-5 h-5" />
+                <span className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full bg-background border border-primary/25 flex items-center justify-center">
+                  <Sparkles className="w-2.5 h-2.5 text-primary" />
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] uppercase tracking-[0.18em] text-primary font-black">Sen de bu evrendesin</span>
+                </div>
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-sm font-black text-foreground truncate">{readerPersona.name}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{readerPersona.role}</span>
+                </div>
+              </div>
+              <Badge className="bg-primary/10 text-primary border-primary/15 text-[9px] shrink-0">Persona Aktif</Badge>
+            </div>
+          </div>
+        )}
+
         {/* Character Panel */}
         <div className="py-4 flex-shrink-0">
           <CharacterPanel
@@ -189,7 +217,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
           />
         </div>
 
-        {/* Empty State — or locked indicator */}
+        {/* Empty State */}
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4 pb-20">
           <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center">
             <MessageCircle className="w-10 h-10 text-primary/30" />
@@ -198,8 +226,8 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
             <h3 className="text-lg font-headline font-bold text-accent">
               Bir Karakter Seç
             </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-[280px]">
-              Yukarıdan sohbet etmek istediğin karakteri seç. Yeni bölümler açtıkça daha fazla karakterle tanış.
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-[300px]">
+              Karakterler artık seni hikâyenin dışındaki bir okuyucu olarak değil, kendi dünyalarına girmiş gerçek bir kişi olarak tanıyacak. Konuşmalar ilerledikçe öğrendiklerini de hatırlayacaklar.
             </p>
           </div>
 
@@ -230,7 +258,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
         </div>
       </div>
 
-      {/* Purchase Modal */}
       <PurchaseModal
         isOpen={isPurchaseModalOpen}
         onClose={handlePurchaseModalClose}
