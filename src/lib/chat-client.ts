@@ -16,6 +16,7 @@ import {
   type LearnedFact,
 } from '@/lib/lore-memory';
 import { buildReaderPersonaContext, getReaderPersona } from '@/lib/reader-persona';
+import { getCharactersForStory } from '@/lib/character-roster';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ export interface ChatRequestPayload {
   storyTags?: string[];
   storyAuthor: string;
   characterName: string;
+  characterRole?: string;
+  characterPersonality?: string;
   messages: { text: string; sender: 'user' | 'character' }[];
   /** Benzersiz işlem ID — idempotency için (server-authoritative) */
   operationId: string;
@@ -75,6 +78,13 @@ export async function sendChatMessage(
     payload.characterName
   );
 
+  // Roster'daki kanonik karakter profili aynı hikâyedeki tüm karakterlerin
+  // yalnızca tür etiketlerinden aynı kişiliği almasını engeller.
+  const rosterCharacter = getCharactersForStory(payload.storyId)
+    .find(character => character.name === payload.characterName);
+  const characterRole = payload.characterRole || rosterCharacter?.role;
+  const characterPersonality = payload.characterPersonality || rosterCharacter?.personality || memory.personality;
+
   // ── 2. Kullanıcının son mesajından yeni bilgi çıkar ────
   const lastUserMsg = [...payload.messages].reverse().find(m => m.sender === 'user');
   const newFactsLearned: LearnedFact[] = [];
@@ -94,8 +104,6 @@ export async function sendChatMessage(
   }
 
   // ── 3. Reader Persona + lore context ───────────────────
-  // Persona bilgisi client'ta yalnızca güvenli profil alanlarından üretilir.
-  // Bu alan model/secret veya sistem prompt kontrolü sağlamaz.
   const readerPersona = await getReaderPersona();
   const personaContext = buildReaderPersonaContext(readerPersona);
   const conversationSummary = [personaContext, memory.conversationSummary]
@@ -103,7 +111,7 @@ export async function sendChatMessage(
     .join('\n');
 
   const memoryContext = {
-    personality: memory.personality,
+    personality: characterPersonality,
     knownSecrets: memory.knownSecrets,
     hiddenSecrets: memory.hiddenSecrets,
     learnedFacts: memory.learnedFacts,
@@ -123,6 +131,8 @@ export async function sendChatMessage(
       storyTags: payload.storyTags,
       storyAuthor: payload.storyAuthor,
       characterName: payload.characterName,
+      characterRole,
+      characterPersonality,
       messages: payload.messages,
       operationId: payload.operationId,
       memoryContext,
