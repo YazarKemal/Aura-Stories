@@ -39,3 +39,23 @@ export interface CharacterRoster {
   /** Story this character belongs to */
   storyId: string;
 }
+
+export interface CharacterRosterChapterContext {
+  chapterNumber: number;
+  title: string;
+  content: string;
+}
+
+export interface DynamicCharacterRosterInput {
+  storyId: string;
+  storyTitle: string;
+  storySynopsis: string;
+  storyTags?: string[];
+  currentChapter: number;
+  chapters: CharacterRosterChapterContext[];
+}
+
+export interface DynamicCharacterRosterResult {
+  characters: CharacterRoster[];
+  sourceRevision: string;
+}
