@@ -303,7 +303,7 @@ export function MobileNativeBridge() {
       if (index < 0 && globalOffset >= plan.segments[plan.segments.length - 1].end) {
         index = plan.segments.length - 1;
       }
-      if (index < 0 || index === activeSegmentIndexRef.current && activeParagraphRef.current) return;
+      if (index < 0 || (index === activeSegmentIndexRef.current && Boolean(activeParagraphRef.current))) return;
 
       const segment = plan.segments[index];
       if (activeParagraphRef.current && activeParagraphRef.current !== segment.wrapper) {
@@ -326,11 +326,12 @@ export function MobileNativeBridge() {
     };
 
     const renderProgress = (totalIsEstimate = true) => {
+      const elapsed = getElapsedSeconds();
       updateAudioPanel(
         activeAudioPanelRef.current,
         ttsProgressRef.current,
-        getElapsedSeconds(),
-        Math.max(getElapsedSeconds(), ttsEstimatedDurationRef.current),
+        elapsed,
+        Math.max(elapsed, ttsEstimatedDurationRef.current),
         totalIsEstimate,
       );
     };
@@ -408,6 +409,7 @@ export function MobileNativeBridge() {
 
       const speechText = plan.text.slice(speechBaseOffsetRef.current);
       const remainingEstimate = estimateSpeechDuration(speechText, rate);
+      const carriedElapsed = preserveElapsed ? ttsElapsedBeforeRestartRef.current : 0;
       if (!preserveElapsed) {
         ttsElapsedBeforeRestartRef.current = 0;
         ttsProgressRef.current = speechBaseOffsetRef.current > 0
@@ -417,8 +419,8 @@ export function MobileNativeBridge() {
         ttsEstimatedDurationRef.current = ttsInitialDurationRef.current;
       } else {
         ttsEstimatedDurationRef.current = Math.max(
-          getElapsedSeconds() + remainingEstimate,
-          getElapsedSeconds() + 1,
+          carriedElapsed + remainingEstimate,
+          carriedElapsed + 1,
         );
       }
 
