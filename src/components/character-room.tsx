@@ -46,6 +46,16 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const hasFullAccess = storyState?.hasFullAccess || false;
   const engine = getStoryEngine(story.id);
 
+  // hasFullAccess durumunda getCurrentChapter 999 döndürüyor; AI metadata endpoint'i
+  // gerçek bir bölüm numarası ister. Generated chapter varsa onu, yoksa katalog
+  // toplamını üst sınır olarak kullan.
+  const lastGeneratedChapter = engine.generatedChapters[engine.generatedChapters.length - 1]?.chapterNumber || 0;
+  const rosterChapter = Math.max(
+    1,
+    Math.min(200, hasFullAccess ? Math.max(lastGeneratedChapter, totalChapters) : currentChapter),
+  );
+  const generatedRevision = `${engine.generatedChapters.length}:${lastGeneratedChapter}`;
+
   const [activeCharacter, setActiveCharacter] = useState<CharacterRoster | null>(null);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<CharacterRoster | null>(null);
@@ -66,12 +76,11 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const charactersWithStatus = useMemo(
     () => allCharacters.map(character => ({
       character,
-      isUnlocked: currentChapter >= character.unlockedAtChapter || hasFullAccess,
+      isUnlocked: hasFullAccess || rosterChapter >= character.unlockedAtChapter,
     })),
-    [allCharacters, currentChapter, hasFullAccess],
+    [allCharacters, rosterChapter, hasFullAccess],
   );
 
-  // Karakter sohbetindeki kullanıcı anonim bir "okuyucu" değildir.
   useEffect(() => {
     let cancelled = false;
     void getReaderPersona().then((persona) => {
@@ -80,9 +89,10 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     return () => { cancelled = true; };
   }, [userState.user?.uid]);
 
-  // Static demo roster yalnızca ilk küratörlü karakterleri bilir. AI ile yeni
-  // bölümler üretildikçe Character Room, gerçek bölüm metninden yeni karakterleri
-  // çıkarır ve 24 saatlik/revizyon bazlı cache ile gereksiz API çağrısını önler.
+  // Statik demo roster yalnızca ilk küratörlü karakterleri bilir. Üretilen bölüm
+  // revizyonu değiştiğinde metinden yeni karakterler çıkarılır. Dependency'de
+  // generatedChapters array referansı yerine stabil revision string kullanılır;
+  // bu sayede boş engine fallback'i render-loop oluşturmaz.
   useEffect(() => {
     if (!userState.user?.uid) return;
 
@@ -92,28 +102,30 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     let cancelled = false;
     setIsRosterRefreshing(true);
 
+    const chapterContext = engine.generatedChapters.slice(-6).map(chapter => ({
+      chapterNumber: chapter.chapterNumber,
+      title: chapter.title,
+      content: chapter.content,
+    }));
+
     void loadDynamicCharacterRoster({
       storyId: story.id,
       storyTitle: story.title,
       storySynopsis: story.longSynopsis || story.synopsis,
       storyTags: story.tags,
-      currentChapter: Math.max(1, currentChapter),
-      chapters: engine.generatedChapters.slice(-6).map(chapter => ({
-        chapterNumber: chapter.chapterNumber,
-        title: chapter.title,
-        content: chapter.content,
-      })),
+      currentChapter: rosterChapter,
+      chapters: chapterContext,
     }).then((result) => {
       if (!cancelled) setDynamicCharacters(result.characters);
     }).catch((error) => {
-      // Static roster varsa sessiz fallback. Yeni hikâyede ise boş state açıklaması
-      // görünür; Character Room bütünüyle çökmez.
       console.warn('[CharacterRoom] Dinamik karakter listesi alınamadı:', error);
     }).finally(() => {
       if (!cancelled) setIsRosterRefreshing(false);
     });
 
     return () => { cancelled = true; };
+    // generatedRevision bilinçli olarak bölüm içerik revizyonunu temsil eder.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     userState.user?.uid,
     story.id,
@@ -121,8 +133,8 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     story.synopsis,
     story.longSynopsis,
     story.tags,
-    currentChapter,
-    engine.generatedChapters,
+    rosterChapter,
+    generatedRevision,
     staticCharacters.length,
   ]);
 
@@ -152,8 +164,9 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     );
   }
 
-  const hasNextChapter = currentChapter < totalChapters;
-  const nextChapter = currentChapter + 1;
+  const displayedChapter = hasFullAccess ? totalChapters : currentChapter;
+  const hasNextChapter = displayedChapter < totalChapters;
+  const nextChapter = displayedChapter + 1;
   const canAffordNext = userState.credits >= CHAPTER_UNLOCK_COST;
 
   return (
@@ -171,18 +184,13 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <BookOpen className="w-4 h-4 text-primary shrink-0" />
-                <h2 className="text-sm font-headline font-bold text-accent truncate">
-                  {story.title}
-                </h2>
+                <h2 className="text-sm font-headline font-bold text-accent truncate">{story.title}</h2>
               </div>
-              <span className="text-[10px] text-muted-foreground">
-                Karakter Odası · Canlı Evren
-              </span>
+              <span className="text-[10px] text-muted-foreground">Karakter Odası · Canlı Evren</span>
             </div>
           </div>
           <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-bold text-xs px-2 py-1 gap-1 shrink-0">
-            <Coins className="w-3 h-3 fill-amber-500" />
-            {userState.credits}
+            <Coins className="w-3 h-3 fill-amber-500" />{userState.credits}
           </Badge>
         </header>
 
@@ -191,14 +199,12 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
             <span className="text-xs font-bold text-accent">Okuma İlerlemen</span>
             {isRosterRefreshing && (
               <span className="flex items-center gap-1 text-[9px] text-primary font-bold">
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                Evren güncelleniyor
+                <RefreshCw className="w-3 h-3 animate-spin" />Evren güncelleniyor
               </span>
             )}
             {hasFullAccess && (
               <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-[9px] gap-1 h-5">
-                <Crown className="w-3 h-3" />
-                Tam Erişim
+                <Crown className="w-3 h-3" />Tam Erişim
               </Badge>
             )}
           </div>
@@ -220,10 +226,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
                     ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
                     : 'bg-muted/30 border-border/30 text-muted-foreground'
                 )}
-                title={canAffordNext
-                  ? `${CHAPTER_UNLOCK_COST} kredi ile Bölüm ${nextChapter}'i aç`
-                  : 'Yetersiz kredi'
-                }
+                title={canAffordNext ? `${CHAPTER_UNLOCK_COST} kredi ile Bölüm ${nextChapter}'i aç` : 'Yetersiz kredi'}
               >
                 {canAffordNext ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -245,7 +248,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
         {readerPersona && (
           <div className="px-5 pt-4 flex-shrink-0">
             <div className="aura-premium-surface rounded-[1.4rem] px-4 py-3 flex items-center gap-3">
-              <div className="relative w-11 h-11 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <div className="relative w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                 <UserRound className="w-5 h-5" />
                 <span className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full bg-background border border-primary/25 flex items-center justify-center">
                   <Sparkles className="w-2.5 h-2.5 text-primary" />
@@ -268,7 +271,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
             characters={charactersWithStatus}
             activeCharacterId={null}
             onSelectCharacter={handleSelectCharacter}
-            currentChapter={currentChapter}
+            currentChapter={hasFullAccess ? totalChapters : currentChapter}
             totalChapters={totalChapters}
           />
         </div>
@@ -293,8 +296,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
               onClick={() => setIsPurchaseModalOpen(true)}
               className="mt-3 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
-              <Unlock className="w-4 h-4" />
-              {hasNextChapter ? 'Yeni Bölüm Aç' : 'Tam Erişim Al'}
+              <Unlock className="w-4 h-4" />{hasNextChapter ? 'Yeni Bölüm Aç' : 'Tam Erişim Al'}
             </button>
           )}
 
