@@ -16,17 +16,27 @@ const DEFAULT_DYNAMIC_EXPERIENCE: ResolvedStoryExperience = {
   characterEchoEnabled: true,
 };
 
+type StoryExperienceSource = Pick<Story, 'experience'> | StoryExperienceConfig | undefined;
+
+function isStoryExperienceHolder(
+  value: StoryExperienceSource,
+): value is Pick<Story, 'experience'> {
+  return typeof value === 'object'
+    && value !== null
+    && Object.prototype.hasOwnProperty.call(value, 'experience');
+}
+
 export function resolveStoryExperience(
-  storyOrConfig: Pick<Story, 'experience'> | StoryExperienceConfig | undefined,
+  storyOrConfig: StoryExperienceSource,
 ): ResolvedStoryExperience {
-  const config = storyOrConfig && 'experience' in storyOrConfig
+  const config: StoryExperienceConfig | undefined = isStoryExperienceHolder(storyOrConfig)
     ? storyOrConfig.experience
     : storyOrConfig;
 
-  const mode = config?.mode || DEFAULT_DYNAMIC_EXPERIENCE.mode;
+  const mode = config?.mode ?? DEFAULT_DYNAMIC_EXPERIENCE.mode;
   const characterRoomEnabled = mode === 'dynamic'
-    ? config?.characterRoomEnabled ?? true
-    : config?.characterRoomEnabled ?? false;
+    ? (config?.characterRoomEnabled ?? true)
+    : (config?.characterRoomEnabled ?? false);
   const readerParticipationEnabled = characterRoomEnabled
     && mode === 'dynamic'
     && (config?.readerParticipationEnabled ?? true);
