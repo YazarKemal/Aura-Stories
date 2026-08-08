@@ -116,21 +116,22 @@ export async function getReaderPersona(storyId?: string): Promise<ReaderPersona>
 }
 
 /**
- * Bu metin memoryContext içine gömülür fakat server prompt'u bunu PRIVATE
- * metadata olarak ele alır. contextual modda karakter kullanıcı adını ancak
- * konuşmada öğrenirse veya Dynamic Story state recognized ise kullanabilir.
+ * Character Room'a gönderilen persona bağlamı yalnız karakterin bilmesine izin
+ * verilen bilgileri içerir. contextual ve anonymous modlarda tercih edilen ad,
+ * rol ve özel not modele dahi verilmez; kimlik yalnız sohbetten veya server-side
+ * Dynamic Story recognized state'inden öğrenilebilir.
  */
 export function buildReaderPersonaContext(persona: ReaderPersona): string {
-  const traits = persona.traits.length > 0 ? ` Özellikleri: ${persona.traits.join(', ')}.` : '';
+  const traits = persona.traits.length > 0 ? ` Genel davranış eğilimleri: ${persona.traits.join(', ')}.` : '';
 
   if (persona.identityDisclosure === 'anonymous') {
-    return `ÖZEL PERSONA METADATA: Karşındaki kişinin tercih ettiği hesap/persona kimliği GİZLİDİR.${traits} Karakter olarak gerçek adını veya hesap kimliğini bildiğini varsayma. Kişi sohbet içinde bir lakap ya da geçici kimlik verirse yalnız onu kullan.`;
+    return `KİMLİK GİZLİ: Karşındaki kişinin hesap/persona adı ve özel rolü sana açıklanmamıştır.${traits} Gerçek ad veya hesap kimliği uydurma. Kişi sohbet içinde bir lakap ya da geçici kimlik verirse yalnız onu kullan.`;
   }
 
-  const note = persona.note ? ` Özel bağlam notu: ${persona.note}` : '';
   if (persona.identityDisclosure === 'always') {
-    return `PERSONA BAĞLAMI: Karşındaki kişi bu hikâye dalında ${persona.name}. Rolü: ${persona.role}.${traits}${note} Bu hikâyede bu kimliğin başlangıçtan bilindiği kabul edilebilir; yine de ona “okuyucu” veya “kullanıcı” deme.`;
+    const note = persona.note ? ` Özel bağlam notu: ${persona.note}` : '';
+    return `PERSONA BAĞLAMI: Karşındaki kişi bu hikâye dalında ${persona.name}. Rolü: ${persona.role}.${traits}${note} Bu kimliğin başlangıçtan bilindiği kabul edilir; yine de ona “okuyucu” veya “kullanıcı” deme.`;
   }
 
-  return `ÖZEL PERSONA METADATA (KARAKTER OTOMATİK BİLMEZ): Tercih edilen kimlik ${persona.name}; tercih edilen rol ${persona.role}.${traits}${note} Bu ad/rol yalnız kişi konuşmada kendini böyle tanıtırsa veya server Dynamic Story hafızası kimliği recognized olarak işaretlerse karakter tarafından kullanılabilir. Aksi halde kimliği belirsiz bir kişi gibi davran.`;
+  return `KİMLİK BAĞLAMA GÖRE ÖĞRENİLİR: Karşındaki kişinin tercih ettiği ad, hikâye rolü ve özel persona notu sana henüz açıklanmamıştır.${traits} Ona isim veya rol uydurma. Bu bilgileri yalnız konuşmada kendisi açıklarsa ya da server Dynamic Story hafızası recognized olarak bildirirse kullan.`;
 }
