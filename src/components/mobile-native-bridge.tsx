@@ -375,13 +375,12 @@ export function MobileNativeBridge() {
         ttsProgressRef.current = 0;
         ttsElapsedBeforeRestartRef.current = 0;
         ttsStartedAtRef.current = 0;
-        updateAudioPanel(
-          activeAudioPanelRef.current,
-          0,
-          0,
-          Math.max(1, ttsInitialDurationRef.current || ttsEstimatedDurationRef.current),
-          true,
-        );
+        const panel = activeAudioPanelRef.current;
+        const estimatedTotal = Math.max(1, ttsInitialDurationRef.current || ttsEstimatedDurationRef.current);
+        updateAudioPanel(panel, 0, 0, estimatedTotal, true);
+        // ReadingView kendi isPlaying state'iyle yeniden render olduğunda eski demo
+        // değerlerini basmasın; render sonrasında native görünümü tekrar uygula.
+        setTimeout(() => updateAudioPanel(panel, 0, 0, estimatedTotal, true), 100);
       }
     };
 
@@ -432,11 +431,15 @@ export function MobileNativeBridge() {
         await speakStoryText(speechText, rate);
         startElapsedTimer();
         setActiveParagraphForOffset(speechBaseOffsetRef.current);
+        // Play click'i ReadingView'de isPlaying state'ini değiştirerek player'ı
+        // yeniden render eder. Sonrasında doğru native progress'i tekrar uygula.
+        setTimeout(() => renderProgress(true), 100);
       } catch (error) {
         ttsActiveRef.current = false;
         clearElapsedTimer();
         clearParagraphHighlight();
         console.error('[AuraTTS] Sesli okuma başlatılamadı:', error);
+        syncReactPlayButtonToStopped();
         toast({
           title: 'Sesli okuma başlatılamadı',
           description: error instanceof Error ? error.message : 'Android ses motoru kullanılamadı.',
@@ -483,15 +486,19 @@ export function MobileNativeBridge() {
 
       if (event.state === 'done') {
         const elapsed = getElapsedSeconds();
+        const panel = activeAudioPanelRef.current;
         ttsActiveRef.current = false;
         clearElapsedTimer();
         ttsProgressRef.current = 100;
         ttsEstimatedDurationRef.current = elapsed;
-        updateAudioPanel(activeAudioPanelRef.current, 100, elapsed, elapsed, false);
+        updateAudioPanel(panel, 100, elapsed, elapsed, false);
         const lastSegment = plan.segments[plan.segments.length - 1];
         if (lastSegment) setActiveParagraphForOffset(lastSegment.start);
         setTimeout(clearParagraphHighlight, 900);
         syncReactPlayButtonToStopped();
+        // Programatik play click'i React ikonunu durdurulmuş duruma çekerken
+        // player tekrar render olabilir; tamamlanmış süreyi koru.
+        setTimeout(() => updateAudioPanel(panel, 100, elapsed, elapsed, false), 140);
         return;
       }
 
