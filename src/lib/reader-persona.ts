@@ -9,7 +9,12 @@ export interface ReaderPersona {
   note: string;
 }
 
-const STORAGE_KEY = 'aura-reader-persona-v1';
+const LEGACY_STORAGE_KEY = 'aura-reader-persona-v1';
+const STORAGE_PREFIX = 'aura-reader-persona-v2';
+
+function personaKey(storyId?: string): string {
+  return storyId ? `${STORAGE_PREFIX}:${storyId}` : LEGACY_STORAGE_KEY;
+}
 
 function sanitizePersona(input: Partial<ReaderPersona> | null | undefined): ReaderPersona | null {
   if (!input || typeof input.name !== 'string' || !input.name.trim()) return null;
@@ -18,30 +23,38 @@ function sanitizePersona(input: Partial<ReaderPersona> | null | undefined): Read
     ? input.role.trim().slice(0, 80)
     : 'Hikâyenin Misafiri';
   const traits = Array.isArray(input.traits)
-    ? input.traits.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).slice(0, 6).map(value => value.trim().slice(0, 60))
+    ? input.traits
+        .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+        .slice(0, 6)
+        .map(value => value.trim().slice(0, 60))
     : [];
   const note = typeof input.note === 'string' ? input.note.trim().slice(0, 500) : '';
   return { name, role, traits, note };
 }
 
-export function loadStoredReaderPersona(): ReaderPersona | null {
+export function loadStoredReaderPersona(storyId?: string): ReaderPersona | null {
   if (typeof window === 'undefined') return null;
   try {
-    return sanitizePersona(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null'));
+    const storyRaw = storyId ? window.localStorage.getItem(personaKey(storyId)) : null;
+    if (storyRaw) return sanitizePersona(JSON.parse(storyRaw));
+
+    // QA7 öncesi global persona varsa yeni hikâyede başlangıç şablonu olarak kullan.
+    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    return legacyRaw ? sanitizePersona(JSON.parse(legacyRaw)) : null;
   } catch {
     return null;
   }
 }
 
-export function saveReaderPersona(persona: ReaderPersona): void {
+export function saveReaderPersona(persona: ReaderPersona, storyId?: string): void {
   if (typeof window === 'undefined') return;
   const normalized = sanitizePersona(persona);
   if (!normalized) return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  window.localStorage.setItem(personaKey(storyId), JSON.stringify(normalized));
 }
 
-export async function getReaderPersona(): Promise<ReaderPersona> {
-  const stored = loadStoredReaderPersona();
+export async function getReaderPersona(storyId?: string): Promise<ReaderPersona> {
+  const stored = loadStoredReaderPersona(storyId);
   if (stored) return stored;
 
   const currentUser = auth.currentUser;
@@ -52,7 +65,7 @@ export async function getReaderPersona(): Promise<ReaderPersona> {
       const profile = await getFirestoreUser(currentUser.uid);
       profileName = profile?.name?.trim() || '';
     } catch {
-      // Persona üretimi sohbeti engellememeli; aşağıdaki fallback yeterlidir.
+      // Persona üretimi sohbeti engellememeli; fallback yeterlidir.
     }
   }
 
@@ -68,7 +81,7 @@ export async function getReaderPersona(): Promise<ReaderPersona> {
   };
 
   if (typeof window !== 'undefined' && currentUser?.uid) {
-    try { saveReaderPersona(persona); } catch { /* storage opsiyonel */ }
+    try { saveReaderPersona(persona, storyId); } catch { /* storage opsiyonel */ }
   }
   return persona;
 }
