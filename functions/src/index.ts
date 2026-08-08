@@ -43,8 +43,6 @@ const CHAT_MAX_TOKENS = 950;
 const CHAT_TIMEOUT_SECONDS = 35;
 const CHARACTER_ROSTER_TIMEOUT_SECONDS = 35;
 const CHARACTER_ROSTER_CALL_TIMEOUT_MS = 28_000;
-// Düşük kalite skoru alan hikâyelerde opsiyonel editör geçişi yapılabildiği için
-// tek çağrılı eski akıştan daha geniş bir timeout bütçesi gerekir.
 const STORY_TIMEOUT_SECONDS = 105;
 const STORY_ENGINE_CALL_TIMEOUT_MS = 38_000;
 
@@ -96,7 +94,6 @@ function parseCharacterChatModelResult(raw: string): { reply: string; effects: D
       };
     }
 
-    // Şema kısmen bozulduysa kullanıcıya görünen reply alanını yine kurtar.
     if (json && typeof json === 'object' && typeof (json as any).reply === 'string') {
       console.warn('[characterChat] Dynamic effect şeması geçersiz; reply korundu.');
       return { reply: (json as any).reply, effects: emptyDynamicEffects() };
@@ -109,20 +106,68 @@ function parseCharacterChatModelResult(raw: string): { reply: string; effects: D
   return { reply: raw.trim() || 'Sana cevap veremedim.', effects: emptyDynamicEffects() };
 }
 
-async function getCurrentBranchChapter(uid: string, storyId: string): Promise<number> {
+interface BranchChatContext {
+  currentChapter: number;
+  recentCharacterSceneContext: string;
+}
+
+function compactScene(content: string): string {
+  const clean = content.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 1600) return clean;
+  return `${clean.slice(0, 800)} … ${clean.slice(-800)}`;
+}
+
+/**
+ * Character Room karakterine son üretilen bölümlerin tamamını verip onu
+ * omniscient yapmıyoruz. Yalnız karakter adının gerçekten geçtiği son sahneler
+ * bağlama eklenir. Bu yine otomatik "bilgi" değildir; prompt karakterin yalnız
+ * gördüğü/duyduğu veya sonucunu makul biçimde bildiği kısmı kullanmasını ister.
+ */
+async function getBranchChatContext(
+  uid: string,
+  storyId: string,
+  characterName: string,
+): Promise<BranchChatContext> {
   const db = getFirestore();
   const [progressSnap, entitlementSnap] = await Promise.all([
     db.collection('users').doc(uid).collection('progress').doc(storyId).get(),
     db.collection('users').doc(uid).collection('entitlements').doc(storyId).get(),
   ]);
 
-  const progressChapter = Number(progressSnap.data()?.activeChapter || 1);
+  const progressData = progressSnap.data() || {};
+  const progressChapter = Number(progressData.activeChapter || 1);
   const unlocked = entitlementSnap.data()?.unlockedChapters;
   const entitlementChapter = Array.isArray(unlocked) && unlocked.length > 0
     ? Math.max(...unlocked.filter((value: unknown): value is number => typeof value === 'number'))
     : 1;
+  const currentChapter = Math.min(200, Math.max(1, progressChapter, entitlementChapter));
 
-  return Math.max(1, Math.min(200, progressChapter, Math.max(progressChapter, entitlementChapter)));
+  const generatedChapters = Array.isArray(progressData.generatedChapters)
+    ? progressData.generatedChapters
+    : [];
+  const needle = characterName.trim().toLocaleLowerCase('tr-TR');
+  const relevantChapters = generatedChapters
+    .filter((chapter: any) => {
+      const content = typeof chapter?.content === 'string' ? chapter.content : '';
+      return content.toLocaleLowerCase('tr-TR').includes(needle);
+    })
+    .slice(-3);
+
+  if (relevantChapters.length === 0) {
+    return {
+      currentChapter,
+      recentCharacterSceneContext: 'Bu karakterin adı geçen yakın dönem AI bölüm sahnesi bulunamadı.',
+    };
+  }
+
+  const recentCharacterSceneContext = relevantChapters.map((chapter: any) => {
+    const chapterNumber = Number(chapter.chapterNumber || 0);
+    const title = typeof chapter.title === 'string' ? chapter.title : 'İsimsiz Bölüm';
+    const content = typeof chapter.content === 'string' ? chapter.content : '';
+    return `Bölüm ${chapterNumber} — ${title}\n${compactScene(content)}`;
+  }).join('\n\n');
+
+  return { currentChapter, recentCharacterSceneContext };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -155,16 +200,21 @@ export const characterChat = onCall<CharacterChatOutput>({
   const clientInput = parsed.data;
 
   try {
-    // Karakter yalnız kendi yaşadığı Dynamic Story olaylarını görür; tüm branch
-    // bilgisini verip karakteri omniscient hale getirmiyoruz.
-    const [worldState, currentChapter] = await Promise.all([
+    const [worldState, branchContext] = await Promise.all([
       loadDynamicStoryState(uid, clientInput.storyId),
-      getCurrentBranchChapter(uid, clientInput.storyId),
+      getBranchChatContext(uid, clientInput.storyId, clientInput.characterName),
     ]);
+
+    const dynamicContext = `${formatDynamicStoryForCharacter(worldState, clientInput.characterName)}
+
+RECENT CANONICAL CHAPTERS — SAHNE BAĞLAMI, OTOMATİK BİLGİ DEĞİL
+${branchContext.recentCharacterSceneContext}
+
+EPİSTEMİK KURAL: Bu bölüm alıntıları yalnız karakterin gerçekten içinde bulunduğu yakın sahneleri hatırlatır. Yine de ${clientInput.characterName}, sahnede görmediği/duymadığı özel düşünceleri veya başka karakterlerin gizli konuşmalarını biliyormuş gibi davranamaz. Yalnız kendi tanık olduğu, kendisine söylenen veya sonuçlarından makul biçimde öğrenebileceği bilgileri kullan.`;
 
     const input = {
       ...clientInput,
-      dynamicContext: formatDynamicStoryForCharacter(worldState, clientInput.characterName),
+      dynamicContext,
     };
     const systemPrompt = buildChatPrompt(input);
     const messages = [
@@ -193,7 +243,7 @@ export const characterChat = onCall<CharacterChatOutput>({
           clientInput.storyId,
           clientInput.characterName,
           modelResult.effects,
-          currentChapter,
+          branchContext.currentChapter,
         )
       : worldState;
 
@@ -283,7 +333,6 @@ export const generateStory = onCall<GenerateStoryOutput>({
   }
 
   try {
-    // Persona paylaşım/kimlik tercihleri server-side branch metadata'sına yazılır.
     await setDynamicParticipantPreferences(uid, storyId, input.readerPersona);
     const worldState = await loadDynamicStoryState(uid, storyId);
     const engineInput = {
