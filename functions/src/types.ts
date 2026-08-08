@@ -37,6 +37,38 @@ export interface CharacterChatOutput {
   memoryUpdates: string[] | null;
 }
 
+// ── Dynamic Character Roster Types ───────────────────────────
+
+export interface CharacterRosterChapterContext {
+  chapterNumber: number;
+  title: string;
+  content: string;
+}
+
+export interface CharacterRosterInput {
+  storyId: string;
+  storyTitle: string;
+  storySynopsis: string;
+  storyTags?: string[];
+  currentChapter: number;
+  chapters: CharacterRosterChapterContext[];
+}
+
+export interface CharacterRosterOutputItem {
+  id: string;
+  name: string;
+  role: string;
+  personality: string;
+  unlockedAtChapter: number;
+  greeting: string;
+  storyId: string;
+}
+
+export interface CharacterRosterOutput {
+  characters: CharacterRosterOutputItem[];
+  sourceRevision: string;
+}
+
 // ── Story Generation Types ──────────────────────────────────
 
 export interface PreviousChapter {
