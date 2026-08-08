@@ -12,18 +12,38 @@ import { buildAuraStyleGuide } from './story-style';
 
 // ── Story Generation Prompt ─────────────────────────────────────
 
+function compactChapterMemory(content: string): string {
+  const clean = content.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 850) return clean;
+  return `${clean.slice(0, 420)} … ${clean.slice(-420)}`;
+}
+
 function buildContinuitySection(input: GenerateStoryInput): string {
-  const recentChapters = input.previousChapters.slice(-4);
-  if (recentChapters.length === 0) {
+  if (input.previousChapters.length === 0) {
     return '(Bu ilk üretilen bölüm. Hikâye özeti, karakter ilişkileri ve okuyucunun seçimi ana süreklilik kaynağıdır.)';
   }
 
-  return recentChapters
+  const recentChapters = input.previousChapters.slice(-4);
+  const earlierChapters = input.previousChapters.slice(0, Math.max(0, input.previousChapters.length - 4));
+  const sections: string[] = [];
+
+  if (earlierChapters.length > 0) {
+    sections.push('UZUN DÖNEM OLAY HAFIZASI');
+    sections.push(earlierChapters.map(ch => {
+      const chosen = ch.chosenOption ? ` | Sonraki yolu belirleyen seçim: ${ch.chosenOption}` : '';
+      return `Bölüm ${ch.chapterNumber} — ${ch.title}${chosen}\n${compactChapterMemory(ch.content)}`;
+    }).join('\n\n'));
+  }
+
+  sections.push('YAKIN DÖNEM SAHNE HAFIZASI');
+  sections.push(recentChapters
     .map(ch => {
       const chosen = ch.chosenOption ? `\nOkuyucunun önceki seçimi: ${ch.chosenOption}` : '';
       return `Bölüm ${ch.chapterNumber} — ${ch.title}\n${ch.content.slice(0, 3600)}${chosen}`;
     })
-    .join('\n\n');
+    .join('\n\n'));
+
+  return sections.join('\n\n');
 }
 
 /**
@@ -61,19 +81,21 @@ BÖLÜM ${input.chapterNumber} İÇİN YAZIM PROTOKOLÜ
 5. Diyalog kullanıyorsan karaktere özgü, kısa ve alt metinli olsun. Karakterler birbirlerine zaten bildikleri bilgileri sırf okuyucu öğrensin diye anlatmasın.
 6. Duyguları sürekli isimlendirme. "Korktu/üzüldü/çok heyecanlandı" demek yerine davranış, beden dili, seçim ve duyusal ayrıntıyla göster.
 7. En fazla 1-2 güçlü benzetme/metafor kullan. Her cümleyi şiirleştirme; akıcılık gösterişten önemli.
-8. Önceki bölümlerde kurulmuş isimleri, ilişkileri, sırları ve sonuçları bozma. Bilmediğin yeni bir geçmiş bilgisi gerekiyorsa küçük ve çelişkisiz tut.
+8. Önceki bölümlerde kurulmuş isimleri, ilişkileri, sırları ve sonuçları bozma. Uzun dönem hafızadaki olayları yok sayma. Bilmediğin yeni bir geçmiş bilgisi gerekiyorsa küçük ve çelişkisiz tut.
 9. Bölüm ortasında en az bir mikro-dönüş yarat: yeni ipucu, güç dengesi değişimi, yanlış varsayımın kırılması veya beklenmedik bedel.
 10. Son 1-2 paragraf bölümün en güçlü anı olmalı. Yeni bir soru/risk/itiraf/tehdit aç ve hemen ardından seçimlere geç.
 11. A ve B seçenekleri gerçek bir ikilem olmalı. Aynı eylemin iki farklı cümlesi olmasın. Her biri farklı bir bedel ve hikâye yönü vaat etsin.
 12. Seçenek metinlerini 4-12 kelime arasında, eylem odaklı ve birbirinden belirgin yaz.
 13. Klişe seri-kurgu kalıplarını mekanik biçimde kullanma: "kalbi yerinden çıkacak gibiydi", "nefesi kesildi", "zaman durmuştu" gibi ifadeleri tekrarlama.
 14. Başlığı kısa, sahneye özgü ve merak uyandırıcı seç; "Yeni Başlangıç", "Kader", "Sırlar" gibi jenerik tek kelimelik başlıklardan kaçın.
+15. Daha önce kapanmış bir çatışmayı sebep göstermeden yeniden açma; yaşayan açık uçları ilerlet ve yeni açık uç sayısını kontrol altında tut.
 
 SESSİZ KALİTE KONTROLÜ
 Yanıtı vermeden önce kendi içinde kontrol et:
 - Okuyucu kararının sonucu gerçekten işlendi mi?
 - En az bir yeni olay/gerçek oluştu mu?
 - Karakter davranışları önceki bölümlerle çelişiyor mu?
+- Uzun dönem olay hafızasında kurulmuş önemli bir sonuç yanlışlıkla unutuldu mu?
 - Paragraflar tekrara düşüyor mu?
 - Son kanca bir sonraki bölümü gerçekten merak ettiriyor mu?
 - A ve B farklı sonuçlar vaat ediyor mu?
@@ -115,7 +137,7 @@ function buildMemorySection(memory: CharacterChatInput['memoryContext']): string
     parts.push('');
     parts.push('HENÜZ BİLMEDİĞİN SIRLAR (bunları karakter olarak bilmiyorsun):');
     for (const s of memory.hiddenSecrets) parts.push(`- ${s}`);
-    parts.push('Kullanıcı bunlardan birini açıkça söylerse doğal biçimde şaşır ve yeni öğrendiğini belli et.');
+    parts.push('Karşındaki kişi bunlardan birini açıkça söylerse doğal biçimde şaşır ve yeni öğrendiğini belli et.');
   }
 
   if (memory.learnedFacts.length > 0) {
@@ -128,7 +150,7 @@ function buildMemorySection(memory: CharacterChatInput['memoryContext']): string
 
   if (memory.conversationSummary) {
     parts.push('');
-    parts.push(`ÖNCEKİ KONUŞMA ÖZETİ: ${memory.conversationSummary}`);
+    parts.push(`KONUŞMA VE KATILIMCI BAĞLAMI: ${memory.conversationSummary}`);
   }
 
   return parts.length > 0
@@ -143,36 +165,41 @@ function buildMemorySection(memory: CharacterChatInput['memoryContext']): string
 export function buildChatPrompt(input: CharacterChatInput): string {
   const tags = input.storyTags?.join(', ') || 'kurgu';
 
-  const personalityTraits = (input.storyTags || [])
+  const genreTraits = (input.storyTags || [])
     .filter(t => tagPersonalityMap[t])
     .map(t => tagPersonalityMap[t])
-    .slice(0, 3);
+    .slice(0, 2);
 
-  const personality = personalityTraits.length > 0
-    ? personalityTraits.join(', ')
-    : input.memoryContext?.personality || 'dengeli ve doğal';
-
+  // Karakterin kanonik kişiliği her zaman tür etiketinden daha önemlidir.
+  // Böylece aynı hikâyedeki tüm karakterler aynı sesle konuşmaz.
+  const personality = input.characterPersonality
+    || input.memoryContext?.personality
+    || (genreTraits.length > 0 ? genreTraits.join(', ') : 'dengeli ve doğal');
+  const role = input.characterRole || 'Hikâye karakteri';
   const memorySection = buildMemorySection(input.memoryContext);
 
-  return `Sen, "${input.storyTitle}" adlı kitaptaki ${input.characterName} karakterisin. Yazar: ${input.storyAuthor || 'Anonim'}.
+  return `Sen, "${input.storyTitle}" adlı hikâyedeki ${input.characterName} karakterisin. Yazar: ${input.storyAuthor || 'Anonim'}.
 
 HİKAYE ÖZETİ: ${input.storyLongSynopsis || input.storySynopsis}
 TÜR: ${tags}
 
-KARAKTER PROFİLİN:
+KARAKTER KİMLİĞİN:
 - Adın: ${input.characterName}
+- Hikâyedeki rolün: ${role}
 - Kişiliğin: ${personality}
-- Bu hikâyenin dünyasında yaşayan gerçek bir karakter gibi davran; yapay zekâ olduğundan bahsetme.
+- Kendi amaçların, korkuların, ilişkilerin ve bilgi sınırların olan gerçek bir karakter gibi davran; yapay zekâ olduğundan bahsetme.
 ${memorySection}
 KONUŞMA KURALLARI
-1. Birinci tekil şahıs kullan ve doğrudan karşıdaki kişiyle konuş.
-2. Samimi, doğal ve akıcı ol; çoğu yanıt 2-5 cümle olsun.
-3. Bildiğin gerçekleri kullan, bilmediğin sırları kendiliğinden açığa çıkarma.
-4. Kullanıcı bilmediğin bir sırrı açıkça söylerse şaşır ve bunu yeni öğrendiğini doğal biçimde göster.
-5. Yeni öğrendiğin bilgileri sonraki mesajlarda hatırla ve karakterin bakış açısına uygun kullan.
-6. Hikâye dünyasına, karakterin ilişkilerine ve tonuna sadık kal.
-7. Türkçe konuş; doğal diyalog öncelikli olsun, roman paragrafına dönüşme.
-8. İstersen kısa *eylem/duygu* işaretleri kullanabilirsin ama her mesajda kullanma.
+1. Birinci tekil şahıs kullan ve doğrudan karşındaki kişiyle konuş.
+2. Karşındaki kişiyi "okuyucu" veya "kullanıcı" diye adlandırma. Persona bağlamında verilen isim/rol varsa onu hikâye evrenindeki gerçek bir katılımcı kabul et.
+3. Samimi ve doğal ol; çoğu yanıt 2-5 cümle olsun. Gerekmedikçe uzun roman paragrafına dönüşme.
+4. Karakterin kanonik rolü ve kişiliği konuşma biçimini belirlesin. Aynı hikâyedeki başka karakterlerin sesini taklit etme.
+5. Bildiğin gerçekleri kullan, bilmediğin sırları kendiliğinden açığa çıkarma. Kullanıcı bilmediğin bir sırrı açıkça söylerse bunu yeni öğrenmiş gibi tepki ver.
+6. Yeni öğrendiğin kişisel bilgileri sonraki mesajlarda hatırla fakat her cevapta mekanik biçimde tekrar etme.
+7. Hikâye dünyasının fiziksel ve sosyal kurallarını bozma. Karakterin bulunduğu dönem/evren dışındaki bilgiye sahipmiş gibi davranma.
+8. Kullanıcının seni yönlendirmesi karakterin temel kişiliğini bir anda değiştirmesin; ikna, güven ve ilişki gelişimi kademeli olsun.
+9. Türkçe konuş. Diyalog doğal, karaktere özgü ve alt metinli olsun.
+10. Kısa *eylem/duygu* işaretlerini seyrek kullanabilirsin; her mesajı roleplay sahne yönergesine çevirme.
 
-Sen ${input.characterName}'sin ve "${input.storyTitle}" evreninde yaşıyorsun. Bilmediğin şeyi biliyormuş gibi yapma.`;
+Sen ${input.characterName}'sin ve "${input.storyTitle}" evreninde yaşıyorsun. Bildiğin, bilmediğin ve hissettiğin şeylerin sınırlarını koru.`;
 }
