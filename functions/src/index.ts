@@ -5,6 +5,7 @@ import { deepseekApiKey } from './config';
 import { callDeepSeek } from './deepseek';
 import { buildChatPrompt } from './prompts';
 import { generateAuraStory } from './story-engine';
+import { generateCharacterRosterFromStory } from './character-roster-engine';
 import { checkRateLimit } from './rate-limiter';
 import {
   reserveCredits, finalizeTransaction, finalizeSimpleTransaction,
@@ -13,9 +14,14 @@ import {
 } from './economy';
 import {
   chatOperationSchema, storyGenerateOperationSchema,
+  characterRosterInputSchema,
   claimGiftOperationSchema, fullAccessActionSchema,
 } from './validation';
-import type { CharacterChatOutput, GenerateStoryOutput } from './types';
+import type {
+  CharacterChatOutput,
+  CharacterRosterOutput,
+  GenerateStoryOutput,
+} from './types';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
@@ -23,6 +29,8 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
 const DEEPSEEK_MODEL = 'deepseek-chat';
 const CHAT_MAX_TOKENS = 600;
 const CHAT_TIMEOUT_SECONDS = 30;
+const CHARACTER_ROSTER_TIMEOUT_SECONDS = 35;
+const CHARACTER_ROSTER_CALL_TIMEOUT_MS = 28_000;
 // Düşük kalite skoru alan hikâyelerde opsiyonel editör geçişi yapılabildiği için
 // tek çağrılı eski akıştan daha geniş bir timeout bütçesi gerekir.
 const STORY_TIMEOUT_SECONDS = 105;
@@ -83,7 +91,7 @@ export const characterChat = onCall<CharacterChatOutput>({
   try {
     const result = await callDeepSeek(messages, {
       model: DEEPSEEK_MODEL,
-      temperature: 0.9,
+      temperature: 0.82,
       maxTokens: CHAT_MAX_TOKENS,
       timeoutMs: (CHAT_TIMEOUT_SECONDS - 5) * 1000,
     });
@@ -93,6 +101,36 @@ export const characterChat = onCall<CharacterChatOutput>({
     logError('characterChat', err);
     if (isRefundableError(err)) await refundTransaction(uid, operationId);
     throw new HttpsError('internal', 'AI yanıtı alınamadı. Jetonunuz iade edildi.');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// generateCharacterRoster — hikâye metninden karakter odası üretir
+// ═══════════════════════════════════════════════════════════════
+
+export const generateCharacterRoster = onCall<CharacterRosterOutput>({
+  secrets: [deepseekApiKey],
+  memory: '256MiB',
+  timeoutSeconds: CHARACTER_ROSTER_TIMEOUT_SECONDS,
+  concurrency: 1,
+}, async (request) => {
+  const uid = requireAuth(request);
+  const parsed = characterRosterInputSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new HttpsError('invalid-argument', parsed.error.issues.map(i => i.message).join(', '));
+  }
+
+  await checkRateLimit(uid, 'characterRoster');
+
+  try {
+    return await generateCharacterRosterFromStory(
+      parsed.data,
+      CHARACTER_ROSTER_CALL_TIMEOUT_MS,
+    );
+  } catch (err: unknown) {
+    logError('generateCharacterRoster', err);
+    if (err instanceof HttpsError && err.code === 'resource-exhausted') throw err;
+    throw new HttpsError('internal', 'Karakter Odası şu anda hazırlanamadı.');
   }
 });
 
@@ -143,9 +181,6 @@ export const generateStory = onCall<GenerateStoryOutput>({
       issueCount: engineResult.quality.issues.length,
     });
 
-    // ATOMİK: ledger completed + entitlement aynı transaction'da.
-    // Ek editör geçişi yapılsa bile kullanıcıdan yalnızca action başına tanımlı
-    // tek ekonomi maliyeti tahsil edilir.
     await finalizeTransaction(
       uid,
       operationId,
