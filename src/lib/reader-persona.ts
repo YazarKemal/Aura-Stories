@@ -2,11 +2,27 @@
 
 import { auth, getFirestoreUser } from '@/lib/firebase';
 
+export type IdentityDisclosure = 'contextual' | 'always' | 'anonymous';
+export type CharacterEchoVisibility = 'private' | 'shared' | 'anonymous';
+
 export interface ReaderPersona {
+  /** Kullanıcının kendi branch'inde tercih ettiği kimlik. */
   name: string;
   role: string;
   traits: string[];
   note: string;
+  /**
+   * contextual: karakterler bu bilgiyi sohbet içinde öğrenmedikçe bilmez.
+   * always: hikâye evreninde kimlik başlangıçtan bilinir kabul edilir.
+   * anonymous: tercih edilen ad özel kalır; karakterlere otomatik açıklanmaz.
+   */
+  identityDisclosure: IdentityDisclosure;
+  /**
+   * private: Character Echo başka kullanıcılara açılmaz.
+   * shared: paylaşılan branch'te bu persona AI Character Echo olabilir.
+   * anonymous: Echo oluşabilir fakat hesap kimliğine bağlanmadan gösterilir.
+   */
+  echoVisibility: CharacterEchoVisibility;
 }
 
 const LEGACY_STORAGE_KEY = 'aura-reader-persona-v1';
@@ -29,7 +45,16 @@ function sanitizePersona(input: Partial<ReaderPersona> | null | undefined): Read
         .map(value => value.trim().slice(0, 60))
     : [];
   const note = typeof input.note === 'string' ? input.note.trim().slice(0, 500) : '';
-  return { name, role, traits, note };
+  const identityDisclosure: IdentityDisclosure =
+    input.identityDisclosure === 'always' || input.identityDisclosure === 'anonymous'
+      ? input.identityDisclosure
+      : 'contextual';
+  const echoVisibility: CharacterEchoVisibility =
+    input.echoVisibility === 'shared' || input.echoVisibility === 'anonymous'
+      ? input.echoVisibility
+      : 'private';
+
+  return { name, role, traits, note, identityDisclosure, echoVisibility };
 }
 
 export function loadStoredReaderPersona(storyId?: string): ReaderPersona | null {
@@ -77,7 +102,11 @@ export async function getReaderPersona(storyId?: string): Promise<ReaderPersona>
     name: profileName.slice(0, 80),
     role: 'Hikâyenin Misafiri',
     traits: [],
-    note: 'Bu kişi hikâye evrenine dışarıdan bakan bir okuyucu değil; karakterlerin karşısında gerçekten bulunan bir katılımcıdır.',
+    note: 'Bu kişi hikâye evrenine dışarıdan bakan soyut bir okuyucu değil; gerektiğinde karakterlerle gerçek bir kişi gibi etkileşime girebilir.',
+    // Hesap adı karakterlere kendiliğinden sızmamalı.
+    identityDisclosure: 'contextual',
+    // Açık izin verilene kadar başka kullanıcıların branch'inde Echo oluşmaz.
+    echoVisibility: 'private',
   };
 
   if (typeof window !== 'undefined' && currentUser?.uid) {
@@ -86,8 +115,22 @@ export async function getReaderPersona(storyId?: string): Promise<ReaderPersona>
   return persona;
 }
 
+/**
+ * Bu metin memoryContext içine gömülür fakat server prompt'u bunu PRIVATE
+ * metadata olarak ele alır. contextual modda karakter kullanıcı adını ancak
+ * konuşmada öğrenirse veya Dynamic Story state recognized ise kullanabilir.
+ */
 export function buildReaderPersonaContext(persona: ReaderPersona): string {
   const traits = persona.traits.length > 0 ? ` Özellikleri: ${persona.traits.join(', ')}.` : '';
-  const note = persona.note ? ` ${persona.note}` : '';
-  return `KARŞINDAKİ KİŞİ: ${persona.name}. Rolü: ${persona.role}.${traits}${note} Ona “okuyucu”, “kullanıcı” veya “uygulamayı kullanan kişi” diye hitap etme; hikâye evreninde bulunan gerçek bir insan gibi davran.`;
+
+  if (persona.identityDisclosure === 'anonymous') {
+    return `ÖZEL PERSONA METADATA: Karşındaki kişinin tercih ettiği hesap/persona kimliği GİZLİDİR.${traits} Karakter olarak gerçek adını veya hesap kimliğini bildiğini varsayma. Kişi sohbet içinde bir lakap ya da geçici kimlik verirse yalnız onu kullan.`;
+  }
+
+  const note = persona.note ? ` Özel bağlam notu: ${persona.note}` : '';
+  if (persona.identityDisclosure === 'always') {
+    return `PERSONA BAĞLAMI: Karşındaki kişi bu hikâye dalında ${persona.name}. Rolü: ${persona.role}.${traits}${note} Bu hikâyede bu kimliğin başlangıçtan bilindiği kabul edilebilir; yine de ona “okuyucu” veya “kullanıcı” deme.`;
+  }
+
+  return `ÖZEL PERSONA METADATA (KARAKTER OTOMATİK BİLMEZ): Tercih edilen kimlik ${persona.name}; tercih edilen rol ${persona.role}.${traits}${note} Bu ad/rol yalnız kişi konuşmada kendini böyle tanıtırsa veya server Dynamic Story hafızası kimliği recognized olarak işaretlerse karakter tarafından kullanılabilir. Aksi halde kimliği belirsiz bir kişi gibi davran.`;
 }
