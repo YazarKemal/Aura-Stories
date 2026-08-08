@@ -203,7 +203,7 @@ function formatClock(totalSeconds: number): string {
 
 function estimateSpeechDuration(text: string, rate: number): number {
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-  const wordsPerMinute = 165 * Math.max(0.5, rate);
+  const wordsPerMinute = 122 * Math.max(0.5, rate);
   return Math.max(1, (wordCount / wordsPerMinute) * 60);
 }
 
@@ -514,15 +514,16 @@ export function MobileNativeBridge() {
       setActiveParagraphForOffset(globalStart);
 
       const elapsed = getElapsedSeconds();
-      if (fraction > 0.05 && elapsed > 0.5) {
+      // Yalnızca ilk kalibrasyon penceresinde (%8–%16) toplam süre tahminini güncelle.
+      // Pencere kapandıktan sonra TTS tamamlanana kadar toplam süre sabit kalır.
+      if (fraction >= 0.08 && fraction <= 0.16 && elapsed > 3) {
         const observedTotal = elapsed / fraction;
-        const maxReasonable = Math.max(
-          elapsed + 2,
-          Math.max(30, ttsInitialDurationRef.current) * 3,
-        );
-        const clampedObserved = Math.max(elapsed, Math.min(maxReasonable, observedTotal));
+        const baseEstimate = Math.max(elapsed, ttsInitialDurationRef.current);
+        const minimum = Math.max(elapsed, baseEstimate * 0.85);
+        const maximum = Math.max(minimum, baseEstimate * 1.25);
+        const clampedObserved = Math.max(minimum, Math.min(maximum, observedTotal));
         const previous = Math.max(elapsed, ttsEstimatedDurationRef.current || clampedObserved);
-        ttsEstimatedDurationRef.current = previous * 0.75 + clampedObserved * 0.25;
+        ttsEstimatedDurationRef.current = previous * 0.60 + clampedObserved * 0.40;
       }
 
       renderProgress(true);
