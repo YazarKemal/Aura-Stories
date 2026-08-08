@@ -52,3 +52,28 @@ test('story prompt keeps earlier chapters in long-term continuity memory', () =>
   assert.match(prompt, /Mührü sakla/);
   assert.match(prompt, /YAKIN DÖNEM SAHNE HAFIZASI/);
 });
+
+test('story prompt treats reader persona as a real in-world participant', () => {
+  const prompt = buildStoryPrompt({
+    storyId: 's1',
+    storyTitle: 'Gece Yarısı Güneşi',
+    storyAuthor: 'Aura',
+    storySynopsis: 'Konağın sırları giderek büyür.',
+    storyTags: ['Gizem'],
+    previousChapters: [],
+    chosenFate: { option: 'B', text: 'Defteri Zehra ile paylaş', isForceChoice: false },
+    chapterNumber: 2,
+    readerPersona: {
+      name: 'Kemal',
+      role: 'Konağa yeni gelen araştırmacı',
+      traits: ['meraklı', 'temkinli'],
+      note: 'Zehra ile daha önce kısa bir konuşma yaptı.',
+    },
+  });
+
+  assert.match(prompt, /HİKÂYEYE KATILAN KİŞİ/);
+  assert.match(prompt, /Adı: Kemal/);
+  assert.match(prompt, /Konağa yeni gelen araştırmacı/);
+  assert.match(prompt, /soyut bir "okuyucu" değildir/);
+  assert.match(prompt, /mevcut ana karakterleri zorla yerinden etme/);
+});
