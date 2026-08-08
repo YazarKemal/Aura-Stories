@@ -3,13 +3,11 @@ import assert from 'node:assert/strict';
 import { evaluateStoryQuality } from './story-quality';
 
 function makeParagraph(seed: string): string {
-  return `${seed} karakterin kararını somut bir sonuçla karşılar. Sahnedeki ayrıntılar gerilimi artırırken diyalog yeni bir bilgi açar ve karakterin davranışı değişen güç dengesini görünür kılar. Okuyucu bir sonraki hamlenin bedelini hisseder.`;
+  return `${seed} kararın ilk sonucunu görünür kılarken karakter geri adım atmak yerine yeni riski ölçer. ${seed} sırasında kısa bir diyalog güç dengesini değiştirir ve daha önce önemsiz görünen bir ayrıntı yeni anlam kazanır. ${seed} sonunda karakterin seçimi sahnenin duygusal yönünü değiştirir; okuyucu bir sonraki hamlenin bedelini açıkça hisseder.`;
 }
 
 test('healthy serial-fiction chapter does not require rewrite', () => {
-  const content = Array.from({ length: 7 }, (_, i) =>
-    Array.from({ length: 3 }, (__, j) => makeParagraph(`Sahne ${i + 1}-${j + 1}`)).join(' ')
-  ).join('\n\n');
+  const content = Array.from({ length: 8 }, (_, i) => makeParagraph(`Sahne ${i + 1}`)).join('\n\n');
 
   const result = evaluateStoryQuality({
     title: 'Kapının Ardındaki Ses',
