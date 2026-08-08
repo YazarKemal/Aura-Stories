@@ -1,6 +1,8 @@
 package com.prompthavenstudio.aurastories;
 
+import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -10,6 +12,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuraSharePlugin.class);
         registerPlugin(AuraTtsPlugin.class);
         super.onCreate(savedInstanceState);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
+        }
     }
 
     @Override

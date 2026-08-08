@@ -13,6 +13,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import {
@@ -40,13 +42,20 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+// ── Auth Persistence ────────────────────────────────────────
+
+/** Tarayıcı kapatılıp açıldığında Firebase oturumunu korur. */
+export const authPersistenceReady = setPersistence(auth, browserLocalPersistence);
+
 // ── Auth Helpers ────────────────────────────────────────────
 
 export async function firebaseLogin(email: string, password: string) {
+  await authPersistenceReady;
   return signInWithEmailAndPassword(auth, email, password);
 }
 
 export async function firebaseRegister(email: string, password: string) {
+  await authPersistenceReady;
   return createUserWithEmailAndPassword(auth, email, password);
 }
 

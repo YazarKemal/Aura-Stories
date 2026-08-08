@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useUserState } from '@/lib/user-state';
 import { firebaseGoogleLogin } from '@/lib/firebase';
-import { Mail, Lock, User, LogIn, UserPlus, Sparkles, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, LogIn, UserPlus, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -54,6 +54,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,6 +73,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setName('');
     setEmail('');
     setPassword('');
+    setShowPassword(false);
     setError('');
   };
 
@@ -187,6 +189,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="auth-name"
+                  name="name"
+                  autoComplete="name"
                   type="text"
                   placeholder="Adınızı girin"
                   value={name}
@@ -203,6 +207,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="auth-email"
+                name="username"
+                autoComplete="username"
+                inputMode="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 type="email"
                 placeholder="eposta@ornek.com"
                 value={email}
@@ -218,12 +227,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="auth-password"
-                type="password"
+                name="password"
+                autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 pl-11 rounded-2xl border-border/50 dark:border-zinc-700 bg-muted/30 dark:bg-zinc-800"
+                className="h-12 pl-11 pr-12 rounded-2xl border-border/50 dark:border-zinc-700 bg-muted/30 dark:bg-zinc-800"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl text-muted-foreground hover:text-accent hover:bg-muted/50 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 

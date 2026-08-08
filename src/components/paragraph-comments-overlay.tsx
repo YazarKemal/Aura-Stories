@@ -115,6 +115,7 @@ export function ParagraphCommentsOverlay() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const openComments = useCallback((next: ParagraphCommentContext) => {
     setContext(next);
@@ -165,14 +166,11 @@ export function ParagraphCommentsOverlay() {
   const submit = async () => {
     if (!context || submitting || !text.trim()) return;
     if (!userState.user) {
-      toast({
-        title: 'Giriş yapmanız gerekiyor',
-        description: 'Yorum göndermek için önce hesabınıza giriş yapın.',
-        variant: 'destructive',
-      });
+      setSubmitError('Yorum göndermek için giriş yapmalısınız.');
       return;
     }
 
+    setSubmitError('');
     setSubmitting(true);
     try {
       await submitParagraphComment(context, {
@@ -181,15 +179,13 @@ export function ParagraphCommentsOverlay() {
         text,
       });
       setText('');
+      setSubmitError('');
       await refresh();
-      toast({ title: 'Yorum gönderildi' });
     } catch (error) {
       console.error('[ParagraphComments] Yorum gönderilemedi:', error);
-      toast({
-        title: 'Yorum gönderilemedi',
-        description: error instanceof Error ? error.message : 'Lütfen tekrar deneyin.',
-        variant: 'destructive',
-      });
+      setSubmitError(
+        error instanceof Error ? error.message : 'Yorum gönderilemedi. Lütfen tekrar deneyin.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -238,6 +234,9 @@ export function ParagraphCommentsOverlay() {
           </div>
 
           <div className="pt-3 border-t border-border/40">
+            {submitError && (
+              <p className="text-xs font-bold text-destructive bg-destructive/10 rounded-xl px-4 py-2 mb-2">{submitError}</p>
+            )}
             <div className="flex items-center gap-2 rounded-2xl bg-muted/40 p-2">
               <Input
                 value={text}
@@ -250,12 +249,13 @@ export function ParagraphCommentsOverlay() {
                 }}
                 maxLength={800}
                 placeholder={userState.user ? 'Sen ne düşünüyorsun?' : 'Yorum için giriş yapmalısın'}
+                disabled={!userState.user}
                 className="h-11 border-none bg-transparent focus-visible:ring-0"
               />
               <Button
                 type="button"
                 onClick={() => void submit()}
-                disabled={submitting || !text.trim()}
+                disabled={!userState.user || submitting || !text.trim()}
                 className="w-11 h-11 p-0 rounded-full shrink-0"
                 aria-label="Yorumu gönder"
               >

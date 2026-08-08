@@ -9,7 +9,7 @@ import {
   query,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 
 export interface ParagraphComment {
   id: string;
@@ -65,12 +65,38 @@ export async function submitParagraphComment(
   if (!text) throw new Error('Yorum boş olamaz.');
   if (text.length > 800) throw new Error('Yorum en fazla 800 karakter olabilir.');
 
-  await addDoc(commentsCollection(context), {
-    uid: input.uid,
-    userName: input.userName.slice(0, 100),
-    text,
-    storyTitle: context.storyTitle.slice(0, 200),
-    paragraphPreview: context.paragraphPreview.slice(0, 300),
-    createdAt: serverTimestamp(),
-  });
+  // Auth sanity check — oturum ve uid eşleşmesi
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Firebase Auth oturumu bulunamadı.');
+  }
+  if (input.uid !== currentUser.uid) {
+    throw new Error('Yorum kullanıcı kimliği Firebase Auth ile eşleşmiyor.');
+  }
+
+  // Force-refresh token before write
+  await currentUser.getIdToken(true);
+
+  try {
+    await addDoc(commentsCollection(context), {
+      uid: input.uid,
+      userName: input.userName.slice(0, 100),
+      text,
+      storyTitle: context.storyTitle.slice(0, 200),
+      paragraphPreview: context.paragraphPreview.slice(0, 300),
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    // QA debugging: Firestore permission reddedilirse detaylı bilgi
+    console.error('[paragraph-comments] Firestore write failed', {
+      projectId: db.app.options.projectId,
+      hasCurrentUser: Boolean(auth.currentUser),
+      inputUid: input.uid,
+      authUid: auth.currentUser?.uid,
+      uidMatch: auth.currentUser?.uid === input.uid,
+      errorCode: (err as any)?.code,
+      errorMessage: (err as any)?.message,
+    });
+    throw err;
+  }
 }
