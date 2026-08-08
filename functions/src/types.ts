@@ -32,6 +32,7 @@ export type DynamicBeliefState = 'accepted' | 'uncertain' | 'rejected' | 'not_ap
 export type DynamicImportance = 'minor' | 'major' | 'critical';
 export type DynamicParticipantStatus = 'none' | 'noticed' | 'recognized';
 export type CharacterEchoVisibility = 'private' | 'shared' | 'anonymous';
+export type IdentityDisclosure = 'contextual' | 'always' | 'anonymous';
 
 /**
  * Modelin tek bir Character Room mesajından çıkardığı olay adayı.
@@ -98,6 +99,8 @@ export interface DynamicParticipantState {
   firstSeenRevision?: number;
   lastSeenRevision?: number;
   firstSeenChapter?: number;
+  identityDisclosure?: IdentityDisclosure;
+  echoVisibility?: CharacterEchoVisibility;
 }
 
 export interface DynamicStoryState {
@@ -194,7 +197,7 @@ export interface StoryReaderPersona {
    * always: bu hikâye dalında kimlik başlangıçtan itibaren bilinir.
    * anonymous: tercih edilen isim metadata'da kalsa bile karakterlere açıklanmaz.
    */
-  identityDisclosure?: 'contextual' | 'always' | 'anonymous';
+  identityDisclosure?: IdentityDisclosure;
   /** Paylaşılan branch'lerde AI Character Echo görünürlüğü. */
   echoVisibility?: CharacterEchoVisibility;
 }
