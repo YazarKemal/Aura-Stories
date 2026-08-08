@@ -7,7 +7,6 @@ export interface ChatMessage {
   content: string;
 }
 
-/** İstemci localStorage'ında tutulan lore memory'nin sunucuya iletilen kısmı */
 export interface LoreMemoryContext {
   personality: string;
   knownSecrets: string[];
@@ -27,7 +26,6 @@ export interface CharacterChatInput {
   characterRole?: string;
   characterPersonality?: string;
   messages: { text: string; sender: 'user' | 'character' }[];
-  /** Lore memory verisi — system prompt sunucuda bundan oluşturulur */
   memoryContext?: LoreMemoryContext;
 }
 
@@ -84,6 +82,13 @@ export interface ChosenFate {
   isForceChoice: boolean;
 }
 
+export interface StoryReaderPersona {
+  name: string;
+  role: string;
+  traits: string[];
+  note: string;
+}
+
 export interface GenerateStoryInput {
   storyId: string;
   storyTitle: string;
@@ -93,6 +98,7 @@ export interface GenerateStoryInput {
   previousChapters: PreviousChapter[];
   chosenFate: ChosenFate;
   chapterNumber: number;
+  readerPersona?: StoryReaderPersona;
 }
 
 export interface GenerateStoryOutput {
