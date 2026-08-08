@@ -48,6 +48,38 @@ export const characterChatInputSchema = z.object({
 
 export const chatOperationSchema = characterChatInputSchema;
 
+// ── Dynamic Character Roster ─────────────────────────────────
+
+const characterRosterChapterSchema = z.object({
+  chapterNumber: z.number().int().positive().max(200),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1).max(CHAPTER_CONTENT_MAX_LENGTH),
+}).strict();
+
+export const characterRosterInputSchema = z.object({
+  storyId: z.string().min(1).max(100),
+  storyTitle: z.string().min(1).max(200),
+  storySynopsis: z.string().min(1).max(STORY_SYNOPSIS_MAX_LENGTH),
+  storyTags: z.array(z.string().max(50)).max(20).optional(),
+  currentChapter: z.number().int().positive().max(200),
+  chapters: z.array(characterRosterChapterSchema).max(10),
+}).strict();
+
+export const characterRosterItemSchema = z.object({
+  id: z.string().min(1).max(140),
+  name: z.string().min(1).max(100),
+  role: z.string().min(1).max(160),
+  personality: z.string().min(3).max(500),
+  unlockedAtChapter: z.number().int().positive().max(200),
+  greeting: z.string().min(3).max(700),
+  storyId: z.string().min(1).max(100),
+}).strict();
+
+export const characterRosterOutputSchema = z.object({
+  characters: z.array(characterRosterItemSchema).min(1).max(6),
+  sourceRevision: z.string().min(1).max(120),
+}).strict();
+
 // ── Story Generation ──────────────────────────────────────────
 
 const previousChapterSchema = z.object({
