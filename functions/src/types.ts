@@ -74,6 +74,7 @@ export interface DynamicChatEffects {
 export interface DynamicStoryEvent extends DynamicChatEventCandidate {
   id: string;
   targetCharacter: string;
+  chapterNumber?: number;
   createdAt: number;
   revision: number;
 }
@@ -96,6 +97,7 @@ export interface DynamicParticipantState {
   significance: 'none' | DynamicImportance;
   firstSeenRevision?: number;
   lastSeenRevision?: number;
+  firstSeenChapter?: number;
 }
 
 export interface DynamicStoryState {
