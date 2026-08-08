@@ -4,9 +4,9 @@
  * DeepSeek API çağrıları Firebase Functions (characterChat) üzerinden
  * güvenli şekilde yapılır. API anahtarı istemciye GÖMÜLMEZ.
  *
- * Lore memory yönetimi client-side localStorage'da tutulur.
- * System prompt SUNUCU TARAFINDAN buildChatPrompt() ile oluşturulur —
- * istemci HAM systemPrompt, model, max_tokens GÖNDEREMEZ.
+ * Client lore yalnız yardımcı konuşma hafızasıdır. Hikâye kanonu, karakterin
+ * bir iddiaya inanıp inanmadığı ve katılımcı statüsü server-side Dynamic Story
+ * world state tarafından belirlenir.
  */
 import {
   loadMemory,
@@ -40,9 +40,18 @@ export interface ChatRequestPayload {
   };
 }
 
+export interface ChatWorldUpdate {
+  revision: number;
+  participantStatus: 'none' | 'noticed' | 'recognized';
+  canonicalEvents: number;
+}
+
 export interface ChatResponsePayload {
   text: string;
   characterName: string;
+  /** Server-side Dynamic Story güncellemesi; gerçek kanonik etki göstergesi. */
+  worldUpdate?: ChatWorldUpdate;
+  /** Legacy alan. Yeni UI kanonik etki için worldUpdate kullanmalıdır. */
   memoryUpdates?: {
     newFactsLearned: LearnedFact[];
     hiddenSecretsRemaining: number;
@@ -70,20 +79,16 @@ export async function sendChatMessage(
   const characterPersonality = payload.characterPersonality || rosterCharacter?.personality || memory.personality;
 
   const lastUserMsg = [...payload.messages].reverse().find(m => m.sender === 'user');
-  const newFactsLearned: LearnedFact[] = [];
 
+  // Local extraction yalnız yardımcı "duyulmuş iddia" hafızasına eklenir.
+  // Eskiden bu aşamada knownSecrets'e taşınıyordu; bu, karakter server-side
+  // belief=rejected dese bile istemcinin iddiayı gerçek ilan etmesine yol açıyordu.
   if (lastUserMsg) {
     const extracted = extractNewFacts(memory, lastUserMsg.text);
-
     for (const fact of extracted) {
-      memory.learnedFacts.push(fact);
-      memory.hiddenSecrets = memory.hiddenSecrets.filter(s => s !== fact.fact);
-      if (!memory.knownSecrets.includes(fact.fact)) {
-        memory.knownSecrets.push(fact.fact);
-      }
+      const alreadyStored = memory.learnedFacts.some(existing => existing.fact === fact.fact);
+      if (!alreadyStored) memory.learnedFacts.push(fact);
     }
-
-    newFactsLearned.push(...extracted);
   }
 
   const readerPersona = await getReaderPersona(payload.storyId);
@@ -102,9 +107,9 @@ export async function sendChatMessage(
 
   const { callCharacterChat } = await import('@/lib/functions-client');
 
-  let aiText: string;
+  let functionResult: ChatResponsePayload;
   try {
-    const result = await callCharacterChat({
+    functionResult = await callCharacterChat({
       storyId: payload.storyId,
       storyTitle: payload.storyTitle,
       storySynopsis: payload.storySynopsis,
@@ -118,7 +123,6 @@ export async function sendChatMessage(
       operationId: payload.operationId,
       memoryContext,
     });
-    aiText = result.text;
   } catch (err: unknown) {
     if (err instanceof Error) {
       const msg = err.message;
@@ -128,6 +132,7 @@ export async function sendChatMessage(
     throw err;
   }
 
+  const aiText = functionResult.text;
   if (!aiText) {
     throw new Error('AI yanıt üretemedi.');
   }
@@ -139,17 +144,9 @@ export async function sendChatMessage(
   updateConversationSummary(memory, recentMessages);
   saveMemory(memory);
 
-  const result: ChatResponsePayload = {
+  return {
     text: aiText,
     characterName: payload.characterName,
+    worldUpdate: functionResult.worldUpdate,
   };
-
-  if (newFactsLearned.length > 0) {
-    result.memoryUpdates = {
-      newFactsLearned,
-      hiddenSecretsRemaining: memory.hiddenSecrets.length,
-    };
-  }
-
-  return result;
 }
