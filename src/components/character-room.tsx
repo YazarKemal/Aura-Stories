@@ -76,8 +76,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     const merged = mergeCharacterRosters(staticCharacters, dynamicCharacters);
     if (!readerPersona?.name) return merged;
     const personaName = normalizeCharacterName(readerPersona.name);
-    // Kullanıcının kendi personası dinamik extraction sonucunda karakter listesine
-    // girse bile kendisiyle sohbet edeceği bir NPC olarak gösterilmez.
     return merged.filter(character => normalizeCharacterName(character.name) !== personaName);
   }, [staticCharacters, dynamicCharacters, readerPersona?.name]);
 
@@ -91,11 +89,11 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
 
   useEffect(() => {
     let cancelled = false;
-    void getReaderPersona().then((persona) => {
+    void getReaderPersona(story.id).then((persona) => {
       if (!cancelled) setReaderPersona(persona);
     });
     return () => { cancelled = true; };
-  }, [userState.user?.uid]);
+  }, [userState.user?.uid, story.id]);
 
   useEffect(() => {
     if (!userState.user?.uid) return;
@@ -333,6 +331,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
         <ReaderPersonaEditor
           open={isPersonaEditorOpen}
           onOpenChange={setIsPersonaEditorOpen}
+          storyId={story.id}
           persona={readerPersona}
           onSave={setReaderPersona}
         />
