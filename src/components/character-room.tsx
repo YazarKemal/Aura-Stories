@@ -7,6 +7,10 @@ import {
   loadDynamicCharacterRoster,
   mergeCharacterRosters,
 } from '@/lib/character-roster-client';
+import {
+  onDynamicStorySnapshot,
+  type DynamicStorySnapshot,
+} from '@/lib/dynamic-story-client';
 import { useUserState, CHAPTER_UNLOCK_COST } from '@/lib/user-state';
 import { getReaderPersona, type ReaderPersona } from '@/lib/reader-persona';
 import { CharacterPanel } from './character-panel';
@@ -27,6 +31,8 @@ import {
   Sparkles,
   RefreshCw,
   Pencil,
+  Orbit,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +72,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const [isPersonaEditorOpen, setIsPersonaEditorOpen] = useState(false);
   const [dynamicCharacters, setDynamicCharacters] = useState<CharacterRoster[]>([]);
   const [isRosterRefreshing, setIsRosterRefreshing] = useState(false);
+  const [dynamicStoryState, setDynamicStoryState] = useState<DynamicStorySnapshot | null>(null);
 
   const staticCharacters = useMemo(
     () => getCharactersForStory(story.id),
@@ -93,6 +100,15 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
       if (!cancelled) setReaderPersona(persona);
     });
     return () => { cancelled = true; };
+  }, [userState.user?.uid, story.id]);
+
+  useEffect(() => {
+    const uid = userState.user?.uid;
+    if (!uid) {
+      setDynamicStoryState(null);
+      return;
+    }
+    return onDynamicStorySnapshot(uid, story.id, setDynamicStoryState);
   }, [userState.user?.uid, story.id]);
 
   useEffect(() => {
@@ -171,6 +187,19 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const nextChapter = displayedChapter + 1;
   const canAffordNext = userState.credits >= CHAPTER_UNLOCK_COST;
 
+  const participantStatus = dynamicStoryState?.participant.status || 'none';
+  const canonicalEventCount = dynamicStoryState?.events.filter(event => event.shouldAffectStory).length || 0;
+  const participantLabel = participantStatus === 'recognized'
+    ? 'Hikâyede tanınıyorsun'
+    : participantStatus === 'noticed'
+      ? 'Hikâye seni fark etti'
+      : 'Henüz hikâyede iz bırakmadın';
+  const participantDescription = participantStatus === 'recognized'
+    ? `${dynamicStoryState?.participant.publicName || 'Bu kimlik'} artık bu branch içinde tanınabilir bir hikâye aktörü. Sonraki bölümler Character Room’da yarattığın kanonik sonuçları taşıyacak.`
+    : participantStatus === 'noticed'
+      ? 'Bir karakterin kararını, bilgisini veya duygusunu anlamlı biçimde etkiledin. Kimliğin henüz tam bilinmese bile evrende bir izin var.'
+      : 'Karakterlerle konuşmak tek başına seni hikâyeye eklemez. Kritik bir bilgi, uyarı, kurtarma veya karar değişikliği yaratırsan Dynamic Story bunu kanonik olaya dönüştürebilir.';
+
   return (
     <>
       <div className="fixed inset-0 z-[300] bg-background flex flex-col animate-in fade-in duration-500 overflow-hidden">
@@ -188,7 +217,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
                 <BookOpen className="w-4 h-4 text-primary shrink-0" />
                 <h2 className="text-sm font-headline font-bold text-accent truncate">{story.title}</h2>
               </div>
-              <span className="text-[10px] text-muted-foreground">Karakter Odası · Canlı Evren</span>
+              <span className="text-[10px] text-muted-foreground">Karakter Odası · Dynamic Story</span>
             </div>
           </div>
           <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-bold text-xs px-2 py-1 gap-1 shrink-0">
@@ -248,12 +277,12 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
         </div>
 
         {readerPersona && (
-          <div className="px-5 pt-4 flex-shrink-0">
+          <div className="px-5 pt-4 flex-shrink-0 space-y-3">
             <button
               type="button"
               onClick={() => setIsPersonaEditorOpen(true)}
               className="aura-premium-surface w-full rounded-[1.4rem] px-4 py-3 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-              aria-label="Hikâyedeki kimliğini düzenle"
+              aria-label="Hikâyedeki kimliğini ve izinlerini düzenle"
             >
               <div className="relative w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                 <UserRound className="w-5 h-5" />
@@ -262,16 +291,50 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[9px] uppercase tracking-[0.18em] text-primary font-black">Sen de bu evrendesin</span>
+                <span className="text-[9px] uppercase tracking-[0.18em] text-primary font-black">Hikâye içi persona</span>
                 <div className="flex items-baseline gap-2 min-w-0">
                   <span className="text-sm font-black text-foreground truncate">{readerPersona.name}</span>
                   <span className="text-[10px] text-muted-foreground truncate">{readerPersona.role}</span>
                 </div>
+                <span className="text-[9px] text-muted-foreground">
+                  {readerPersona.identityDisclosure === 'contextual' ? 'Karakterler kimliğini bağlama göre öğrenir' : readerPersona.identityDisclosure === 'anonymous' ? 'Kimlik gizli' : 'Kimlik baştan bilinir'}
+                </span>
               </div>
               <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Pencil className="w-4 h-4" />
               </span>
             </button>
+
+            <div className={cn(
+              'rounded-[1.4rem] border px-4 py-3 flex gap-3',
+              participantStatus === 'recognized'
+                ? 'border-emerald-500/25 bg-emerald-500/8'
+                : participantStatus === 'noticed'
+                  ? 'border-primary/25 bg-primary/8'
+                  : 'border-border/50 bg-muted/20'
+            )}>
+              <div className={cn(
+                'w-10 h-10 rounded-2xl flex items-center justify-center shrink-0',
+                participantStatus === 'recognized'
+                  ? 'bg-emerald-500/12 text-emerald-500'
+                  : participantStatus === 'noticed'
+                    ? 'bg-primary/12 text-primary'
+                    : 'bg-muted text-muted-foreground'
+              )}>
+                {participantStatus === 'recognized' ? <Orbit className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-black text-foreground">{participantLabel}</span>
+                  {canonicalEventCount > 0 && (
+                    <Badge className="bg-primary/10 text-primary border-none text-[9px]">
+                      {canonicalEventCount} kanonik etki
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] leading-relaxed text-muted-foreground mt-1">{participantDescription}</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -293,9 +356,9 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
             <h3 className="text-lg font-headline font-bold text-accent">
               {charactersWithStatus.length > 0 ? 'Bir Karakter Seç' : 'Karakterler Hazırlanıyor'}
             </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-[310px]">
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-[320px]">
               {charactersWithStatus.length > 0
-                ? 'Karakterler seni hikâyenin dışındaki bir okuyucu olarak değil, kendi dünyalarına girmiş gerçek bir kişi olarak tanır. Yeni bölümlerde ortaya çıkan kişiler de buraya eklenir.'
+                ? 'Karakterler kimliğini otomatik olarak bilmez. Ne söylediğini, sana inanıp inanmadıklarını ve aranızdaki ilişkiyi hatırlarlar. Hikâye seyrini gerçekten değiştirirsen bu etki sonraki bölümlere taşınır.'
                 : 'Bu hikâyedeki kişiler bölüm metninden çıkarılıyor. Liste hazır olduğunda karakterlerle kendi sesleri ve hafızalarıyla konuşabileceksin.'}
             </p>
           </div>
