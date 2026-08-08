@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { characterRosterOutputSchema } from './validation';
 
-const MODEL = 'deepseek-chat';
+const MODEL = 'deepseek-v4-pro';
 const MAX_TOKENS = 1200;
 const TEMPERATURE = 0.35;
 
@@ -130,6 +130,7 @@ export async function generateCharacterRosterFromStory(
     [{ role: 'system', content: buildCharacterRosterPrompt(input) }],
     {
       model: MODEL,
+      thinkingMode: 'disabled',
       temperature: TEMPERATURE,
       maxTokens: MAX_TOKENS,
       responseFormat: 'json_object',
