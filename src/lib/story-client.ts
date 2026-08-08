@@ -22,7 +22,6 @@ export interface GenerateStoryPayload {
   previousChapters: PreviousChapter[];
   chosenFate: { option: 'A' | 'B'; text: string; isForceChoice: boolean };
   chapterNumber: number;
-  /** Kullanıcının hikâye evrenindeki kimliği. Caller'ın ayrıca doldurması gerekmez. */
   readerPersona?: ReaderPersona;
 }
 
@@ -43,11 +42,7 @@ export async function generateStoryChapter(
   }
 
   const { callGenerateStory } = await import('@/lib/functions-client');
-
-  // Hikâye dalları artık yalnızca anonim bir seçim üretmez. Kullanıcının Persona
-  // kimliği aynı branch'e taşınır; böylece sonraki bölümlerde kişi hikâye
-  // dünyasında tutarlı bir katılımcı olarak anılabilir.
-  const readerPersona = payload.readerPersona || await getReaderPersona();
+  const readerPersona = payload.readerPersona || await getReaderPersona(payload.storyId);
 
   try {
     return await callGenerateStory({
