@@ -48,6 +48,54 @@ export const characterChatInputSchema = z.object({
 
 export const chatOperationSchema = characterChatInputSchema;
 
+// Modelin kullanıcıya görünen cevapla birlikte çıkardığı Dynamic Story etkileri.
+// Bunlar istemci payload'ı değildir; yalnızca server-side model çıktısı doğrulanır.
+const dynamicChatEventCandidateSchema = z.object({
+  type: z.enum([
+    'fact_revealed',
+    'warning',
+    'intervention',
+    'identity_claim',
+    'promise',
+    'threat',
+    'rescue',
+    'relationship_change',
+    'other',
+  ]),
+  summary: z.string().min(3).max(500),
+  fact: z.string().min(1).max(500).optional(),
+  subjectCharacter: z.string().min(1).max(100).optional(),
+  belief: z.enum(['accepted', 'uncertain', 'rejected', 'not_applicable']),
+  importance: z.enum(['minor', 'major', 'critical']),
+  shouldAffectStory: z.boolean(),
+}).strict();
+
+const dynamicRelationshipDeltaSchema = z.object({
+  characterName: z.string().min(1).max(100).optional(),
+  trust: z.number().int().min(-30).max(30),
+  affinity: z.number().int().min(-30).max(30),
+  suspicion: z.number().int().min(-30).max(30),
+  hostility: z.number().int().min(-30).max(30),
+  reason: z.string().min(1).max(300),
+}).strict();
+
+const dynamicParticipantSignalSchema = z.object({
+  status: z.enum(['none', 'noticed', 'recognized']),
+  publicName: z.string().min(1).max(80).optional(),
+  publicRole: z.string().min(1).max(100).optional(),
+  reason: z.string().min(1).max(300).optional(),
+  significance: z.enum(['none', 'minor', 'major', 'critical']),
+}).strict();
+
+export const characterChatModelOutputSchema = z.object({
+  reply: z.string().min(1).max(4000),
+  effects: z.object({
+    events: z.array(dynamicChatEventCandidateSchema).max(4).default([]),
+    relationshipDeltas: z.array(dynamicRelationshipDeltaSchema).max(3).default([]),
+    participant: dynamicParticipantSignalSchema.optional(),
+  }).strict(),
+}).strict();
+
 // ── Dynamic Character Roster ─────────────────────────────────
 
 const characterRosterChapterSchema = z.object({
@@ -100,6 +148,8 @@ const readerPersonaSchema = z.object({
   role: z.string().min(1).max(80),
   traits: z.array(z.string().min(1).max(60)).max(6),
   note: z.string().max(500),
+  identityDisclosure: z.enum(['contextual', 'always', 'anonymous']).optional(),
+  echoVisibility: z.enum(['private', 'shared', 'anonymous']).optional(),
 }).strict();
 
 export const generateStoryInputSchema = z.object({
