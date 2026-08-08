@@ -83,7 +83,9 @@ export async function generateAuraStory(
       maxTokens: MAX_TOKENS,
       responseFormat: 'json_object',
       timeoutMs,
-      maxRetries: 1,
+      // Firebase callable'ın toplam timeout bütçesini aşmamak için story engine
+      // retry yerine ekonomi katmanındaki güvenli kullanıcı tekrarını tercih eder.
+      maxRetries: 0,
     },
   );
 
