@@ -19,8 +19,6 @@ import { buildReaderPersonaContext, getReaderPersona } from '@/lib/reader-person
 import { getCharactersForStory } from '@/lib/character-roster';
 import { findCachedDynamicCharacter } from '@/lib/character-roster-client';
 
-// ── Types ────────────────────────────────────────────────────
-
 export interface ChatRequestPayload {
   storyId: string;
   storyTitle: string;
@@ -64,9 +62,6 @@ export async function sendChatMessage(
     payload.characterName
   );
 
-  // Önce yayıncı-küratörlü static roster, yoksa son AI roster cache'i kullanılır.
-  // Böylece yeni üretilen bölümlerde ortaya çıkan karakterler de kendine özgü
-  // rol ve kişilikle konuşabilir.
   const staticCharacter = getCharactersForStory(payload.storyId)
     .find(character => character.name === payload.characterName);
   const cachedDynamicCharacter = findCachedDynamicCharacter(payload.storyId, payload.characterName);
@@ -91,7 +86,7 @@ export async function sendChatMessage(
     newFactsLearned.push(...extracted);
   }
 
-  const readerPersona = await getReaderPersona();
+  const readerPersona = await getReaderPersona(payload.storyId);
   const personaContext = buildReaderPersonaContext(readerPersona);
   const conversationSummary = [personaContext, memory.conversationSummary]
     .filter(Boolean)
