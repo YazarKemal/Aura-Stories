@@ -123,7 +123,8 @@ export function ReaderPersonaEditor({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[90dvh] rounded-t-[2.5rem] border-white/10 bg-background/95 backdrop-blur-2xl px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 overflow-y-auto"
+        overlayClassName="z-[640]"
+        className="z-[650] max-h-[90dvh] rounded-t-[2.5rem] border-white/10 bg-background/95 backdrop-blur-2xl px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 overflow-y-auto"
       >
         <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-muted" />
         <SheetHeader className="text-left mb-6">
