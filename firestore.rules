@@ -1,10 +1,10 @@
 // ── Aura Stories Firestore Security Rules ──────────────────────
-// Sürüm: 3.1.0 — Server-authoritative economy + paragraph comments
+// Sürüm: 3.2.0 — Server-authoritative economy + Dynamic Story state
 //
 // GÜVENLİK MODELİ:
 // - credits/role/vipUntil/lastGiftClaimedAt/createdAt: SUNUCU KONTROLLÜ
 // - Admin: request.auth.token.admin custom claims
-// - rateLimits, transactions, entitlements: yalnızca Functions/Admin SDK
+// - rateLimits, transactions, entitlements, dynamicStories: yalnız Functions/Admin SDK yazar
 // - progress: hasFullAccess/unlockedChapters client tarafından DEĞİŞTİRİLEMEZ
 // - contentReports: keys().hasOnly + serverCreatedAt istemciden KABUL EDİLMEZ
 
@@ -81,6 +81,14 @@ service cloud.firestore {
       }
 
       match /transactions/{operationId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      // Character Room konuşmalarından türetilen kanonik World State.
+      // Kullanıcı kendi branch'ini okuyabilir; fakat event/relationship/participant
+      // state yalnız Firebase Functions tarafından yazılır.
+      match /dynamicStories/{storyId} {
         allow read: if isOwner(uid) || isAdmin();
         allow write: if false;
       }
