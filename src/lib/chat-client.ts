@@ -17,6 +17,7 @@ import {
 } from '@/lib/lore-memory';
 import { buildReaderPersonaContext, getReaderPersona } from '@/lib/reader-persona';
 import { getCharactersForStory } from '@/lib/character-roster';
+import { findCachedDynamicCharacter } from '@/lib/character-roster-client';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -31,9 +32,7 @@ export interface ChatRequestPayload {
   characterRole?: string;
   characterPersonality?: string;
   messages: { text: string; sender: 'user' | 'character' }[];
-  /** Benzersiz işlem ID — idempotency için (server-authoritative) */
   operationId: string;
-  /** Lore memory verisi — system prompt sunucuda bundan oluşturulur */
   memoryContext?: {
     personality: string;
     knownSecrets: string[];
@@ -52,18 +51,6 @@ export interface ChatResponsePayload {
   };
 }
 
-// ── Public API ────────────────────────────────────────────────
-
-/**
- * Karakterle sohbet mesajı gönderir.
- * Firebase Functions (characterChat) üzerinden güvenli şekilde
- * DeepSeek API'ye çağrı yapar. API anahtarı istemciye GÖMÜLMEZ.
- * Hafıza yönetimini (lore) client-side localStorage'da tutar.
- *
- * Reader Persona karakter sohbetine her çağrıda eklenir. Böylece karakter,
- * karşısındaki kişiyi uygulama dışındaki bir "okuyucu" olarak değil,
- * hikâye evreninde gerçekten bulunan bir kişi olarak ele alır.
- */
 export async function sendChatMessage(
   payload: ChatRequestPayload
 ): Promise<ChatResponsePayload> {
@@ -71,21 +58,22 @@ export async function sendChatMessage(
     throw new Error('storyTitle ve characterName zorunludur');
   }
 
-  // ── 1. Hafızayı yükle ──────────────────────────────────
   const memory = loadMemory(
     payload.storyId || payload.storyTitle,
     payload.storyTitle,
     payload.characterName
   );
 
-  // Roster'daki kanonik karakter profili aynı hikâyedeki tüm karakterlerin
-  // yalnızca tür etiketlerinden aynı kişiliği almasını engeller.
-  const rosterCharacter = getCharactersForStory(payload.storyId)
+  // Önce yayıncı-küratörlü static roster, yoksa son AI roster cache'i kullanılır.
+  // Böylece yeni üretilen bölümlerde ortaya çıkan karakterler de kendine özgü
+  // rol ve kişilikle konuşabilir.
+  const staticCharacter = getCharactersForStory(payload.storyId)
     .find(character => character.name === payload.characterName);
+  const cachedDynamicCharacter = findCachedDynamicCharacter(payload.storyId, payload.characterName);
+  const rosterCharacter = staticCharacter || cachedDynamicCharacter;
   const characterRole = payload.characterRole || rosterCharacter?.role;
   const characterPersonality = payload.characterPersonality || rosterCharacter?.personality || memory.personality;
 
-  // ── 2. Kullanıcının son mesajından yeni bilgi çıkar ────
   const lastUserMsg = [...payload.messages].reverse().find(m => m.sender === 'user');
   const newFactsLearned: LearnedFact[] = [];
 
@@ -103,7 +91,6 @@ export async function sendChatMessage(
     newFactsLearned.push(...extracted);
   }
 
-  // ── 3. Reader Persona + lore context ───────────────────
   const readerPersona = await getReaderPersona();
   const personaContext = buildReaderPersonaContext(readerPersona);
   const conversationSummary = [personaContext, memory.conversationSummary]
@@ -118,7 +105,6 @@ export async function sendChatMessage(
     conversationSummary,
   };
 
-  // ── 4. Firebase Functions üzerinden DeepSeek çağrısı ──
   const { callCharacterChat } = await import('@/lib/functions-client');
 
   let aiText: string;
@@ -151,17 +137,13 @@ export async function sendChatMessage(
     throw new Error('AI yanıt üretemedi.');
   }
 
-  // ── 5. Konuşma özetini güncelle ───────────────────────
   const recentMessages = [
     ...payload.messages.slice(-4),
     { text: aiText, sender: 'character' as const },
   ];
   updateConversationSummary(memory, recentMessages);
-
-  // ── 6. Hafızayı kaydet ────────────────────────────────
   saveMemory(memory);
 
-  // ── 7. Yanıtı döndür ──────────────────────────────────
   const result: ChatResponsePayload = {
     text: aiText,
     characterName: payload.characterName,
