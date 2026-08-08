@@ -37,8 +37,9 @@ export function TtsReadoutBridge() {
           const percent = hasLegacyDemoClock ? 0 : nativePercent;
 
           // ReadingView ilk mount'ta eski demo progress=35 basıyor. Native bridge
-          // devralana kadar tek karelik %35 flaşı görünmesin.
-          if (hasLegacyDemoClock) {
+          // devralana kadar tek karelik %35 flaşı görünmesin. Aynı attribute'u
+          // tekrar tekrar set etmeyerek MutationObserver döngüsü oluşmasını önle.
+          if (hasLegacyDemoClock && progressBar.getAttribute('aria-valuenow') !== '0') {
             progressBar.setAttribute('aria-valuenow', '0');
             const indicator = progressBar.firstElementChild as HTMLElement | null;
             if (indicator) indicator.style.transform = 'translateX(-100%)';
@@ -66,7 +67,6 @@ export function TtsReadoutBridge() {
 
           progressBar.setAttribute('aria-valuetext', `%${percent} tamamlandı`);
 
-          // SkipBack / SkipForward henüz gerçek native seek desteklemiyor.
           const playButton = Array.from(panel.querySelectorAll<HTMLButtonElement>('button'))
             .find(button => button.className.includes('w-12') && button.className.includes('h-12'));
           const controlsRow = playButton?.parentElement;
