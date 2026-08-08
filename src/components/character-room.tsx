@@ -12,6 +12,7 @@ import { getReaderPersona, type ReaderPersona } from '@/lib/reader-persona';
 import { CharacterPanel } from './character-panel';
 import { CharacterChatView } from './character-chat-view';
 import { PurchaseModal } from './purchase-modal';
+import { ReaderPersonaEditor } from './reader-persona-editor';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
@@ -25,12 +26,17 @@ import {
   UserRound,
   Sparkles,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CharacterRoomProps {
   story: Story;
   onBack: () => void;
+}
+
+function normalizeCharacterName(value: string): string {
+  return value.trim().toLocaleLowerCase('tr-TR');
 }
 
 export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
@@ -46,9 +52,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const hasFullAccess = storyState?.hasFullAccess || false;
   const engine = getStoryEngine(story.id);
 
-  // hasFullAccess durumunda getCurrentChapter 999 döndürüyor; AI metadata endpoint'i
-  // gerçek bir bölüm numarası ister. Generated chapter varsa onu, yoksa katalog
-  // toplamını üst sınır olarak kullan.
   const lastGeneratedChapter = engine.generatedChapters[engine.generatedChapters.length - 1]?.chapterNumber || 0;
   const rosterChapter = Math.max(
     1,
@@ -60,6 +63,7 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<CharacterRoster | null>(null);
   const [readerPersona, setReaderPersona] = useState<ReaderPersona | null>(null);
+  const [isPersonaEditorOpen, setIsPersonaEditorOpen] = useState(false);
   const [dynamicCharacters, setDynamicCharacters] = useState<CharacterRoster[]>([]);
   const [isRosterRefreshing, setIsRosterRefreshing] = useState(false);
 
@@ -68,10 +72,14 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     [story.id],
   );
 
-  const allCharacters = useMemo(
-    () => mergeCharacterRosters(staticCharacters, dynamicCharacters),
-    [staticCharacters, dynamicCharacters],
-  );
+  const allCharacters = useMemo(() => {
+    const merged = mergeCharacterRosters(staticCharacters, dynamicCharacters);
+    if (!readerPersona?.name) return merged;
+    const personaName = normalizeCharacterName(readerPersona.name);
+    // Kullanıcının kendi personası dinamik extraction sonucunda karakter listesine
+    // girse bile kendisiyle sohbet edeceği bir NPC olarak gösterilmez.
+    return merged.filter(character => normalizeCharacterName(character.name) !== personaName);
+  }, [staticCharacters, dynamicCharacters, readerPersona?.name]);
 
   const charactersWithStatus = useMemo(
     () => allCharacters.map(character => ({
@@ -89,10 +97,6 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
     return () => { cancelled = true; };
   }, [userState.user?.uid]);
 
-  // Statik demo roster yalnızca ilk küratörlü karakterleri bilir. Üretilen bölüm
-  // revizyonu değiştiğinde metinden yeni karakterler çıkarılır. Dependency'de
-  // generatedChapters array referansı yerine stabil revision string kullanılır;
-  // bu sayede boş engine fallback'i render-loop oluşturmaz.
   useEffect(() => {
     if (!userState.user?.uid) return;
 
@@ -247,7 +251,12 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
 
         {readerPersona && (
           <div className="px-5 pt-4 flex-shrink-0">
-            <div className="aura-premium-surface rounded-[1.4rem] px-4 py-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsPersonaEditorOpen(true)}
+              className="aura-premium-surface w-full rounded-[1.4rem] px-4 py-3 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+              aria-label="Hikâyedeki kimliğini düzenle"
+            >
               <div className="relative w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                 <UserRound className="w-5 h-5" />
                 <span className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full bg-background border border-primary/25 flex items-center justify-center">
@@ -261,8 +270,10 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
                   <span className="text-[10px] text-muted-foreground truncate">{readerPersona.role}</span>
                 </div>
               </div>
-              <Badge className="bg-primary/10 text-primary border-primary/15 text-[9px] shrink-0">Persona Aktif</Badge>
-            </div>
+              <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Pencil className="w-4 h-4" />
+              </span>
+            </button>
           </div>
         )}
 
@@ -317,6 +328,15 @@ export function CharacterRoom({ story, onBack }: CharacterRoomProps) {
         characterName={pendingCharacter?.name}
         characterChapter={pendingCharacter?.unlockedAtChapter}
       />
+
+      {readerPersona && (
+        <ReaderPersonaEditor
+          open={isPersonaEditorOpen}
+          onOpenChange={setIsPersonaEditorOpen}
+          persona={readerPersona}
+          onSave={setReaderPersona}
+        />
+      )}
     </>
   );
 }
