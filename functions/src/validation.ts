@@ -28,7 +28,7 @@ export const memoryContextSchema = z.object({
   knownSecrets: z.array(z.string().max(500)).max(30),
   hiddenSecrets: z.array(z.string().max(500)).max(30),
   learnedFacts: z.array(learnedFactSchema).max(20),
-  conversationSummary: z.string().max(2000),
+  conversationSummary: z.string().max(2400),
 });
 
 export const characterChatInputSchema = z.object({
@@ -39,6 +39,8 @@ export const characterChatInputSchema = z.object({
   storyTags: z.array(z.string().max(50)).max(20).optional(),
   storyAuthor: z.string().max(100).optional(),
   characterName: z.string().min(1).max(100),
+  characterRole: z.string().min(1).max(160).optional(),
+  characterPersonality: z.string().min(1).max(500).optional(),
   messages: z.array(chatMessageSchema).min(1).max(CHAT_MAX_MESSAGES),
   memoryContext: memoryContextSchema.optional(),
   operationId: z.string().min(1).max(200),
