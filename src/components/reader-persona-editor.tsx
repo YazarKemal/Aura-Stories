@@ -140,7 +140,7 @@ export function ReaderPersonaEditor({
             type="button"
             onClick={handleSave}
             disabled={!name.trim() || !role.trim()}
-            className="w-full h-13 min-h-13 rounded-2xl font-black"
+            className="w-full h-14 rounded-2xl font-black"
           >
             Bu Kimlikle Devam Et
           </Button>
