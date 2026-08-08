@@ -38,7 +38,7 @@ import type {
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
 
-const DEEPSEEK_MODEL = 'deepseek-chat';
+const DEEPSEEK_MODEL = 'deepseek-v4-pro';
 const CHAT_MAX_TOKENS = 950;
 const CHAT_TIMEOUT_SECONDS = 35;
 const CHARACTER_ROSTER_TIMEOUT_SECONDS = 35;
@@ -224,6 +224,7 @@ EPİSTEMİK KURAL: Bu bölüm alıntıları yalnız karakterin gerçekten içind
 
     const result = await callDeepSeek(messages, {
       model: DEEPSEEK_MODEL,
+      thinkingMode: 'disabled',
       temperature: 0.78,
       maxTokens: CHAT_MAX_TOKENS,
       responseFormat: 'json_object',
