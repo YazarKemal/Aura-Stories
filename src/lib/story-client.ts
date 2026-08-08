@@ -32,6 +32,55 @@ export interface GenerateStoryResult {
   optionB: string;
 }
 
+/**
+ * ReadingView'in ilk/küratörlü bölüm metni eski story-engine state'inde tutulmuyor.
+ * AI devamı üretilirken DOM'daki gerçek okuma paragraflarından yalnızca generated
+ * chapter'lara ait olmayanları ayırıp Bölüm 1 bağlamı olarak ekleriz.
+ * Böylece ilk AI bölümü yalnızca kısa synopsis'ten devam etmeye çalışmaz.
+ */
+function extractSourceChapterContext(
+  previousChapters: PreviousChapter[],
+): PreviousChapter | null {
+  if (typeof document === 'undefined') return null;
+  if (previousChapters.some(chapter => chapter.chapterNumber === 1)) return null;
+
+  const paragraphTexts = Array.from(
+    document.querySelectorAll<HTMLElement>('[class*="group/para"] p')
+  )
+    .map(node => node.textContent?.trim() || '')
+    .filter(text => text.length >= 20);
+
+  if (paragraphTexts.length === 0) return null;
+
+  const generatedBodies = previousChapters.map(chapter => chapter.content);
+  const sourceParagraphs = paragraphTexts.filter(text =>
+    !generatedBodies.some(content => content.includes(text))
+  );
+
+  if (sourceParagraphs.length === 0) return null;
+
+  const content = sourceParagraphs.slice(0, 20).join('\n\n').slice(0, 8000);
+  if (content.length < 50) return null;
+
+  return {
+    chapterNumber: 1,
+    title: 'Başlangıç',
+    content,
+  };
+}
+
+function buildContinuityChapters(previousChapters: PreviousChapter[]): PreviousChapter[] {
+  const sourceChapter = extractSourceChapterContext(previousChapters);
+  const merged = sourceChapter ? [sourceChapter, ...previousChapters] : previousChapters;
+
+  // Server uzun dönem hafızayı sıkıştırarak kullandığı için 30 bölüme kadar
+  // süreklilik taşıyabilir. Aşılırsa ilk kaynak bölümü + en yeni 29 bölüm korunur.
+  if (merged.length <= 30) return merged;
+  const first = merged[0];
+  const recent = merged.slice(-29);
+  return first ? [first, ...recent.filter(chapter => chapter.chapterNumber !== first.chapterNumber)] : recent;
+}
+
 export async function generateStoryChapter(
   payload: GenerateStoryPayload,
   operationId: string,
@@ -43,10 +92,12 @@ export async function generateStoryChapter(
 
   const { callGenerateStory } = await import('@/lib/functions-client');
   const readerPersona = payload.readerPersona || await getReaderPersona(payload.storyId);
+  const previousChapters = buildContinuityChapters(payload.previousChapters);
 
   try {
     return await callGenerateStory({
       ...payload,
+      previousChapters,
       readerPersona,
       operationId,
       action,
