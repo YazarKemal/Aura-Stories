@@ -11,6 +11,7 @@ import type {
   DeepSeekRequestOptions,
   DeepSeekResponseFormat,
   DeepSeekResult,
+  DeepSeekThinkingMode,
   DeepSeekUsage,
 } from './deepseek-types';
 import {
@@ -25,8 +26,14 @@ import {
 
 // ── Sabitler ──────────────────────────────────────────────────
 
-/** Varsayılan DeepSeek modeli */
-const DEFAULT_MODEL = 'deepseek-chat';
+/** Aura Stories'in varsayılan üretim modeli. */
+const DEFAULT_MODEL = 'deepseek-v4-pro';
+
+/**
+ * V4 thinking varsayılan olarak açık gelir. Aura'da chat/story sıcaklık ayarlarını
+ * gerçekten kullanmak ve mobil gecikmeyi sınırlamak için açıkça kapatıyoruz.
+ */
+const DEFAULT_THINKING_MODE: DeepSeekThinkingMode = 'disabled';
 
 /** Varsayılan HTTP timeout (ms) */
 const DEFAULT_TIMEOUT_MS = 25_000;
@@ -54,8 +61,8 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 /**
  * DeepSeek Chat Completions API'sine güvenli istek gönderir.
  *
- * @param messages  - En az bir user mesajı içermeli
- * @param options   - Model, sıcaklık, timeout, retry gibi istek seçenekleri
+ * @param messages  - En az bir geçerli system/user/assistant mesajı içermeli
+ * @param options   - Model, sıcaklık, thinking, timeout, retry gibi seçenekler
  * @returns DeepSeekResult — content, model, finishReason, usage
  *
  * API anahtarı tanımlı değilse CONFIGURATION hatası fırlatır.
@@ -82,12 +89,20 @@ export async function callDeepSeek(
   // ── 3. Seçenekleri normalize et ────────────────────────
   const model = options?.model ?? DEFAULT_MODEL;
   const temperature = options?.temperature ?? DEFAULT_TEMPERATURE;
+  const thinkingMode = options?.thinkingMode ?? DEFAULT_THINKING_MODE;
   const maxTokens = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
   const contentType = options?.responseFormat ?? 'text';
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
 
-  const body = buildRequestBody(messages, model, temperature, maxTokens, contentType);
+  const body = buildRequestBody(
+    messages,
+    model,
+    temperature,
+    thinkingMode,
+    maxTokens,
+    contentType,
+  );
 
   // ── 4. Retry döngüsü ──────────────────────────────────
   let lastError: unknown = null;
@@ -113,7 +128,7 @@ export async function callDeepSeek(
   throw lastError;
 }
 
-// ── HTTP İstek Katmanı ───────────────────────────────────────
+// ── HTTP İstek Katmanı ────────────────────────────────────────
 
 /**
  * Tek bir HTTP isteği gönderir. Test edilebilmesi için ayrılmıştır.
@@ -145,15 +160,12 @@ async function performRequest(
     const data: unknown = await response.json();
     return parseResponse(data);
   } catch (err: unknown) {
-    // AbortError → timeout
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw timeoutError(timeoutMs);
     }
-    // DeepSeekError'ları olduğu gibi yeniden fırlat
     if (err instanceof Error && err.name === 'DeepSeekError') {
       throw err;
     }
-    // Diğer network hataları
     throw upstreamError(
       0,
       err instanceof Error ? err.message : 'Bilinmeyen ağ hatası'
@@ -163,7 +175,7 @@ async function performRequest(
   }
 }
 
-// ── Response İşleme ──────────────────────────────────────────
+// ── Response İşleme ───────────────────────────────────────────
 
 interface RawChoice {
   message?: { content?: string };
@@ -182,14 +194,12 @@ interface RawResponse {
   usage?: RawUsage;
 }
 
-/** API yanıtını doğrular ve DeepSeekResult'a dönüştürür */
 function parseResponse(data: unknown): DeepSeekResult {
   if (!isObject(data)) {
     throw invalidResponseError('Yanıt geçerli bir JSON nesnesi değil.');
   }
 
   const raw = data as RawResponse;
-
   if (!Array.isArray(raw.choices) || raw.choices.length === 0) {
     throw invalidResponseError('choices dizisi boş veya eksik.');
   }
@@ -223,40 +233,36 @@ function parseResponse(data: unknown): DeepSeekResult {
   return { content, model, finishReason, usage };
 }
 
-/** Hata durumunda uygun DeepSeekError fırlatır */
 async function handleErrorResponse(response: Response): Promise<never> {
   const status = response.status;
 
-  // 401/403 → authentication hatası, retry yapılmaz
   if (status === 401 || status === 403) {
     throw authError(status);
   }
 
-  // 429 → rate limit, retry yapılır
   if (status === 429) {
     throw rateLimitError(status);
   }
 
-  // Diğer hatalar
   let detail: string | undefined;
   try {
     const errBody: unknown = await response.json();
-    if (isObject(errBody) && typeof (errBody as Record<string, unknown>).error === 'string') {
-      const errMsg = (errBody as Record<string, unknown>).error;
-      if (typeof errMsg === 'string') {
-        // API key veya auth header bilgisini temizle
-        detail = errMsg.replace(/(?:Bearer\s+)?sk-[a-zA-Z0-9]+/g, '[REDACTED]');
+    if (isObject(errBody)) {
+      const rawError = (errBody as Record<string, unknown>).error;
+      if (typeof rawError === 'string') {
+        detail = rawError.replace(/(?:Bearer\s+)?sk-[a-zA-Z0-9]+/g, '[REDACTED]');
+      } else if (isObject(rawError) && typeof rawError.message === 'string') {
+        detail = rawError.message.replace(/(?:Bearer\s+)?sk-[a-zA-Z0-9]+/g, '[REDACTED]');
       }
     }
   } catch {
-    // Body okunamazsa devam et
+    // Body okunamazsa devam et.
   }
 
   if (RETRYABLE_STATUSES.has(status)) {
     throw upstreamError(status, detail);
   }
 
-  // 400 gibi diğer hatalar retry edilmez
   throw upstreamError(status, detail);
 }
 
@@ -270,9 +276,13 @@ function validateInput(
     throw invalidInputError('messages dizisi boş olamaz.');
   }
 
-  const hasUser = messages.some(m => m.role === 'user');
-  if (!hasUser) {
-    throw invalidInputError('messages dizisinde en az bir user mesajı bulunmalıdır.');
+  // DeepSeek Chat Completions system-only istekleri de kabul eder. Story ve
+  // roster motorları tüm görevi güvenilir system prompt'unda taşıdığı için
+  // burada yapay bir user mesajı zorunluluğu koymuyoruz.
+  for (const message of messages) {
+    if (!message.content?.trim()) {
+      throw invalidInputError('Mesaj içeriği boş olamaz.');
+    }
   }
 
   if (options?.temperature !== undefined) {
@@ -282,6 +292,12 @@ function validateInput(
         `temperature 0-2 arasında olmalıdır, alınan: ${t}`
       );
     }
+  }
+
+  if (options?.thinkingMode !== undefined
+      && options.thinkingMode !== 'enabled'
+      && options.thinkingMode !== 'disabled') {
+    throw invalidInputError('thinkingMode enabled veya disabled olmalıdır.');
   }
 
   if (options?.maxTokens !== undefined) {
@@ -300,19 +316,18 @@ function buildRequestBody(
   messages: readonly DeepSeekMessage[],
   model: string,
   temperature: number,
+  thinkingMode: DeepSeekThinkingMode,
   maxTokens: number,
   responseFormat: DeepSeekResponseFormat
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model,
     messages: messages.map(m => ({ role: m.role, content: m.content })),
+    thinking: { type: thinkingMode },
     temperature,
     max_tokens: maxTokens,
   };
 
-  // NOT: JSON mode kullanıldığında çağıran kodun prompt içinde
-  // "JSON olarak döndür" talimatı vermesi gerekir. Aksi takdirde
-  // DeepSeek API hata döndürebilir.
   if (responseFormat === 'json_object') {
     body.response_format = { type: 'json_object' };
   }
@@ -328,10 +343,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isRetryable(err: unknown): boolean {
   if (err instanceof Error && err.name === 'DeepSeekError') {
-    // DeepSeekError'un retryable alanını kullan
     return (err as { retryable?: boolean }).retryable === true;
   }
-  // Bilinmeyen hatalar (network vb.) retry edilir
   return true;
 }
 
