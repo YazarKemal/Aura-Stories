@@ -5,7 +5,7 @@ import { evaluateStoryQuality, type StoryQualityReport } from './story-quality';
 import { chapterOutputSchema } from './validation';
 import type { GenerateStoryInput, GenerateStoryOutput } from './types';
 
-const MODEL = 'deepseek-chat';
+const MODEL = 'deepseek-v4-pro';
 const PRIMARY_TEMPERATURE = 0.86;
 const EDITOR_TEMPERATURE = 0.55;
 const MAX_TOKENS = 1800;
@@ -79,6 +79,7 @@ export async function generateAuraStory(
     [{ role: 'system', content: buildStoryPrompt(input) }],
     {
       model: MODEL,
+      thinkingMode: 'disabled',
       temperature: PRIMARY_TEMPERATURE,
       maxTokens: MAX_TOKENS,
       responseFormat: 'json_object',
@@ -101,12 +102,11 @@ export async function generateAuraStory(
     };
   }
 
-  // Düşük kaliteli taslaklarda ikinci çağrı yalnızca editör görevi görür.
-  // İlk çağrı olay örgüsünü kurar; ikinci çağrı dili ve mobil ritmi düzeltir.
   const editor = await callDeepSeek(
     [{ role: 'system', content: buildEditorPrompt(input, draft, initialQuality) }],
     {
       model: MODEL,
+      thinkingMode: 'disabled',
       temperature: EDITOR_TEMPERATURE,
       maxTokens: MAX_TOKENS,
       responseFormat: 'json_object',
@@ -118,7 +118,6 @@ export async function generateAuraStory(
   const polished = parseOutput(editor.content);
   const polishedQuality = evaluateStoryQuality(polished);
 
-  // Editör sonucu teknik olarak daha kötü olduysa güvenli biçimde ilk taslağı koru.
   if (polishedQuality.score < initialQuality.score) {
     return {
       output: draft,
