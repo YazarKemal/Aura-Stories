@@ -3,6 +3,7 @@ import type {
   DynamicChatEffects,
   DynamicImportance,
   DynamicParticipantStatus,
+  DynamicRelationshipState,
   DynamicStoryState,
   StoryReaderPersona,
 } from './types';
@@ -89,18 +90,17 @@ export function reduceDynamicStoryState(
     const relationshipName = (delta.characterName || characterName).trim() || characterName;
     const key = normalizeName(relationshipName);
     const index = relationships.findIndex(item => normalizeName(item.characterName) === key);
-    const current = index >= 0
-      ? relationships[index]
-      : {
-          characterName: relationshipName,
-          trust: 0,
-          affinity: 0,
-          suspicion: 0,
-          hostility: 0,
-          revision: 0,
-        };
+    const existing = index >= 0 ? relationships[index] : undefined;
+    const current: DynamicRelationshipState = existing ?? {
+      characterName: relationshipName,
+      trust: 0,
+      affinity: 0,
+      suspicion: 0,
+      hostility: 0,
+      revision: 0,
+    };
 
-    const updated = {
+    const updated: DynamicRelationshipState = {
       ...current,
       characterName: relationshipName,
       trust: clampRelationship(current.trust + delta.trust),
