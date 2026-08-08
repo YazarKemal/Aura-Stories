@@ -3,7 +3,8 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { deepseekApiKey } from './config';
 import { callDeepSeek } from './deepseek';
-import { buildStoryPrompt, buildChatPrompt } from './prompts';
+import { buildChatPrompt } from './prompts';
+import { generateAuraStory } from './story-engine';
 import { checkRateLimit } from './rate-limiter';
 import {
   reserveCredits, finalizeTransaction, finalizeSimpleTransaction,
@@ -11,7 +12,7 @@ import {
   COST, type EconomyAction,
 } from './economy';
 import {
-  chatOperationSchema, storyGenerateOperationSchema, chapterOutputSchema,
+  chatOperationSchema, storyGenerateOperationSchema,
   claimGiftOperationSchema, fullAccessActionSchema,
 } from './validation';
 import type { CharacterChatOutput, GenerateStoryOutput } from './types';
@@ -20,29 +21,23 @@ initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
 
 const DEEPSEEK_MODEL = 'deepseek-chat';
-const STORY_MAX_TOKENS = 1500;
 const CHAT_MAX_TOKENS = 600;
 const CHAT_TIMEOUT_SECONDS = 30;
-const STORY_TIMEOUT_SECONDS = 55;
+// Düşük kalite skoru alan hikâyelerde opsiyonel editör geçişi yapılabildiği için
+// tek çağrılı eski akıştan daha geniş bir timeout bütçesi gerekir.
+const STORY_TIMEOUT_SECONDS = 105;
+const STORY_ENGINE_CALL_TIMEOUT_MS = 38_000;
 
 function requireAuth(r: { auth?: { uid: string } }): string {
   if (!r.auth?.uid) throw new HttpsError('unauthenticated', 'Giriş yapmalısınız.');
   return r.auth.uid;
 }
+
 function logError(ctx: string, err: unknown): void {
   const msg = err instanceof Error ? err.message.slice(0, 150) : String(err).slice(0, 150);
   console.error(`[${ctx}] ${msg}`);
 }
-function parseStoryJson(raw: string): GenerateStoryOutput {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
-  let parsed: unknown;
-  try { parsed = JSON.parse(cleaned); } catch {
-    throw new HttpsError('internal', 'AI yanıtı geçerli JSON formatında değil.');
-  }
-  const r = chapterOutputSchema.safeParse(parsed);
-  if (!r.success) throw new HttpsError('internal', `AI yanıtı geçersiz: ${r.error.issues.map(i => i.message).join(', ')}`);
-  return r.data;
-}
+
 function isRefundableError(err: unknown): boolean {
   if (err instanceof HttpsError) {
     const c = (err as any).code;
@@ -86,7 +81,12 @@ export const characterChat = onCall<CharacterChatOutput>({
   ];
 
   try {
-    const result = await callDeepSeek(messages, { model: DEEPSEEK_MODEL, temperature: 0.9, maxTokens: CHAT_MAX_TOKENS, timeoutMs: (CHAT_TIMEOUT_SECONDS - 5) * 1000 });
+    const result = await callDeepSeek(messages, {
+      model: DEEPSEEK_MODEL,
+      temperature: 0.9,
+      maxTokens: CHAT_MAX_TOKENS,
+      timeoutMs: (CHAT_TIMEOUT_SECONDS - 5) * 1000,
+    });
     await finalizeSimpleTransaction(uid, operationId, result.content.slice(0, 100));
     return { text: result.content, characterName: input.characterName, memoryUpdates: null };
   } catch (err: unknown) {
@@ -110,8 +110,12 @@ export const generateStory = onCall<GenerateStoryOutput>({
   const input = parsed.data;
   const { operationId, action, storyId, chapterNumber } = input;
 
-  if (action === 'force_fate' && !input.chosenFate.isForceChoice) throw new HttpsError('invalid-argument', 'force_fate için isForceChoice=true olmalı.');
-  if (action === 'chapter_unlock' && input.chosenFate.isForceChoice) throw new HttpsError('invalid-argument', 'chapter_unlock için isForceChoice=false olmalı.');
+  if (action === 'force_fate' && !input.chosenFate.isForceChoice) {
+    throw new HttpsError('invalid-argument', 'force_fate için isForceChoice=true olmalı.');
+  }
+  if (action === 'chapter_unlock' && input.chosenFate.isForceChoice) {
+    throw new HttpsError('invalid-argument', 'chapter_unlock için isForceChoice=false olmalı.');
+  }
 
   const completed = await getCompletedLedger(uid, operationId);
   if (completed) throw new HttpsError('already-exists', 'Bu işlem zaten tamamlandı.');
@@ -124,24 +128,34 @@ export const generateStory = onCall<GenerateStoryOutput>({
     throw new HttpsError('internal', 'Jeton işlemi başarısız.');
   });
 
-  // alreadyReserved → DeepSeek ÇAĞIRMA, ikinci işlem başlatma
   if (reservation.alreadyReserved) {
     throw new HttpsError('already-exists', 'Bu işlem zaten işleniyor. Yeni operationId ile tekrar deneyin.');
   }
 
-  const systemPrompt = buildStoryPrompt(input);
-
   try {
-    const result = await callDeepSeek(
-      [{ role: 'system', content: systemPrompt }],
-      { model: DEEPSEEK_MODEL, temperature: 0.9, maxTokens: STORY_MAX_TOKENS, responseFormat: 'json_object', timeoutMs: (STORY_TIMEOUT_SECONDS - 5) * 1000 }
+    const engineResult = await generateAuraStory(input, STORY_ENGINE_CALL_TIMEOUT_MS);
+
+    console.info('[generateStory] quality', {
+      storyId,
+      chapterNumber,
+      score: engineResult.quality.score,
+      rewritten: engineResult.rewritten,
+      issueCount: engineResult.quality.issues.length,
+    });
+
+    // ATOMİK: ledger completed + entitlement aynı transaction'da.
+    // Ek editör geçişi yapılsa bile kullanıcıdan yalnızca action başına tanımlı
+    // tek ekonomi maliyeti tahsil edilir.
+    await finalizeTransaction(
+      uid,
+      operationId,
+      storyId,
+      action,
+      chapterNumber,
+      engineResult.raw.slice(0, 100),
     );
-    const output = parseStoryJson(result.content);
 
-    // ATOMİK: ledger completed + entitlement aynı transaction'da
-    await finalizeTransaction(uid, operationId, storyId, action, chapterNumber, result.content.slice(0, 100));
-
-    return output;
+    return engineResult.output;
   } catch (err: unknown) {
     logError('generateStory', err);
     if (isRefundableError(err)) await refundTransaction(uid, operationId);
@@ -170,7 +184,6 @@ export const purchaseFullAccess = onCall<{ success: boolean; balanceAfter: numbe
 
     if (reservation.alreadyReserved) return { success: true, balanceAfter: reservation.balanceAfter };
 
-    // ATOMİK: ledger + entitlement
     await finalizeTransaction(uid, operationId, storyId, 'full_access');
 
     return { success: true, balanceAfter: reservation.balanceAfter };
