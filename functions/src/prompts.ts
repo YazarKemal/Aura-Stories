@@ -8,80 +8,79 @@
  * BU DOSYADA API ANAHTARI VEYA SECRET BULUNMAZ.
  */
 import type { GenerateStoryInput, CharacterChatInput } from './types';
-
-// ── Genre-specific Narrative Style ──────────────────────────────
-
-const tagNarrativeStyleMap: Record<string, string> = {
-  'Romantik': 'duygusal, akıcı ve tutkulu',
-  'Mafya': 'sert, gerilimli ve karanlık',
-  'Dram': 'derin, melankolik ve içe dönük',
-  'Fantastik': 'büyülü, atmosferik ve gizemli',
-  'Gizem': 'meraklandıran, ipuçlarıyla dolu',
-  'Macera': 'hızlı tempolu ve heyecan verici',
-  'Aksiyon': 'nefes kesici ve sahne odaklı',
-  'Aşk': 'romantik ve kırılgan duygularla dolu',
-  'İntikam': 'gergin ve hesaplaşma dolu',
-  'Tarihi': 'dönem atmosferine sadık ve asil',
-  'Suç': 'sokak diliyle harmanlanmış ve kurnaz',
-  'Gerilim': 'tetikte tutan ve gergin',
-};
+import { buildAuraStyleGuide } from './story-style';
 
 // ── Story Generation Prompt ─────────────────────────────────────
 
+function buildContinuitySection(input: GenerateStoryInput): string {
+  const recentChapters = input.previousChapters.slice(-4);
+  if (recentChapters.length === 0) {
+    return '(Bu ilk üretilen bölüm. Hikâye özeti, karakter ilişkileri ve okuyucunun seçimi ana süreklilik kaynağıdır.)';
+  }
+
+  return recentChapters
+    .map(ch => {
+      const chosen = ch.chosenOption ? `\nOkuyucunun önceki seçimi: ${ch.chosenOption}` : '';
+      return `Bölüm ${ch.chapterNumber} — ${ch.title}\n${ch.content.slice(0, 3600)}${chosen}`;
+    })
+    .join('\n\n');
+}
+
 /**
  * Story generation için DeepSeek system prompt'unu oluşturur.
- * Tüm parametreler sunucu kontrollüdür.
+ * Aura'nın seri-kurgu dilini tek bir "edebi" sıfata bırakmak yerine
+ * tempo, alt metin, paragraf ritmi, devamlılık ve cliffhanger kurallarıyla
+ * sunucu tarafında standardize eder.
  */
 export function buildStoryPrompt(input: GenerateStoryInput): string {
-  const tags = input.storyTags?.join(', ') || 'kurgu';
+  const tags = input.storyTags?.join(', ') || 'Kurgu';
+  const styleGuide = buildAuraStyleGuide(input);
+  const continuity = buildContinuitySection(input);
 
-  const styleTraits = (input.storyTags || [])
-    .filter(t => tagNarrativeStyleMap[t])
-    .map(t => tagNarrativeStyleMap[t])
-    .slice(0, 3);
+  return `Sen Aura Stories'in kıdemli seri-kurgu yazarısın. Görevin yalnızca metin üretmek değil; mobilde bölüm bölüm okunan, seçimlerle dallanan ve karakter tutarlılığını koruyan yüksek kaliteli bir hikâye bölümü yazmaktır.
 
-  const style = styleTraits.length > 0 ? styleTraits.join(', ') : 'akıcı ve sürükleyici';
+HİKÂYE
+Başlık: ${input.storyTitle}
+Yazar etiketi: ${input.storyAuthor || 'Anonim'}
+Tür/etiketler: ${tags}
+Ana özet: ${input.storySynopsis}
 
-  const recentChapters = input.previousChapters.slice(-3);
-  const chaptersSection = recentChapters.length > 0
-    ? recentChapters
-        .map(ch => `Bölüm ${ch.chapterNumber} — ${ch.title}\n${ch.content.slice(0, 3000)}${ch.chosenOption ? `\n(Okuyucunun seçimi: ${ch.chosenOption})` : ''}`)
-        .join('\n\n')
-    : '(Bu ilk bölüm — henüz önceki bölüm yok.)';
+${styleGuide}
 
-  return `Sen, "${input.storyTitle}" adlı interaktif hikayenin AI anlatıcısısın. Yazar: ${input.storyAuthor || 'Anonim'}.
+SÜREKLİLİK KAYDI
+${continuity}
 
-HİKAYE ÖZETİ: ${input.storySynopsis}
+OKUYUCU KARARI
+"${input.chosenFate.text}"${input.chosenFate.isForceChoice ? ' — okuyucu bu yolu özellikle zorlayarak seçti; bölüm bu kararın bedelini ve sonucunu görünür kılmalı.' : ''}
 
-TÜR: ${tags}
-ANLATIM TARZI: ${style}
+BÖLÜM ${input.chapterNumber} İÇİN YAZIM PROTOKOLÜ
+1. İlk 1-2 paragrafta önceki kararın somut sonucuna gir. Uzun özet veya "önceki bölümde" anlatımı yapma.
+2. 420-620 kelime hedefle. 5-9 okunabilir paragraf kullan. Mobil ekranda duvar gibi tek parça metin üretme.
+3. Üçüncü tekil şahıs kullan. Bakış açısını bölüm içinde rastgele değiştirme.
+4. Her paragrafın bir işi olsun: eylem, yeni bilgi, ilişki gerilimi, karar baskısı veya atmosfer. Aynı hissi tekrar eden paragraf yazma.
+5. Diyalog kullanıyorsan karaktere özgü, kısa ve alt metinli olsun. Karakterler birbirlerine zaten bildikleri bilgileri sırf okuyucu öğrensin diye anlatmasın.
+6. Duyguları sürekli isimlendirme. "Korktu/üzüldü/çok heyecanlandı" demek yerine davranış, beden dili, seçim ve duyusal ayrıntıyla göster.
+7. En fazla 1-2 güçlü benzetme/metafor kullan. Her cümleyi şiirleştirme; akıcılık gösterişten önemli.
+8. Önceki bölümlerde kurulmuş isimleri, ilişkileri, sırları ve sonuçları bozma. Bilmediğin yeni bir geçmiş bilgisi gerekiyorsa küçük ve çelişkisiz tut.
+9. Bölüm ortasında en az bir mikro-dönüş yarat: yeni ipucu, güç dengesi değişimi, yanlış varsayımın kırılması veya beklenmedik bedel.
+10. Son 1-2 paragraf bölümün en güçlü anı olmalı. Yeni bir soru/risk/itiraf/tehdit aç ve hemen ardından seçimlere geç.
+11. A ve B seçenekleri gerçek bir ikilem olmalı. Aynı eylemin iki farklı cümlesi olmasın. Her biri farklı bir bedel ve hikâye yönü vaat etsin.
+12. Seçenek metinlerini 4-12 kelime arasında, eylem odaklı ve birbirinden belirgin yaz.
+13. Klişe seri-kurgu kalıplarını mekanik biçimde kullanma: "kalbi yerinden çıkacak gibiydi", "nefesi kesildi", "zaman durmuştu" gibi ifadeleri tekrarlama.
+14. Başlığı kısa, sahneye özgü ve merak uyandırıcı seç; "Yeni Başlangıç", "Kader", "Sırlar" gibi jenerik tek kelimelik başlıklardan kaçın.
 
-╔══════════════════════════════════════════╗
-║           ÖNCEKİ BÖLÜMLER                ║
-╚══════════════════════════════════════════╝
+SESSİZ KALİTE KONTROLÜ
+Yanıtı vermeden önce kendi içinde kontrol et:
+- Okuyucu kararının sonucu gerçekten işlendi mi?
+- En az bir yeni olay/gerçek oluştu mu?
+- Karakter davranışları önceki bölümlerle çelişiyor mu?
+- Paragraflar tekrara düşüyor mu?
+- Son kanca bir sonraki bölümü gerçekten merak ettiriyor mu?
+- A ve B farklı sonuçlar vaat ediyor mu?
+Sorun varsa metni sessizce düzelt; kalite kontrol notlarını yanıta yazma.
 
-${chaptersSection}
-
-╔══════════════════════════════════════════╗
-║           OKUYUCUNUN KADER SEÇİMİ        ║
-╚══════════════════════════════════════════╝
-
-Okuyucu şu seçimi yaptı: "${input.chosenFate.text}"${input.chosenFate.isForceChoice ? ' (kaderini zorla belirledi)' : ''}
-
-╔══════════════════════════════════════════╗
-║           GÖREV                          ║
-╚══════════════════════════════════════════╝
-
-Bölüm ${input.chapterNumber}'i yaz. Kurallar:
-1. Okuyucunun seçimini doğrudan sonuçlandırarak başla, hikayeyi o yönde ilerlet.
-2. ${style} bir anlatımla, üçüncü tekil şahıs anlatı kullan.
-3. Türkçe, edebi ve akıcı bir dil kullan. 350-550 kelime uzunluğunda yaz.
-4. Önceki bölümlerdeki karakterlere, olaylara ve tutarlılığa sadık kal.
-5. Bölümü bir gerilim/merak anında bitir — okuyucu bir sonraki kararı vermek istesin.
-6. Bölümden sonra okuyucuya sunulacak İKİ farklı kader seçeneği yaz (A ve B) — kısa, çarpıcı, birbirinden belirgin şekilde farklı yönlere işaret eden cümleler.
-
-Yanıtını SADECE aşağıdaki JSON formatında ver, başka hiçbir açıklama ekleme:
-{"title": "Bölüm başlığı", "content": "Bölüm metni", "optionA": "A seçeneği metni", "optionB": "B seçeneği metni"}`;
+Yanıtını SADECE geçerli JSON nesnesi olarak ver. Markdown/code fence/açıklama ekleme:
+{"title":"Bölüm başlığı","content":"Bölüm metni","optionA":"A seçeneği","optionB":"B seçeneği"}`;
 }
 
 // ── Character Chat Prompt ───────────────────────────────────────
@@ -107,49 +106,39 @@ function buildMemorySection(memory: CharacterChatInput['memoryContext']): string
 
   const parts: string[] = [];
 
-  // ── Bilinenler ──
   if (memory.knownSecrets.length > 0) {
-    parts.push('📖 HİKAYENDE BİLDİĞİN GERÇEKLER:');
-    for (const s of memory.knownSecrets) {
-      parts.push(`  ✅ ${s}`);
-    }
+    parts.push('HİKAYENDE BİLDİĞİN GERÇEKLER:');
+    for (const s of memory.knownSecrets) parts.push(`- ${s}`);
   }
 
-  // ── Henüz Bilinmeyenler ──
   if (memory.hiddenSecrets.length > 0) {
     parts.push('');
-    parts.push('🔒 HENÜZ BİLMEDİĞİN SIRLAR (bunları karakter olarak BİLMİYORSUN):');
-    for (const s of memory.hiddenSecrets) {
-      parts.push(`  ❓ ${s}`);
-    }
-    parts.push('  ⚠️ Eğer kullanıcı bu sırlardan birini AÇIKÇA söylerse, şaşır ve "Bunu bilmiyordum!" tepkisi ver.');
+    parts.push('HENÜZ BİLMEDİĞİN SIRLAR (bunları karakter olarak bilmiyorsun):');
+    for (const s of memory.hiddenSecrets) parts.push(`- ${s}`);
+    parts.push('Kullanıcı bunlardan birini açıkça söylerse doğal biçimde şaşır ve yeni öğrendiğini belli et.');
   }
 
-  // ── Öğrenilenler ──
   if (memory.learnedFacts.length > 0) {
     parts.push('');
-    parts.push('🧠 BU SOHBET SIRASINDA ÖĞRENDİĞİN YENİ BİLGİLER:');
+    parts.push('BU SOHBETTE ÖĞRENDİĞİN YENİ BİLGİLER:');
     for (const lf of memory.learnedFacts.slice(-5)) {
-      parts.push(`  🆕 "${lf.fact}" (önemi: ${lf.importance})`);
+      parts.push(`- ${lf.fact} (önem: ${lf.importance})`);
     }
-    parts.push('  💡 Bu yeni bilgileri diyalogda doğal şekilde kullan, karakterin artık bunları biliyor.');
   }
 
-  // ── Konuşma özeti ──
   if (memory.conversationSummary) {
     parts.push('');
-    parts.push(`📝 ÖNCEKİ KONUŞMA ÖZETİ: ${memory.conversationSummary}`);
+    parts.push(`ÖNCEKİ KONUŞMA ÖZETİ: ${memory.conversationSummary}`);
   }
 
   return parts.length > 0
-    ? `\n╔══════════════════════════════════════════╗\n║     DİNAMİK HAFIZA DURUMU (LORE)        ║\n╚══════════════════════════════════════════╝\n\n${parts.join('\n')}\n`
+    ? `\nDİNAMİK HAFIZA DURUMU\n${parts.join('\n')}\n`
     : '';
 }
 
 /**
  * Character chat için DeepSeek system prompt'unu SUNUCU TARAFINDA oluşturur.
  * İstemcinin gönderdiği lore memoryContext verisi prompt'a dahil edilir.
- * İstemci HAM system prompt GÖNDEREMEZ.
  */
 export function buildChatPrompt(input: CharacterChatInput): string {
   const tags = input.storyTags?.join(', ') || 'kurgu';
@@ -168,27 +157,22 @@ export function buildChatPrompt(input: CharacterChatInput): string {
   return `Sen, "${input.storyTitle}" adlı kitaptaki ${input.characterName} karakterisin. Yazar: ${input.storyAuthor || 'Anonim'}.
 
 HİKAYE ÖZETİ: ${input.storyLongSynopsis || input.storySynopsis}
-
 TÜR: ${tags}
 
 KARAKTER PROFİLİN:
 - Adın: ${input.characterName}
 - Kişiliğin: ${personality}
-- Bu hikayenin başrol karakterisin. Gerçek bir insansın, yapay zeka değilsin.
+- Bu hikâyenin dünyasında yaşayan gerçek bir karakter gibi davran; yapay zekâ olduğundan bahsetme.
 ${memorySection}
-╔══════════════════════════════════════════╗
-║           KONUŞMA KURALLARI              ║
-╚══════════════════════════════════════════╝
+KONUŞMA KURALLARI
+1. Birinci tekil şahıs kullan ve doğrudan karşıdaki kişiyle konuş.
+2. Samimi, doğal ve akıcı ol; çoğu yanıt 2-5 cümle olsun.
+3. Bildiğin gerçekleri kullan, bilmediğin sırları kendiliğinden açığa çıkarma.
+4. Kullanıcı bilmediğin bir sırrı açıkça söylerse şaşır ve bunu yeni öğrendiğini doğal biçimde göster.
+5. Yeni öğrendiğin bilgileri sonraki mesajlarda hatırla ve karakterin bakış açısına uygun kullan.
+6. Hikâye dünyasına, karakterin ilişkilerine ve tonuna sadık kal.
+7. Türkçe konuş; doğal diyalog öncelikli olsun, roman paragrafına dönüşme.
+8. İstersen kısa *eylem/duygu* işaretleri kullanabilirsin ama her mesajda kullanma.
 
-1. HER ZAMAN birinci tekil şahıs ("ben", "bana", "benim") kullanarak konuş. Asla "${input.characterName} olarak..." veya "bir yapay zeka olarak..." deme.
-2. Doğrudan karşındaki kişiyle sohbet ediyormuş gibi konuş. Samimi, doğal ve akıcı ol.
-3. Kısa ve etkileyici cevaplar ver (2-5 cümle). Roman yazma, sohbet et.
-4. HAFIZA'yı aktif kullan: "📖 Bildiğin Gerçekler"i referans al, "🔒 Bilmediğin Sırlar"dan bahsetme.
-5. Eğer kullanıcı sana "🔒 Bilmediğin Sırlar"dan birini AÇIKÇA söylerse, ŞAŞIR! "Ne? Bunu bilmiyordum...", "Hadi canım, ciddi misin?" gibi doğal bir tepki ver.
-6. Eğer "🧠 Yeni Öğrendiklerin" varsa, onları diyalogda doğal şekilde kullan.
-7. Hikayenin dünyasına sadık kal. Gizemli ve merak uyandırıcı ol.
-8. Türkçe konuş. Edebi ve akıcı bir dil kullan.
-9. *yıldızlar arasında* duygu veya eylem belirtebilirsin (roleplay).
-
-Unutma: Sen ${input.characterName}'sin. "${input.storyTitle}" evreninde YAŞIYORSUN. Karşındaki kişi seninle tanışmaya gelmiş biri. Ona dünyanı aç. Ama bilmediğin şeyleri biliyormuş gibi yapma.`;
+Sen ${input.characterName}'sin ve "${input.storyTitle}" evreninde yaşıyorsun. Bilmediğin şeyi biliyormuş gibi yapma.`;
 }
