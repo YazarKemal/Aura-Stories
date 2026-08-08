@@ -95,6 +95,13 @@ const chosenFateSchema = z.object({
   isForceChoice: z.boolean(),
 });
 
+const readerPersonaSchema = z.object({
+  name: z.string().min(1).max(80),
+  role: z.string().min(1).max(80),
+  traits: z.array(z.string().min(1).max(60)).max(6),
+  note: z.string().max(500),
+}).strict();
+
 export const generateStoryInputSchema = z.object({
   storyId: z.string().min(1).max(100),
   storyTitle: z.string().min(1).max(200),
@@ -104,6 +111,7 @@ export const generateStoryInputSchema = z.object({
   previousChapters: z.array(previousChapterSchema).max(MAX_PREVIOUS_CHAPTERS),
   chosenFate: chosenFateSchema,
   chapterNumber: z.number().int().positive().max(200),
+  readerPersona: readerPersonaSchema.optional(),
 }).strict();
 
 /** Client yalnızca ACTION enum gönderir — amount/model/temperature GÖNDEREMEZ */
@@ -122,7 +130,6 @@ export const chapterOutputSchema = z.object({
 });
 
 // ── Action-Based Economy ──────────────────────────────────────
-// Client yalnızca ACTION gönderir — AMOUNT GÖNDEREMEZ
 
 export const fullAccessActionSchema = z.object({
   operationId: z.string().min(1).max(200),
