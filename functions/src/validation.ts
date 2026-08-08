@@ -5,7 +5,7 @@ import { z } from 'zod';
 const CHAT_MSG_MAX_LENGTH = 2000;
 const CHAT_MAX_MESSAGES = 30;
 const CHAPTER_CONTENT_MAX_LENGTH = 8000;
-const MAX_PREVIOUS_CHAPTERS = 10;
+const MAX_PREVIOUS_CHAPTERS = 30;
 const STORY_SYNOPSIS_MAX_LENGTH = 3000;
 const STORY_LONG_SYNOPSIS_MAX_LENGTH = 10000;
 
@@ -114,7 +114,6 @@ export const generateStoryInputSchema = z.object({
   readerPersona: readerPersonaSchema.optional(),
 }).strict();
 
-/** Client yalnızca ACTION enum gönderir — amount/model/temperature GÖNDEREMEZ */
 export const storyGenerateOperationSchema = generateStoryInputSchema.extend({
   operationId: z.string().min(1).max(200),
   action: z.enum(['chapter_unlock', 'force_fate']),
