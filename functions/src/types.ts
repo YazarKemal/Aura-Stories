@@ -24,6 +24,8 @@ export interface CharacterChatInput {
   storyTags?: string[];
   storyAuthor?: string;
   characterName: string;
+  characterRole?: string;
+  characterPersonality?: string;
   messages: { text: string; sender: 'user' | 'character' }[];
   /** Lore memory verisi — system prompt sunucuda bundan oluşturulur */
   memoryContext?: LoreMemoryContext;
