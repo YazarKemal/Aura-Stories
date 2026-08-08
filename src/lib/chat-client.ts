@@ -15,6 +15,7 @@ import {
   updateConversationSummary,
   type LearnedFact,
 } from '@/lib/lore-memory';
+import { buildReaderPersonaContext, getReaderPersona } from '@/lib/reader-persona';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -56,8 +57,9 @@ export interface ChatResponsePayload {
  * DeepSeek API'ye çağrı yapar. API anahtarı istemciye GÖMÜLMEZ.
  * Hafıza yönetimini (lore) client-side localStorage'da tutar.
  *
- * System prompt SUNUCU TARAFINDAN buildChatPrompt() ile oluşturulur.
- * İstemci memoryContext verisini gönderir, systemPrompt GÖNDEREMEZ.
+ * Reader Persona karakter sohbetine her çağrıda eklenir. Böylece karakter,
+ * karşısındaki kişiyi uygulama dışındaki bir "okuyucu" olarak değil,
+ * hikâye evreninde gerçekten bulunan bir kişi olarak ele alır.
  */
 export async function sendChatMessage(
   payload: ChatRequestPayload
@@ -91,15 +93,21 @@ export async function sendChatMessage(
     newFactsLearned.push(...extracted);
   }
 
-  // ── 3. Lore memory verisini hazırla ────────────────────
-  // System prompt SUNUCU TARAFINDAN buildChatPrompt() ile oluşturulur.
-  // İstemci memoryContext verisini gönderir, HAM prompt GÖNDEREMEZ.
+  // ── 3. Reader Persona + lore context ───────────────────
+  // Persona bilgisi client'ta yalnızca güvenli profil alanlarından üretilir.
+  // Bu alan model/secret veya sistem prompt kontrolü sağlamaz.
+  const readerPersona = await getReaderPersona();
+  const personaContext = buildReaderPersonaContext(readerPersona);
+  const conversationSummary = [personaContext, memory.conversationSummary]
+    .filter(Boolean)
+    .join('\n');
+
   const memoryContext = {
     personality: memory.personality,
     knownSecrets: memory.knownSecrets,
     hiddenSecrets: memory.hiddenSecrets,
     learnedFacts: memory.learnedFacts,
-    conversationSummary: memory.conversationSummary,
+    conversationSummary,
   };
 
   // ── 4. Firebase Functions üzerinden DeepSeek çağrısı ──
