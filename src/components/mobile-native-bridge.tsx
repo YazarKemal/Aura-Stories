@@ -10,6 +10,19 @@ import {
 } from '@/lib/native-tts';
 import { useToast } from '@/hooks/use-toast';
 
+interface TtsParagraphSegment {
+  element: HTMLElement;
+  wrapper: HTMLElement;
+  text: string;
+  start: number;
+  end: number;
+}
+
+interface TtsSpeechPlan {
+  text: string;
+  segments: TtsParagraphSegment[];
+}
+
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -111,21 +124,51 @@ function createStoryCard(dialog: HTMLElement): string {
   return canvas.toDataURL('image/png', 1);
 }
 
-function getReadableStoryText(): string {
-  const paragraphs = Array.from(document.querySelectorAll('[class*="group/para"] p'))
-    .map((node) => node.textContent?.trim())
-    .filter((value): value is string => Boolean(value));
+function buildSpeechPlan(): TtsSpeechPlan {
+  const paragraphNodes = Array.from(
+    document.querySelectorAll<HTMLElement>('[class*="group/para"] p')
+  ).filter((node) => Boolean(node.textContent?.trim()));
 
-  return Array.from(new Set(paragraphs)).join('\n\n');
+  const segments: TtsParagraphSegment[] = [];
+  const chunks: string[] = [];
+  let cursor = 0;
+
+  paragraphNodes.forEach((element, index) => {
+    const text = element.textContent?.trim() || '';
+    const wrapper = element.closest<HTMLElement>('[class*="group/para"]') || element;
+    if (index > 0) cursor += 2; // "\n\n"
+    const start = cursor;
+    cursor += text.length;
+    const end = cursor;
+    chunks.push(text);
+    segments.push({ element, wrapper, text, start, end });
+  });
+
+  return {
+    text: chunks.join('\n\n'),
+    segments,
+  };
 }
 
 function getAudioPanel(button: HTMLButtonElement): HTMLElement | null {
   let node: HTMLElement | null = button.parentElement;
   while (node) {
-    if (node.textContent?.includes('Sesli Okuma') && node.querySelector('button')) {
+    if (node.textContent?.includes('Sesli Okuma') && node.querySelector('[role="progressbar"]')) {
       return node;
     }
     node = node.parentElement;
+  }
+  return null;
+}
+
+function findVisibleAudioPanel(): HTMLElement | null {
+  const progressBars = Array.from(document.querySelectorAll<HTMLElement>('[role="progressbar"]'));
+  for (const progressBar of progressBars) {
+    let node: HTMLElement | null = progressBar.parentElement;
+    while (node) {
+      if (node.textContent?.includes('Sesli Okuma')) return node;
+      node = node.parentElement;
+    }
   }
   return null;
 }
@@ -136,6 +179,19 @@ function getPlayButton(panel: HTMLElement | null): HTMLButtonElement | null {
   return buttons.find((candidate) =>
     candidate.className.includes('w-12') && candidate.className.includes('h-12')
   ) || null;
+}
+
+function getSpeedButton(panel: HTMLElement | null): HTMLButtonElement | null {
+  if (!panel) return null;
+  const buttons = Array.from(panel.querySelectorAll('button')) as HTMLButtonElement[];
+  return buttons.find((candidate) =>
+    /^(1|1\.25|1\.5|2)x$/.test(candidate.textContent?.trim() || '')
+  ) || null;
+}
+
+function getPlaybackRate(panel: HTMLElement | null): number {
+  const button = getSpeedButton(panel);
+  return Number.parseFloat(button?.textContent || '1') || 1;
 }
 
 function formatClock(totalSeconds: number): string {
@@ -156,6 +212,7 @@ function updateAudioPanel(
   progressPercent: number,
   elapsedSeconds: number,
   totalSeconds: number,
+  totalIsEstimate: boolean,
 ) {
   if (!panel) return;
   const percent = Math.max(0, Math.min(100, progressPercent));
@@ -168,36 +225,31 @@ function updateAudioPanel(
   }
 
   const timeLabels = Array.from(panel.querySelectorAll('span'))
-    .filter((node) => /^\d{2,}:\d{2}$/.test(node.textContent?.trim() || '')) as HTMLElement[];
+    .filter((node) => /^~?\d{2,}:\d{2}$/.test(node.textContent?.trim() || '')) as HTMLElement[];
   if (timeLabels[0]) timeLabels[0].textContent = formatClock(elapsedSeconds);
-  if (timeLabels[1]) timeLabels[1].textContent = formatClock(totalSeconds);
+  if (timeLabels[1]) {
+    timeLabels[1].textContent = `${totalIsEstimate ? '~' : ''}${formatClock(totalSeconds)}`;
+  }
 }
 
-function installPasswordVisibilityToggles() {
-  document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach((input) => {
-    if (input.dataset.auraPasswordToggle === 'true') return;
-    input.dataset.auraPasswordToggle = 'true';
-    input.classList.add('pr-20');
+function installTtsHighlightStyle(): () => void {
+  const existing = document.getElementById('aura-tts-highlight-style');
+  if (existing) return () => {};
 
-    const wrapper = input.parentElement;
-    if (!wrapper) return;
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'absolute right-3 top-1/2 -translate-y-1/2 min-h-9 px-2 rounded-lg text-[11px] font-bold text-primary hover:bg-primary/10 active:scale-95 transition-all z-10';
-    button.textContent = 'Göster';
-    button.setAttribute('aria-label', 'Şifreyi göster');
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const showing = input.type === 'text';
-      input.type = showing ? 'password' : 'text';
-      button.textContent = showing ? 'Göster' : 'Gizle';
-      button.setAttribute('aria-label', showing ? 'Şifreyi göster' : 'Şifreyi gizle');
-      input.focus();
-    });
-    wrapper.appendChild(button);
-  });
+  const style = document.createElement('style');
+  style.id = 'aura-tts-highlight-style';
+  style.textContent = `
+    [data-aura-tts-active="true"] {
+      background: hsl(var(--primary) / 0.09) !important;
+      box-shadow: inset 3px 0 0 hsl(var(--primary));
+      transition: background-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+    }
+    [data-aura-tts-active="true"] > p {
+      opacity: 1 !important;
+    }
+  `;
+  document.head.appendChild(style);
+  return () => style.remove();
 }
 
 export function MobileNativeBridge() {
@@ -205,86 +257,277 @@ export function MobileNativeBridge() {
   const ttsActiveRef = useRef(false);
   const ttsFinishingRef = useRef(false);
   const ttsStartedAtRef = useRef(0);
-  const ttsDurationRef = useRef(0);
+  const ttsElapsedBeforeRestartRef = useRef(0);
+  const ttsEstimatedDurationRef = useRef(0);
+  const ttsInitialDurationRef = useRef(0);
+  const ttsProgressRef = useRef(0);
+  const speechBaseOffsetRef = useRef(0);
+  const speechPlanRef = useRef<TtsSpeechPlan | null>(null);
   const activeAudioPanelRef = useRef<HTMLElement | null>(null);
-  const fallbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeParagraphRef = useRef<HTMLElement | null>(null);
+  const activeSegmentIndexRef = useRef(0);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastManualScrollAtRef = useRef(0);
 
   useEffect(() => {
-    installPasswordVisibilityToggles();
-    const observer = new MutationObserver(() => installPasswordVisibilityToggles());
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
+    const removeHighlightStyle = installTtsHighlightStyle();
     let listenerHandle: { remove: () => Promise<void> } | null = null;
+    let disposed = false;
 
-    const handleProgress = (event: TtsProgressEvent) => {
-      const panel = activeAudioPanelRef.current;
-      if (!panel) return;
+    const getElapsedSeconds = () => {
+      if (!ttsStartedAtRef.current) return ttsElapsedBeforeRestartRef.current;
+      return ttsElapsedBeforeRestartRef.current + Math.max(0, (Date.now() - ttsStartedAtRef.current) / 1000);
+    };
 
-      const elapsed = Math.max(0, (Date.now() - ttsStartedAtRef.current) / 1000);
-      const length = Math.max(1, event.length || 1);
-      const progress = event.state === 'done'
-        ? 100
-        : Math.max(0, Math.min(100, (event.end / length) * 100));
-      const total = Math.max(elapsed, ttsDurationRef.current);
-      updateAudioPanel(panel, progress, elapsed, total);
+    const clearElapsedTimer = () => {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
+    };
 
-      if (event.state === 'done') {
-        ttsActiveRef.current = false;
-        if (fallbackTimerRef.current) {
-          clearInterval(fallbackTimerRef.current);
-          fallbackTimerRef.current = null;
+    const clearParagraphHighlight = () => {
+      if (activeParagraphRef.current) {
+        activeParagraphRef.current.removeAttribute('data-aura-tts-active');
+        activeParagraphRef.current = null;
+      }
+    };
+
+    const setActiveParagraphForOffset = (globalOffset: number) => {
+      const plan = speechPlanRef.current;
+      if (!plan?.segments.length) return;
+
+      let index = plan.segments.findIndex((segment) =>
+        globalOffset >= segment.start && globalOffset < segment.end
+      );
+      if (index < 0 && globalOffset >= plan.segments[plan.segments.length - 1].end) {
+        index = plan.segments.length - 1;
+      }
+      if (index < 0 || index === activeSegmentIndexRef.current && activeParagraphRef.current) return;
+
+      const segment = plan.segments[index];
+      if (activeParagraphRef.current && activeParagraphRef.current !== segment.wrapper) {
+        activeParagraphRef.current.removeAttribute('data-aura-tts-active');
+      }
+
+      activeSegmentIndexRef.current = index;
+      activeParagraphRef.current = segment.wrapper;
+      segment.wrapper.setAttribute('data-aura-tts-active', 'true');
+
+      // Kullanıcı son 3 saniyede manuel kaydırdıysa otomatik takip müdahale etmez.
+      if (Date.now() - lastManualScrollAtRef.current < 3000) return;
+
+      const rect = segment.wrapper.getBoundingClientRect();
+      const safeTop = window.innerHeight * 0.2;
+      const safeBottom = window.innerHeight * 0.78;
+      if (rect.top < safeTop || rect.bottom > safeBottom) {
+        segment.wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    const renderProgress = (totalIsEstimate = true) => {
+      updateAudioPanel(
+        activeAudioPanelRef.current,
+        ttsProgressRef.current,
+        getElapsedSeconds(),
+        Math.max(getElapsedSeconds(), ttsEstimatedDurationRef.current),
+        totalIsEstimate,
+      );
+    };
+
+    const startElapsedTimer = () => {
+      clearElapsedTimer();
+      elapsedTimerRef.current = setInterval(() => {
+        if (!ttsActiveRef.current) return;
+        // Timer yalnızca geçen süreyi günceller. Progress yüzdesinin tek kaynağı
+        // Android TTS onRangeStart eventidir.
+        renderProgress(true);
+      }, 400);
+    };
+
+    const syncReactPlayButtonToStopped = () => {
+      const playButton = getPlayButton(activeAudioPanelRef.current);
+      if (!playButton) return;
+      ttsFinishingRef.current = true;
+      setTimeout(() => {
+        playButton.click();
+        setTimeout(() => {
+          ttsFinishingRef.current = false;
+        }, 0);
+      }, 50);
+    };
+
+    const stopTtsSafely = async (resetPanel = true) => {
+      const wasActive = ttsActiveRef.current;
+      ttsActiveRef.current = false;
+      clearElapsedTimer();
+      if (wasActive) {
+        try {
+          await stopStorySpeech();
+        } catch (error) {
+          console.warn('[AuraTTS] Ses durdurulamadı:', error);
         }
-        updateAudioPanel(panel, 100, total, total);
+      }
+      clearParagraphHighlight();
 
-        const playButton = getPlayButton(panel);
-        if (playButton) {
-          ttsFinishingRef.current = true;
-          setTimeout(() => {
-            playButton.click();
-            ttsFinishingRef.current = false;
-          }, 50);
-        }
-      } else if (event.state === 'error') {
-        ttsActiveRef.current = false;
+      if (resetPanel) {
+        ttsProgressRef.current = 0;
+        ttsElapsedBeforeRestartRef.current = 0;
+        ttsStartedAtRef.current = 0;
+        updateAudioPanel(
+          activeAudioPanelRef.current,
+          0,
+          0,
+          Math.max(1, ttsInitialDurationRef.current || ttsEstimatedDurationRef.current),
+          true,
+        );
+      }
+    };
+
+    const beginSpeech = async (
+      plan: TtsSpeechPlan,
+      rate: number,
+      baseOffset = 0,
+      preserveElapsed = false,
+    ) => {
+      if (!plan.text) {
         toast({
-          title: 'Sesli okuma durdu',
-          description: 'Android ses motoru okumayı tamamlayamadı.',
+          title: 'Sesli okuma başlatılamadı',
+          description: 'Okunacak hikâye metni bulunamadı.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      speechPlanRef.current = plan;
+      speechBaseOffsetRef.current = Math.max(0, Math.min(baseOffset, plan.text.length - 1));
+      activeSegmentIndexRef.current = Math.max(
+        0,
+        plan.segments.findIndex((segment) => speechBaseOffsetRef.current >= segment.start && speechBaseOffsetRef.current < segment.end),
+      );
+
+      const speechText = plan.text.slice(speechBaseOffsetRef.current);
+      const remainingEstimate = estimateSpeechDuration(speechText, rate);
+      if (!preserveElapsed) {
+        ttsElapsedBeforeRestartRef.current = 0;
+        ttsProgressRef.current = speechBaseOffsetRef.current > 0
+          ? (speechBaseOffsetRef.current / Math.max(1, plan.text.length)) * 100
+          : 0;
+        ttsInitialDurationRef.current = estimateSpeechDuration(plan.text, rate);
+        ttsEstimatedDurationRef.current = ttsInitialDurationRef.current;
+      } else {
+        ttsEstimatedDurationRef.current = Math.max(
+          getElapsedSeconds() + remainingEstimate,
+          getElapsedSeconds() + 1,
+        );
+      }
+
+      ttsStartedAtRef.current = Date.now();
+      ttsActiveRef.current = true;
+      renderProgress(true);
+
+      try {
+        await speakStoryText(speechText, rate);
+        startElapsedTimer();
+        setActiveParagraphForOffset(speechBaseOffsetRef.current);
+      } catch (error) {
+        ttsActiveRef.current = false;
+        clearElapsedTimer();
+        clearParagraphHighlight();
+        console.error('[AuraTTS] Sesli okuma başlatılamadı:', error);
+        toast({
+          title: 'Sesli okuma başlatılamadı',
+          description: error instanceof Error ? error.message : 'Android ses motoru kullanılamadı.',
           variant: 'destructive',
         });
       }
     };
 
+    const restartAtCurrentParagraphWithRate = async (rate: number) => {
+      const plan = speechPlanRef.current;
+      if (!plan?.segments.length || !ttsActiveRef.current) return;
+
+      const elapsed = getElapsedSeconds();
+      const segment = plan.segments[Math.max(0, activeSegmentIndexRef.current)];
+      ttsActiveRef.current = false;
+      clearElapsedTimer();
+      try {
+        await stopStorySpeech();
+      } catch (error) {
+        console.warn('[AuraTTS] Hız değişiminde ses durdurulamadı:', error);
+      }
+
+      ttsElapsedBeforeRestartRef.current = elapsed;
+      ttsStartedAtRef.current = 0;
+      await beginSpeech(plan, rate, segment.start, true);
+    };
+
+    const handleProgress = (event: TtsProgressEvent) => {
+      const plan = speechPlanRef.current;
+      if (!plan || !activeAudioPanelRef.current) return;
+
+      if (event.state === 'error') {
+        ttsActiveRef.current = false;
+        clearElapsedTimer();
+        clearParagraphHighlight();
+        syncReactPlayButtonToStopped();
+        toast({
+          title: 'Sesli okuma durdu',
+          description: 'Android ses motoru okumayı tamamlayamadı.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (event.state === 'done') {
+        const elapsed = getElapsedSeconds();
+        ttsActiveRef.current = false;
+        clearElapsedTimer();
+        ttsProgressRef.current = 100;
+        ttsEstimatedDurationRef.current = elapsed;
+        updateAudioPanel(activeAudioPanelRef.current, 100, elapsed, elapsed, false);
+        const lastSegment = plan.segments[plan.segments.length - 1];
+        if (lastSegment) setActiveParagraphForOffset(lastSegment.start);
+        setTimeout(clearParagraphHighlight, 900);
+        syncReactPlayButtonToStopped();
+        return;
+      }
+
+      if (event.state !== 'progress' || !ttsActiveRef.current) return;
+
+      const nativeLength = Math.max(1, event.length || 1);
+      const relativeEnd = Math.max(0, Math.min(nativeLength, event.end));
+      const globalStart = Math.min(plan.text.length, speechBaseOffsetRef.current + Math.max(0, event.start));
+      const globalEnd = Math.min(plan.text.length, speechBaseOffsetRef.current + relativeEnd);
+      const fraction = Math.max(0, Math.min(1, globalEnd / Math.max(1, plan.text.length)));
+
+      ttsProgressRef.current = fraction * 100;
+      setActiveParagraphForOffset(globalStart);
+
+      const elapsed = getElapsedSeconds();
+      if (fraction > 0.05 && elapsed > 0.5) {
+        const observedTotal = elapsed / fraction;
+        const maxReasonable = Math.max(
+          elapsed + 2,
+          Math.max(30, ttsInitialDurationRef.current) * 3,
+        );
+        const clampedObserved = Math.max(elapsed, Math.min(maxReasonable, observedTotal));
+        const previous = Math.max(elapsed, ttsEstimatedDurationRef.current || clampedObserved);
+        ttsEstimatedDurationRef.current = previous * 0.75 + clampedObserved * 0.25;
+      }
+
+      renderProgress(true);
+    };
+
     void addTtsProgressListener(handleProgress).then((handle) => {
+      if (disposed) {
+        if (handle) void handle.remove();
+        return;
+      }
       listenerHandle = handle;
     }).catch((error) => {
       console.warn('[AuraTTS] Progress listener kurulamadı:', error);
     });
-
-    return () => {
-      if (listenerHandle) void listenerHandle.remove();
-    };
-  }, [toast]);
-
-  useEffect(() => {
-    const stopTtsSafely = async (resetPanel = true) => {
-      if (!ttsActiveRef.current) return;
-      ttsActiveRef.current = false;
-      if (fallbackTimerRef.current) {
-        clearInterval(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
-      try {
-        await stopStorySpeech();
-      } catch (error) {
-        console.warn('[AuraTTS] Ses durdurulamadı:', error);
-      }
-      if (resetPanel) {
-        updateAudioPanel(activeAudioPanelRef.current, 0, 0, ttsDurationRef.current);
-      }
-    };
 
     const handleClick = async (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -328,14 +571,56 @@ export function MobileNativeBridge() {
         return;
       }
 
+      // Audio player ilk açıldığında hard-coded demo sürelerini anında gerçek
+      // başlangıç durumuyla değiştir.
+      if (label.includes('Dinle') && !label.includes('Sesli Okuma')) {
+        setTimeout(() => {
+          const panel = findVisibleAudioPanel();
+          if (!panel) return;
+          const plan = buildSpeechPlan();
+          const rate = getPlaybackRate(panel);
+          const estimate = estimateSpeechDuration(plan.text, rate);
+          activeAudioPanelRef.current = panel;
+          speechPlanRef.current = plan;
+          ttsInitialDurationRef.current = estimate;
+          ttsEstimatedDurationRef.current = estimate;
+          ttsProgressRef.current = 0;
+          updateAudioPanel(panel, 0, 0, estimate, true);
+        }, 60);
+        return;
+      }
+
       const audioPanel = getAudioPanel(button);
       if (!audioPanel) return;
+      activeAudioPanelRef.current = audioPanel;
 
-      const panelButtons = Array.from(audioPanel.querySelectorAll('button')) as HTMLButtonElement[];
       const playButton = getPlayButton(audioPanel);
+      const speedButton = getSpeedButton(audioPanel);
+
+      if (button === speedButton) {
+        if (ttsActiveRef.current) {
+          // React önce butondaki hızı değiştirsin; sonra aktif paragrafın
+          // başından yeni hızla native TTS'yi yeniden başlat.
+          setTimeout(() => {
+            const nextRate = getPlaybackRate(audioPanel);
+            void restartAtCurrentParagraphWithRate(nextRate);
+          }, 80);
+        } else {
+          setTimeout(() => {
+            const plan = buildSpeechPlan();
+            const nextRate = getPlaybackRate(audioPanel);
+            const estimate = estimateSpeechDuration(plan.text, nextRate);
+            speechPlanRef.current = plan;
+            ttsInitialDurationRef.current = estimate;
+            ttsEstimatedDurationRef.current = estimate;
+            updateAudioPanel(audioPanel, 0, 0, estimate, true);
+          }, 80);
+        }
+        return;
+      }
 
       if (button === playButton) {
-        // Native onDone sonrası yalnızca React play/pause ikonunu normale döndür.
+        // Native onDone sonrası programatik click yalnızca React ikonunu normale döndürür.
         if (ttsFinishingRef.current) return;
 
         if (ttsActiveRef.current) {
@@ -343,52 +628,21 @@ export function MobileNativeBridge() {
           return;
         }
 
-        const storyText = getReadableStoryText();
-        if (!storyText) {
-          toast({
-            title: 'Sesli okuma başlatılamadı',
-            description: 'Okunacak hikâye metni bulunamadı.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const speedButton = panelButtons.find((candidate) => /^(1|1\.25|1\.5|2)x$/.test(candidate.textContent?.trim() || ''));
-        const rate = Number.parseFloat(speedButton?.textContent || '1') || 1;
-        const duration = estimateSpeechDuration(storyText, rate);
-
+        const plan = buildSpeechPlan();
+        const rate = getPlaybackRate(audioPanel);
         activeAudioPanelRef.current = audioPanel;
-        ttsStartedAtRef.current = Date.now();
-        ttsDurationRef.current = duration;
-        updateAudioPanel(audioPanel, 0, 0, duration);
-
-        try {
-          await speakStoryText(storyText, rate);
-          ttsActiveRef.current = true;
-
-          // onRangeStart olmayan eski Android TTS motorlarında süre yine canlı aksın.
-          if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
-          fallbackTimerRef.current = setInterval(() => {
-            if (!ttsActiveRef.current) return;
-            const elapsed = Math.max(0, (Date.now() - ttsStartedAtRef.current) / 1000);
-            const fallbackProgress = Math.min(99, (elapsed / Math.max(1, ttsDurationRef.current)) * 100);
-            updateAudioPanel(activeAudioPanelRef.current, fallbackProgress, elapsed, ttsDurationRef.current);
-          }, 500);
-        } catch (error) {
-          ttsActiveRef.current = false;
-          console.error('[AuraTTS] Sesli okuma başlatılamadı:', error);
-          toast({
-            title: 'Sesli okuma başlatılamadı',
-            description: error instanceof Error ? error.message : 'Android ses motoru kullanılamadı.',
-            variant: 'destructive',
-          });
-        }
+        await beginSpeech(plan, rate);
         return;
       }
 
+      // Player X butonu.
       if (button.className.includes('p-1.5') && button.className.includes('rounded-full')) {
-        void stopTtsSafely();
+        void stopTtsSafely(true);
       }
+    };
+
+    const markManualScroll = () => {
+      lastManualScrollAtRef.current = Date.now();
     };
 
     const handleVisibilityChange = () => {
@@ -397,11 +651,20 @@ export function MobileNativeBridge() {
 
     document.addEventListener('click', handleClick, true);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('touchmove', markManualScroll, { passive: true });
+    document.addEventListener('wheel', markManualScroll, { passive: true });
+
     return () => {
+      disposed = true;
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
-      void stopTtsSafely();
+      document.removeEventListener('touchmove', markManualScroll);
+      document.removeEventListener('wheel', markManualScroll);
+      clearElapsedTimer();
+      clearParagraphHighlight();
+      removeHighlightStyle();
+      if (listenerHandle) void listenerHandle.remove();
+      void stopStorySpeech().catch(() => {});
     };
   }, [toast]);
 
