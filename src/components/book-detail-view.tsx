@@ -1,9 +1,9 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Story } from '@/lib/types';
-import { ArrowLeft, Star, Eye, Share2, Bookmark, BookmarkCheck, Sparkles, MessageCircle, Trophy, CloudDownload, CheckCircle2, Loader2 } from 'lucide-react';
+import { resolveStoryExperience } from '@/lib/story-experience';
+import { ArrowLeft, Star, Eye, Share2, Bookmark, BookmarkCheck, Sparkles, MessageCircle, Trophy, CloudDownload, CheckCircle2, Loader2, Orbit } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,18 +30,17 @@ function getStoredBookmarks(): string[] {
 export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: BookDetailViewProps) {
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const experience = resolveStoryExperience(story);
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'completed'>(
     story.isDownloaded ? 'completed' : 'idle'
   );
   const [progress, setProgress] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Yer imini localStorage'dan geri yükle (kalıcı — 'aura-bookmarks': story id listesi)
   useEffect(() => {
     setIsBookmarked(getStoredBookmarks().includes(story.id));
   }, [story.id]);
 
-  // Scroll to top when story changes
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
@@ -75,7 +74,6 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
   const handleBookmark = () => {
     const next = !isBookmarked;
     setIsBookmarked(next);
-    // localStorage'a kalıcı yaz
     try {
       const list = getStoredBookmarks();
       const updated = next
@@ -93,7 +91,6 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
 
   const handleDownload = () => {
     if (downloadState !== 'idle') return;
-    
     setDownloadState('downloading');
     let currentProgress = 0;
     const interval = setInterval(() => {
@@ -109,9 +106,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
 
   return (
     <div ref={containerRef} className="fixed inset-0 z-[100] bg-background overflow-y-auto no-scrollbar animate-in slide-in-from-right duration-500">
-      {/* Hero Section */}
       <section className="relative h-[420px] w-full flex items-center justify-center pt-12">
-        {/* Blurred Background */}
         <div className="absolute inset-0 overflow-hidden">
           <Image
             src={story.imageUrl}
@@ -122,7 +117,6 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/40 to-background" />
         </div>
 
-        {/* Top Navigation */}
         <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10">
           <button
             onClick={onBack}
@@ -135,7 +129,7 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
             <button onClick={handleShare} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               <Share2 className="w-5 h-5" />
             </button>
-            <button onClick={handleBookmark} aria-label={isBookmarked ? "Yer imi kaldır" : "Yer imi ekle"} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
+            <button onClick={handleBookmark} aria-label={isBookmarked ? 'Yer imi kaldır' : 'Yer imi ekle'} className="w-10 h-10 rounded-full glass-morphism flex items-center justify-center text-accent active:scale-90 transition-all">
               {isBookmarked ? (
                 <BookmarkCheck className="w-5 h-5 text-primary fill-current" />
               ) : (
@@ -145,7 +139,6 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           </div>
         </div>
 
-        {/* Book Cover */}
         <div className="relative z-0 group animate-in zoom-in-95 fade-in duration-700 delay-200">
           <div className="relative aspect-[2/3] w-48 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] ring-1 ring-white/20">
             <Image
@@ -159,21 +152,24 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
         </div>
       </section>
 
-      {/* Content Section */}
       <section className="px-6 -mt-8 relative z-10 pb-40 animate-in slide-in-from-bottom-10 fade-in duration-1000 delay-300">
         <div className="flex flex-col items-center text-center gap-2 mb-6">
           <h1 className="text-2xl sm:text-3xl font-headline font-black text-accent leading-tight break-words hyphens-auto text-center px-2 max-w-full">
             {story.title}
           </h1>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             <p className="text-primary font-bold text-lg">{story.author}</p>
             <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white border-none text-[8px] font-black px-1.5 h-4 flex items-center gap-1 shadow-sm">
-              <Trophy className="w-2.5 h-2.5" />
-              ALTIN YAZAR
+              <Trophy className="w-2.5 h-2.5" />ALTIN YAZAR
             </Badge>
+            {experience.mode === 'dynamic' && (
+              <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black px-2 h-5 flex items-center gap-1">
+                <Orbit className="w-3 h-3" />DYNAMIC STORY
+              </Badge>
+            )}
           </div>
-          
+
           <div className="flex items-center gap-6 mt-2">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-1 text-brand-primary">
@@ -193,62 +189,64 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
           </div>
         </div>
 
-        {/* Action Buttons Row */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
-          <Button 
+          <Button
             onClick={handleDownload}
             variant="outline"
             className={cn(
-              "rounded-full px-6 h-12 font-bold transition-all border-2",
-              downloadState === 'completed' 
-                ? "border-green-500 text-green-600 bg-green-50" 
-                : "border-primary/20 text-primary hover:border-primary"
+              'rounded-full px-6 h-12 font-bold transition-all border-2',
+              downloadState === 'completed'
+                ? 'border-green-500 text-green-600 bg-green-50'
+                : 'border-primary/20 text-primary hover:border-primary'
             )}
           >
             {downloadState === 'idle' && (
-              <>
-                <CloudDownload className="w-4 h-4 mr-2" />
-                Çevrimdışı İndir
-              </>
+              <><CloudDownload className="w-4 h-4 mr-2" />Çevrimdışı İndir</>
             )}
             {downloadState === 'downloading' && (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                İndiriliyor... %{progress}
-              </>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />İndiriliyor... %{progress}</>
             )}
             {downloadState === 'completed' && (
-              <>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                İndirildi
-              </>
+              <><CheckCircle2 className="w-4 h-4 mr-2" />İndirildi</>
             )}
           </Button>
         </div>
 
-        {/* AI Character Chat Card */}
-        <Card 
-          onClick={onOpenChat}
-          className="mb-8 p-6 rounded-[2rem] bg-gradient-to-br from-accent via-primary to-accent border-none shadow-xl shadow-primary/20 cursor-pointer active:scale-[0.98] transition-all group overflow-hidden relative"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-             <Sparkles className="w-24 h-24 text-white" />
-          </div>
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white ring-1 ring-white/30">
-              <MessageCircle className="w-7 h-7" />
+        {experience.characterRoomEnabled && (
+          <Card
+            onClick={onOpenChat}
+            className="mb-8 p-6 rounded-[2rem] bg-gradient-to-br from-accent via-primary to-accent border-none shadow-xl shadow-primary/20 cursor-pointer active:scale-[0.98] transition-all group overflow-hidden relative"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
+              <Sparkles className="w-24 h-24 text-white" />
             </div>
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold text-lg">Karakter Odası</h3>
-                <Badge className="bg-brand-primary text-white border-none text-[8px] font-black px-1.5 h-3.5">YENİ</Badge>
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white ring-1 ring-white/30">
+                <MessageCircle className="w-7 h-7" />
               </div>
-              <p className="text-white/70 text-xs font-medium">Başrol karakteriyle hemen sohbete başla!</p>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-bold text-lg">Karakter Odası</h3>
+                  {experience.readerParticipationEnabled && (
+                    <Badge className="bg-brand-primary text-white border-none text-[8px] font-black px-1.5 h-3.5">DİNAMİK</Badge>
+                  )}
+                </div>
+                <p className="text-white/75 text-xs font-medium leading-relaxed">
+                  {experience.readerParticipationEnabled
+                    ? 'Karakterlerle konuş. Seni hatırlasınlar; önemli müdahalelerin hikâyenin sonraki bölümlerini değiştirsin.'
+                    : 'Karakterlerle kendi sesleri ve hafızalarıyla konuş. Bu hikâyede okuyucu müdahaleleri kanona yazılmaz.'}
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
-        {/* Synopsis */}
+        {experience.mode === 'classic' && !experience.characterRoomEnabled && (
+          <div className="mb-8 rounded-2xl border border-border/50 bg-muted/20 px-4 py-3 text-center">
+            <p className="text-[11px] text-muted-foreground">Bu hikâyede yazar klasik anlatımı seçti; Karakter Odası kapalı.</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <h3 className="text-xl font-headline font-bold text-accent border-l-4 border-primary pl-3">Özet</h3>
           <div className="text-foreground/80 leading-relaxed text-base space-y-4 italic">
@@ -259,9 +257,8 @@ export function BookDetailView({ story, onBack, onStartReading, onOpenChat }: Bo
         </div>
       </section>
 
-      {/* Sticky Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 p-6 pt-2 bg-gradient-to-t from-background via-background to-transparent z-[110]">
-        <Button 
+        <Button
           onClick={onStartReading}
           className="w-full h-14 rounded-2xl bg-gradient-to-r from-primary to-accent text-white text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 animate-pulse-subtle"
         >
