@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { EyeOff, Lock, Sparkles, UserRound, Users } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { EyeOff, Lock, Sparkles, UserRound, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -119,27 +112,42 @@ export function ReaderPersonaEditor({
     },
   ];
 
+  if (!open) return null;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        overlayClassName="z-[640]"
-        className="z-[650] max-h-[90dvh] rounded-t-[2.5rem] border-white/10 bg-background/95 backdrop-blur-2xl px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 overflow-y-auto"
+    <div className="fixed inset-0 z-[1000]" role="dialog" aria-modal="true">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+        onClick={() => onOpenChange(false)}
+      />
+
+      <div
+        className="absolute bottom-0 left-0 right-0 max-h-[92dvh] overflow-y-auto rounded-t-[2.5rem] border border-white/10 bg-background/95 backdrop-blur-2xl px-6 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 animate-in slide-in-from-bottom duration-300"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-muted" />
-        <SheetHeader className="text-left mb-6">
+        <div className="relative mx-auto mb-5 h-1.5 w-12 rounded-full bg-muted" />
+        <button
+          type="button"
+          aria-label="Kapat"
+          onClick={() => onOpenChange(false)}
+          className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors active:scale-95"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="text-left mb-6">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
               <UserRound className="w-5 h-5" />
             </div>
             <div>
-              <SheetTitle className="font-headline text-xl">Hikâyedeki Kimliğin</SheetTitle>
-              <SheetDescription className="text-xs mt-1">
+              <h2 className="font-headline text-xl">Hikâyedeki Kimliğin</h2>
+              <p className="text-xs mt-1 text-muted-foreground">
                 Bu kimlik yalnız bu hikâye dalında geçerli. Dynamic Story sistemi seni ancak yaşanan olaylar gerçekten gerektirirse hikâyenin parçası yapar.
-              </SheetDescription>
+              </p>
             </div>
           </div>
-        </SheetHeader>
+        </div>
 
         <div className="space-y-6">
           <div className="space-y-2">
@@ -248,7 +256,7 @@ export function ReaderPersonaEditor({
             Kimlik ve İzinleri Kaydet
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>
   );
 }

@@ -175,7 +175,7 @@ async function getBranchChatContext(
 // ═══════════════════════════════════════════════════════════════
 
 export const characterChat = onCall<CharacterChatOutput>({
-  secrets: [deepseekApiKey], memory: '256MiB', timeoutSeconds: CHAT_TIMEOUT_SECONDS, concurrency: 1,
+  secrets: [deepseekApiKey], memory: '256MiB', timeoutSeconds: CHAT_TIMEOUT_SECONDS, concurrency: 1, invoker: 'public',
 }, async (request) => {
   const uid = requireAuth(request);
   const parsed = chatOperationSchema.safeParse(request.data);
@@ -276,6 +276,7 @@ export const generateCharacterRoster = onCall<CharacterRosterOutput>({
   memory: '256MiB',
   timeoutSeconds: CHARACTER_ROSTER_TIMEOUT_SECONDS,
   concurrency: 1,
+  invoker: 'public',
 }, async (request) => {
   const uid = requireAuth(request);
   const parsed = characterRosterInputSchema.safeParse(request.data);
@@ -302,7 +303,7 @@ export const generateCharacterRoster = onCall<CharacterRosterOutput>({
 // ═══════════════════════════════════════════════════════════════
 
 export const generateStory = onCall<GenerateStoryOutput>({
-  secrets: [deepseekApiKey], memory: '512MiB', timeoutSeconds: STORY_TIMEOUT_SECONDS, concurrency: 1,
+  secrets: [deepseekApiKey], memory: '512MiB', timeoutSeconds: STORY_TIMEOUT_SECONDS, concurrency: 1, invoker: 'public',
 }, async (request) => {
   const uid = requireAuth(request);
   const parsed = storyGenerateOperationSchema.safeParse(request.data);

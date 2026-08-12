@@ -669,7 +669,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-all duration-300 max-w-md mx-auto",
+          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-all duration-300",
           (!isVisible || !isUIVisible) ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
           readingTheme === 'dark' ? "bg-[#161823]/90 border-zinc-800" : "bg-white/80 border-black/10"
         )}
@@ -768,7 +768,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {readingMode !== 'flip' && (
       <article
         className={cn(
-          !isHorizontal && "pb-40 max-w-md mx-auto relative",
+          !isHorizontal && "pb-40 relative",
           isHorizontal && "flex flex-row h-[calc(100dvh-64px)]"
         )}
       >
@@ -1216,7 +1216,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Docked Audio Player */}
       {isAudioPlayerOpen && (
         <div 
-          className="fixed bottom-0 left-0 right-0 z-[250] max-w-md mx-auto animate-in slide-in-from-bottom duration-500"
+          className="fixed bottom-0 left-0 right-0 z-[250] animate-in slide-in-from-bottom duration-500"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mx-6 mb-6 p-4 rounded-[2rem] glass-morphism border border-white/20 shadow-2xl flex flex-col gap-4">
