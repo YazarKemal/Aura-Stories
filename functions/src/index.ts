@@ -1,48 +1,61 @@
 import { initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { deepseekApiKey } from './config';
 import { callDeepSeek } from './deepseek';
-import { buildStoryPrompt, buildChatPrompt } from './prompts';
+import { buildChatPrompt } from './prompts';
+import { generateAuraStory } from './story-engine';
+import { generateCharacterRosterFromStory } from './character-roster-engine';
+import {
+  applyDynamicChatEffects,
+  formatDynamicStoryForCharacter,
+  formatDynamicStoryForNarrative,
+  loadDynamicStoryState,
+  setDynamicParticipantPreferences,
+} from './dynamic-story';
 import { checkRateLimit } from './rate-limiter';
 import {
   reserveCredits, finalizeTransaction, finalizeSimpleTransaction,
   refundTransaction, getCompletedLedger, claimDailyGift, grantAdReward,
-  COST, type EconomyAction,
+  COST,
 } from './economy';
 import {
-  chatOperationSchema, storyGenerateOperationSchema, chapterOutputSchema,
-  claimGiftOperationSchema, fullAccessActionSchema,
+  chatOperationSchema,
+  characterChatModelOutputSchema,
+  storyGenerateOperationSchema,
+  characterRosterInputSchema,
+  claimGiftOperationSchema,
+  fullAccessActionSchema,
 } from './validation';
-import type { CharacterChatOutput, GenerateStoryOutput } from './types';
+import type {
+  CharacterChatOutput,
+  CharacterRosterOutput,
+  DynamicChatEffects,
+  GenerateStoryOutput,
+} from './types';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 3 });
 
-const DEEPSEEK_MODEL = 'deepseek-chat';
-const STORY_MAX_TOKENS = 1500;
-const CHAT_MAX_TOKENS = 600;
-const CHAT_TIMEOUT_SECONDS = 30;
-const STORY_TIMEOUT_SECONDS = 55;
+const DEEPSEEK_MODEL = 'deepseek-v4-pro';
+const CHAT_MAX_TOKENS = 950;
+const CHAT_TIMEOUT_SECONDS = 35;
+const CHARACTER_ROSTER_TIMEOUT_SECONDS = 35;
+const CHARACTER_ROSTER_CALL_TIMEOUT_MS = 28_000;
+const STORY_TIMEOUT_SECONDS = 105;
+const STORY_ENGINE_CALL_TIMEOUT_MS = 38_000;
 
 function requireAuth(r: { auth?: { uid: string } }): string {
   if (!r.auth?.uid) throw new HttpsError('unauthenticated', 'Giriş yapmalısınız.');
   return r.auth.uid;
 }
+
 function logError(ctx: string, err: unknown): void {
   const msg = err instanceof Error ? err.message.slice(0, 150) : String(err).slice(0, 150);
   console.error(`[${ctx}] ${msg}`);
 }
-function parseStoryJson(raw: string): GenerateStoryOutput {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
-  let parsed: unknown;
-  try { parsed = JSON.parse(cleaned); } catch {
-    throw new HttpsError('internal', 'AI yanıtı geçerli JSON formatında değil.');
-  }
-  const r = chapterOutputSchema.safeParse(parsed);
-  if (!r.success) throw new HttpsError('internal', `AI yanıtı geçersiz: ${r.error.issues.map(i => i.message).join(', ')}`);
-  return r.data;
-}
+
 function isRefundableError(err: unknown): boolean {
   if (err instanceof HttpsError) {
     const c = (err as any).code;
@@ -51,12 +64,118 @@ function isRefundableError(err: unknown): boolean {
   return true;
 }
 
+function emptyDynamicEffects(): DynamicChatEffects {
+  return { events: [], relationshipDeltas: [] };
+}
+
+/**
+ * JSON responseFormat kullanıyoruz; yine de model beklenmedik biçimde yalnız
+ * metin döndürürse Character Room tamamen kırılmasın. Reply kurtarılır fakat
+ * world-state etkisi fail-closed biçimde boş bırakılır.
+ */
+function parseCharacterChatModelResult(raw: string): { reply: string; effects: DynamicChatEffects } {
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
+  try {
+    const json = JSON.parse(cleaned);
+    const parsed = characterChatModelOutputSchema.safeParse(json);
+    if (parsed.success) {
+      const relationshipDeltas = parsed.data.effects.relationshipDeltas.filter(delta =>
+        delta.trust !== 0 || delta.affinity !== 0 || delta.suspicion !== 0 || delta.hostility !== 0,
+      );
+      const events = parsed.data.effects.events.filter(event =>
+        event.shouldAffectStory || event.type === 'identity_claim',
+      );
+      const participant = parsed.data.effects.participant?.status === 'none'
+        ? undefined
+        : parsed.data.effects.participant;
+      return {
+        reply: parsed.data.reply,
+        effects: { events, relationshipDeltas, participant },
+      };
+    }
+
+    if (json && typeof json === 'object' && typeof (json as any).reply === 'string') {
+      console.warn('[characterChat] Dynamic effect şeması geçersiz; reply korundu.');
+      return { reply: (json as any).reply, effects: emptyDynamicEffects() };
+    }
+  } catch {
+    // Aşağıdaki plain-text fallback'e geç.
+  }
+
+  console.warn('[characterChat] Model JSON dönmedi; Dynamic Story etkileri kaydedilmedi.');
+  return { reply: raw.trim() || 'Sana cevap veremedim.', effects: emptyDynamicEffects() };
+}
+
+interface BranchChatContext {
+  currentChapter: number;
+  recentCharacterSceneContext: string;
+}
+
+function compactScene(content: string): string {
+  const clean = content.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 1600) return clean;
+  return `${clean.slice(0, 800)} … ${clean.slice(-800)}`;
+}
+
+/**
+ * Character Room karakterine son üretilen bölümlerin tamamını verip onu
+ * omniscient yapmıyoruz. Yalnız karakter adının gerçekten geçtiği son sahneler
+ * bağlama eklenir. Bu yine otomatik "bilgi" değildir; prompt karakterin yalnız
+ * gördüğü/duyduğu veya sonucunu makul biçimde bildiği kısmı kullanmasını ister.
+ */
+async function getBranchChatContext(
+  uid: string,
+  storyId: string,
+  characterName: string,
+): Promise<BranchChatContext> {
+  const db = getFirestore();
+  const [progressSnap, entitlementSnap] = await Promise.all([
+    db.collection('users').doc(uid).collection('progress').doc(storyId).get(),
+    db.collection('users').doc(uid).collection('entitlements').doc(storyId).get(),
+  ]);
+
+  const progressData = progressSnap.data() || {};
+  const progressChapter = Number(progressData.activeChapter || 1);
+  const unlocked = entitlementSnap.data()?.unlockedChapters;
+  const entitlementChapter = Array.isArray(unlocked) && unlocked.length > 0
+    ? Math.max(...unlocked.filter((value: unknown): value is number => typeof value === 'number'))
+    : 1;
+  const currentChapter = Math.min(200, Math.max(1, progressChapter, entitlementChapter));
+
+  const generatedChapters = Array.isArray(progressData.generatedChapters)
+    ? progressData.generatedChapters
+    : [];
+  const needle = characterName.trim().toLocaleLowerCase('tr-TR');
+  const relevantChapters = generatedChapters
+    .filter((chapter: any) => {
+      const content = typeof chapter?.content === 'string' ? chapter.content : '';
+      return content.toLocaleLowerCase('tr-TR').includes(needle);
+    })
+    .slice(-3);
+
+  if (relevantChapters.length === 0) {
+    return {
+      currentChapter,
+      recentCharacterSceneContext: 'Bu karakterin adı geçen yakın dönem AI bölüm sahnesi bulunamadı.',
+    };
+  }
+
+  const recentCharacterSceneContext = relevantChapters.map((chapter: any) => {
+    const chapterNumber = Number(chapter.chapterNumber || 0);
+    const title = typeof chapter.title === 'string' ? chapter.title : 'İsimsiz Bölüm';
+    const content = typeof chapter.content === 'string' ? chapter.content : '';
+    return `Bölüm ${chapterNumber} — ${title}\n${compactScene(content)}`;
+  }).join('\n\n');
+
+  return { currentChapter, recentCharacterSceneContext };
+}
+
 // ═══════════════════════════════════════════════════════════════
-// characterChat
+// characterChat — Character Room + Dynamic Story event extraction
 // ═══════════════════════════════════════════════════════════════
 
 export const characterChat = onCall<CharacterChatOutput>({
-  secrets: [deepseekApiKey], memory: '256MiB', timeoutSeconds: CHAT_TIMEOUT_SECONDS, concurrency: 1,
+  secrets: [deepseekApiKey], memory: '256MiB', timeoutSeconds: CHAT_TIMEOUT_SECONDS, concurrency: 1, invoker: 'public',
 }, async (request) => {
   const uid = requireAuth(request);
   const parsed = chatOperationSchema.safeParse(request.data);
@@ -78,17 +197,69 @@ export const characterChat = onCall<CharacterChatOutput>({
     throw new HttpsError('already-exists', 'Bu işlem zaten işleniyor.');
   }
 
-  const input = parsed.data;
-  const systemPrompt = buildChatPrompt(input);
-  const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...input.messages.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
-  ];
+  const clientInput = parsed.data;
 
   try {
-    const result = await callDeepSeek(messages, { model: DEEPSEEK_MODEL, temperature: 0.9, maxTokens: CHAT_MAX_TOKENS, timeoutMs: (CHAT_TIMEOUT_SECONDS - 5) * 1000 });
-    await finalizeSimpleTransaction(uid, operationId, result.content.slice(0, 100));
-    return { text: result.content, characterName: input.characterName, memoryUpdates: null };
+    const [worldState, branchContext] = await Promise.all([
+      loadDynamicStoryState(uid, clientInput.storyId),
+      getBranchChatContext(uid, clientInput.storyId, clientInput.characterName),
+    ]);
+
+    const dynamicContext = `${formatDynamicStoryForCharacter(worldState, clientInput.characterName)}
+
+RECENT CANONICAL CHAPTERS — SAHNE BAĞLAMI, OTOMATİK BİLGİ DEĞİL
+${branchContext.recentCharacterSceneContext}
+
+EPİSTEMİK KURAL: Bu bölüm alıntıları yalnız karakterin gerçekten içinde bulunduğu yakın sahneleri hatırlatır. Yine de ${clientInput.characterName}, sahnede görmediği/duymadığı özel düşünceleri veya başka karakterlerin gizli konuşmalarını biliyormuş gibi davranamaz. Yalnız kendi tanık olduğu, kendisine söylenen veya sonuçlarından makul biçimde öğrenebileceği bilgileri kullan.`;
+
+    const input = {
+      ...clientInput,
+      dynamicContext,
+    };
+    const systemPrompt = buildChatPrompt(input);
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...input.messages.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
+    ];
+
+    const result = await callDeepSeek(messages, {
+      model: DEEPSEEK_MODEL,
+      thinkingMode: 'disabled',
+      temperature: 0.78,
+      maxTokens: CHAT_MAX_TOKENS,
+      responseFormat: 'json_object',
+      timeoutMs: (CHAT_TIMEOUT_SECONDS - 6) * 1000,
+      maxRetries: 1,
+    });
+
+    const modelResult = parseCharacterChatModelResult(result.content);
+    const hasWorldEffects =
+      modelResult.effects.events.length > 0
+      || modelResult.effects.relationshipDeltas.length > 0
+      || Boolean(modelResult.effects.participant);
+
+    const nextWorldState = hasWorldEffects
+      ? await applyDynamicChatEffects(
+          uid,
+          clientInput.storyId,
+          clientInput.characterName,
+          modelResult.effects,
+          branchContext.currentChapter,
+        )
+      : worldState;
+
+    await finalizeSimpleTransaction(uid, operationId, modelResult.reply.slice(0, 100));
+
+    return {
+      text: modelResult.reply,
+      characterName: clientInput.characterName,
+      memoryUpdates: null,
+      worldUpdate: {
+        revision: nextWorldState.revision,
+        participantStatus: nextWorldState.participant.status,
+        canonicalEvents: modelResult.effects.events.filter(event => event.shouldAffectStory).length,
+      },
+    };
   } catch (err: unknown) {
     logError('characterChat', err);
     if (isRefundableError(err)) await refundTransaction(uid, operationId);
@@ -97,11 +268,42 @@ export const characterChat = onCall<CharacterChatOutput>({
 });
 
 // ═══════════════════════════════════════════════════════════════
-// generateStory
+// generateCharacterRoster — hikâye metninden karakter odası üretir
+// ═══════════════════════════════════════════════════════════════
+
+export const generateCharacterRoster = onCall<CharacterRosterOutput>({
+  secrets: [deepseekApiKey],
+  memory: '256MiB',
+  timeoutSeconds: CHARACTER_ROSTER_TIMEOUT_SECONDS,
+  concurrency: 1,
+  invoker: 'public',
+}, async (request) => {
+  const uid = requireAuth(request);
+  const parsed = characterRosterInputSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new HttpsError('invalid-argument', parsed.error.issues.map(i => i.message).join(', '));
+  }
+
+  await checkRateLimit(uid, 'characterRoster');
+
+  try {
+    return await generateCharacterRosterFromStory(
+      parsed.data,
+      CHARACTER_ROSTER_CALL_TIMEOUT_MS,
+    );
+  } catch (err: unknown) {
+    logError('generateCharacterRoster', err);
+    if (err instanceof HttpsError && err.code === 'resource-exhausted') throw err;
+    throw new HttpsError('internal', 'Karakter Odası şu anda hazırlanamadı.');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// generateStory — canonical Dynamic Story state'i anlatıma taşır
 // ═══════════════════════════════════════════════════════════════
 
 export const generateStory = onCall<GenerateStoryOutput>({
-  secrets: [deepseekApiKey], memory: '512MiB', timeoutSeconds: STORY_TIMEOUT_SECONDS, concurrency: 1,
+  secrets: [deepseekApiKey], memory: '512MiB', timeoutSeconds: STORY_TIMEOUT_SECONDS, concurrency: 1, invoker: 'public',
 }, async (request) => {
   const uid = requireAuth(request);
   const parsed = storyGenerateOperationSchema.safeParse(request.data);
@@ -110,8 +312,12 @@ export const generateStory = onCall<GenerateStoryOutput>({
   const input = parsed.data;
   const { operationId, action, storyId, chapterNumber } = input;
 
-  if (action === 'force_fate' && !input.chosenFate.isForceChoice) throw new HttpsError('invalid-argument', 'force_fate için isForceChoice=true olmalı.');
-  if (action === 'chapter_unlock' && input.chosenFate.isForceChoice) throw new HttpsError('invalid-argument', 'chapter_unlock için isForceChoice=false olmalı.');
+  if (action === 'force_fate' && !input.chosenFate.isForceChoice) {
+    throw new HttpsError('invalid-argument', 'force_fate için isForceChoice=true olmalı.');
+  }
+  if (action === 'chapter_unlock' && input.chosenFate.isForceChoice) {
+    throw new HttpsError('invalid-argument', 'chapter_unlock için isForceChoice=false olmalı.');
+  }
 
   const completed = await getCompletedLedger(uid, operationId);
   if (completed) throw new HttpsError('already-exists', 'Bu işlem zaten tamamlandı.');
@@ -124,24 +330,40 @@ export const generateStory = onCall<GenerateStoryOutput>({
     throw new HttpsError('internal', 'Jeton işlemi başarısız.');
   });
 
-  // alreadyReserved → DeepSeek ÇAĞIRMA, ikinci işlem başlatma
   if (reservation.alreadyReserved) {
     throw new HttpsError('already-exists', 'Bu işlem zaten işleniyor. Yeni operationId ile tekrar deneyin.');
   }
 
-  const systemPrompt = buildStoryPrompt(input);
-
   try {
-    const result = await callDeepSeek(
-      [{ role: 'system', content: systemPrompt }],
-      { model: DEEPSEEK_MODEL, temperature: 0.9, maxTokens: STORY_MAX_TOKENS, responseFormat: 'json_object', timeoutMs: (STORY_TIMEOUT_SECONDS - 5) * 1000 }
+    await setDynamicParticipantPreferences(uid, storyId, input.readerPersona);
+    const worldState = await loadDynamicStoryState(uid, storyId);
+    const engineInput = {
+      ...input,
+      dynamicContext: formatDynamicStoryForNarrative(worldState),
+    };
+
+    const engineResult = await generateAuraStory(engineInput, STORY_ENGINE_CALL_TIMEOUT_MS);
+
+    console.info('[generateStory] quality', {
+      storyId,
+      chapterNumber,
+      dynamicRevision: worldState.revision,
+      participantStatus: worldState.participant.status,
+      score: engineResult.quality.score,
+      rewritten: engineResult.rewritten,
+      issueCount: engineResult.quality.issues.length,
+    });
+
+    await finalizeTransaction(
+      uid,
+      operationId,
+      storyId,
+      action,
+      chapterNumber,
+      engineResult.raw.slice(0, 100),
     );
-    const output = parseStoryJson(result.content);
 
-    // ATOMİK: ledger completed + entitlement aynı transaction'da
-    await finalizeTransaction(uid, operationId, storyId, action, chapterNumber, result.content.slice(0, 100));
-
-    return output;
+    return engineResult.output;
   } catch (err: unknown) {
     logError('generateStory', err);
     if (isRefundableError(err)) await refundTransaction(uid, operationId);
@@ -170,7 +392,6 @@ export const purchaseFullAccess = onCall<{ success: boolean; balanceAfter: numbe
 
     if (reservation.alreadyReserved) return { success: true, balanceAfter: reservation.balanceAfter };
 
-    // ATOMİK: ledger + entitlement
     await finalizeTransaction(uid, operationId, storyId, 'full_access');
 
     return { success: true, balanceAfter: reservation.balanceAfter };

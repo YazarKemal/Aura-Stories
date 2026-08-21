@@ -4,9 +4,7 @@
  * Node.js yerleşik test runner (node:test) ile çalışır.
  * Gerçek ağ isteği yapmaz — globalThis.fetch mock'lanır.
  *
- * Çalıştırma (derlenmiş JS üzerinden):
- *   DEEPSEEK_API_KEY=test-key node --test lib/deepseek.test.js
- *   veya:
+ * Çalıştırma:
  *   npm --prefix functions test
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
@@ -14,8 +12,6 @@ import assert from 'node:assert/strict';
 
 import { callDeepSeek } from './deepseek';
 import type { DeepSeekError } from './errors';
-
-// ── Mock helpers ──────────────────────────────────────────────
 
 interface FetchMockCall {
   url: string;
@@ -53,7 +49,7 @@ function okResponse(
       choices: [
         { message: { content }, finish_reason: 'stop' },
       ],
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       usage: {
         prompt_tokens: 10,
         completion_tokens: 5,
@@ -75,12 +71,6 @@ function errorResponse(
   });
 }
 
-// ── Secret helpers ────────────────────────────────────────────
-
-/**
- * defineSecret('DEEPSEEK_API_KEY') .value() → process.env.DEEPSEEK_API_KEY
- * Test ortamında env var kullanarak secret'ı simüle ederiz.
- */
 function setSecret(value: string): void {
   process.env.DEEPSEEK_API_KEY = value;
 }
@@ -88,8 +78,6 @@ function setSecret(value: string): void {
 function clearSecret(): void {
   delete process.env.DEEPSEEK_API_KEY;
 }
-
-// ── Tests ─────────────────────────────────────────────────────
 
 describe('callDeepSeek', () => {
   beforeEach(() => {
@@ -100,8 +88,6 @@ describe('callDeepSeek', () => {
     globalThis.fetch = originalFetch;
     clearSecret();
   });
-
-  // ── Girdi validasyonu ───────────────────────────────────
 
   it('boş messages dizisini reddeder', async () => {
     await assert.rejects(
@@ -116,23 +102,20 @@ describe('callDeepSeek', () => {
     );
   });
 
-  it('user mesajı olmayan diziyi reddeder', async () => {
-    await assert.rejects(
-      () =>
-        callDeepSeek([
-          { role: 'system', content: 'Sen bir asistansın.' },
-        ]),
-      (err: unknown) => {
-        if (!(err instanceof Error)) return false;
-        return (
-          err.name === 'DeepSeekError' &&
-          (err as DeepSeekError).code === 'INVALID_INPUT'
-        );
-      }
-    );
-  });
+  it('system-only prompt kabul eder ve V4 Pro non-thinking gönderir', async () => {
+    mockFetch(async () => okResponse('{"ok":true}'));
 
-  // ── Başarılı response ───────────────────────────────────
+    await callDeepSeek([
+      { role: 'system', content: 'Yalnız JSON döndür.' },
+    ]);
+
+    const body = capturedCalls[0]?.init.body as string;
+    assert.ok(body, 'Request body olmalı');
+    const parsed = JSON.parse(body);
+    assert.equal(parsed.model, 'deepseek-v4-pro');
+    assert.deepEqual(parsed.thinking, { type: 'disabled' });
+    assert.equal(parsed.messages[0].role, 'system');
+  });
 
   it('başarılı text response döndürür', async () => {
     mockFetch(async () => okResponse('Merhaba, ben Kerem.'));
@@ -141,7 +124,7 @@ describe('callDeepSeek', () => {
       { role: 'user', content: 'Merhaba' },
     ]);
     assert.equal(result.content, 'Merhaba, ben Kerem.');
-    assert.equal(result.model, 'deepseek-chat');
+    assert.equal(result.model, 'deepseek-v4-pro');
     assert.equal(result.finishReason, 'stop');
     assert.ok(result.usage, 'usage null olmamalı');
     assert.equal(result.usage!.promptTokens, 10);
@@ -164,8 +147,6 @@ describe('callDeepSeek', () => {
     const parsed = JSON.parse(body);
     assert.deepEqual(parsed.response_format, { type: 'json_object' });
   });
-
-  // ── Hata yanıtları ──────────────────────────────────────
 
   it('401 hatasında retry yapmaz', async () => {
     let callCount = 0;
@@ -210,7 +191,6 @@ describe('callDeepSeek', () => {
   });
 
   it('timeout kontrollü hata verir', async () => {
-    // Sonsuza kadar cevap vermeyen fetch
     mockFetch(async (_url, init) => {
       const signal = init.signal!;
       return new Promise<Response>((_resolve, reject) => {
@@ -261,8 +241,6 @@ describe('callDeepSeek', () => {
     );
   });
 
-  // ── Güvenlik ────────────────────────────────────────────
-
   it('hata mesajında secret veya authorization değeri görünmez', async () => {
     mockFetch(async () =>
       errorResponse(401, {
@@ -288,8 +266,6 @@ describe('callDeepSeek', () => {
       }
     }
   });
-
-  // ── Config hatası ────────────────────────────────────────
 
   it('secret tanımlı değilse CONFIGURATION hatası verir', async () => {
     clearSecret();

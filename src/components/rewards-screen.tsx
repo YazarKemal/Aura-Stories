@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Wallet,
   Coins,
@@ -33,13 +33,17 @@ interface Task {
 }
 
 export function RewardsScreen() {
-  const { userState } = useUserState();
-  const addCredits = (_amount: number) => {}; // noop — server-authoritative
+  const { userState, claimDailyGift, isGiftClaimedToday } = useUserState();
   const { toast } = useToast();
-  const [checkedIn, setCheckedIn] = useState(userState.streak > 0 && userState.lastGiftClaimedAt ? new Date(userState.lastGiftClaimedAt).toDateString() === new Date().toDateString() : false);
+  const [checkedIn, setCheckedIn] = useState(isGiftClaimedToday);
+  const [isClaimingDailyGift, setIsClaimingDailyGift] = useState(false);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [claimedTasks, setClaimedTasks] = useState<Set<number>>(new Set());
   const [claimingTask, setClaimingTask] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCheckedIn(isGiftClaimedToday);
+  }, [isGiftClaimedToday]);
 
   const [dailyTasks] = useState<Task[]>([
     {
@@ -81,51 +85,76 @@ export function RewardsScreen() {
   ]);
 
   const streakDays = [
-    { day: 1, reward: 1, label: 'Bugün' },
-    { day: 2, reward: 1, label: 'Pzt' },
-    { day: 3, reward: 2, label: 'Sal' },
-    { day: 4, reward: 1, label: 'Çar' },
-    { day: 5, reward: 1, label: 'Per' },
-    { day: 6, reward: 2, label: 'Cum' },
-    { day: 7, reward: 5, label: 'Cmt', special: true },
+    { day: 1, reward: 50, label: 'Bugün' },
+    { day: 2, reward: 50, label: 'Pzt' },
+    { day: 3, reward: 50, label: 'Sal' },
+    { day: 4, reward: 50, label: 'Çar' },
+    { day: 5, reward: 50, label: 'Per' },
+    { day: 6, reward: 50, label: 'Cum' },
+    { day: 7, reward: 50, label: 'Cmt', special: true },
   ];
 
-  // Günlük giriş serisi — currentStreak: kaç gün üst üste giriş yapıldı
+  // Günlük ödül server-authoritative: miktar Functions tarafında 50 jeton olarak belirlenir.
   const currentStreak = userState.streak || 1;
 
   const handleClaimTask = (task: Task) => {
     if (claimedTasks.has(task.id) || task.progress < task.total) return;
 
+    // Günlük görev ekonomisi henüz server-authoritative bir endpoint'e bağlı değil.
+    // Sahte bakiye artışı göstermek yerine kullanıcıyı açıkça bilgilendir.
     setClaimingTask(task.id);
-    // Simüle edilmiş kısa yükleme
     setTimeout(() => {
-      addCredits(task.reward);
-      setClaimedTasks(prev => new Set(prev).add(task.id));
       setClaimingTask(null);
       toast({
-        title: `🎉 +${task.reward} Jeton Kazandınız!`,
-        description: `"${task.title}" görevi tamamlandı, ödül cüzdanına eklendi.`,
+        title: 'Görev ödülü hazırlanıyor',
+        description: 'Bu görev için güvenli sunucu ödül akışı tamamlandığında jeton hesabına eklenecek.',
       });
-    }, 600);
+    }, 350);
   };
 
-  const handleDailyCheckIn = () => {
-    if (checkedIn) return;
-    const streakDay = streakDays[Math.min(currentStreak - 1, 6)];
-    const reward = streakDay?.reward ?? 1;
+  const handleDailyCheckIn = async () => {
+    if (checkedIn || isClaimingDailyGift) return;
 
-    addCredits(reward);
-    setCheckedIn(true);
-    toast({
-      title: `🔥 Giriş Serisi — +${reward} Jeton!`,
-      description: `${currentStreak}. gün ödülünü aldın. Her gün giriş yaparak seriyi büyüt!`,
-    });
+    if (!userState.user?.uid) {
+      toast({
+        title: 'Giriş yapmanız gerekiyor',
+        description: 'Günlük Aura Hediyeni hesabına eklemek için önce giriş yapmalısın.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsClaimingDailyGift(true);
+    try {
+      const ok = await claimDailyGift();
+      if (ok) {
+        setCheckedIn(true);
+        toast({
+          title: 'Günlük Aura Hediyen alındı',
+          description: '+50 jeton hesabına eklendi.',
+        });
+      } else {
+        toast({
+          title: 'Hediye alınamadı',
+          description: 'Bugünkü hediyeni daha önce almış olabilirsin. Bakiyen güncellendikten sonra tekrar kontrol et.',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: 'Bağlantı hatası',
+        description: 'Günlük ödül sunucusuna ulaşılamadı. Lütfen tekrar dene.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClaimingDailyGift(false);
+    }
   };
 
-  const handleAdReward = (amount: number) => {
-    // AdRewardModal zaten watchAd ile kredileri ekliyor
-    // Görev progress'ini güncelle — reklam izleme görevi için
-    setClaimedTasks(prev => new Set(prev).add(2)); // task id 2 = reklam
+  const handleAdReward = (_amount: number) => {
+    // AdRewardModal reklam akışını yönetiyor. Gerçek kredi SSV tamamlanana kadar
+    // server tarafında simülasyon modunda tutuluyor.
+    setClaimedTasks(prev => new Set(prev).add(2));
   };
 
   return (
@@ -154,13 +183,12 @@ export function RewardsScreen() {
             </div>
           </div>
 
-          {/* 🎁 Ücretsiz Reklam Butonu */}
           <button
             onClick={() => setIsAdModalOpen(true)}
             className="w-full h-12 rounded-2xl bg-white dark:bg-purple-900/30 text-primary dark:text-purple-200 font-bold shadow-lg hover:bg-white/90 dark:hover:bg-purple-800/40 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <Gift className="w-5 h-5" />
-            🎁 Ücretsiz Jeton Kazan (Reklam İzle)
+            Ücretsiz Jeton Kazan (Reklam İzle)
           </button>
         </div>
       </section>
@@ -169,7 +197,7 @@ export function RewardsScreen() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-headline font-bold text-accent">Giriş Serisi</h3>
-          <span className="text-xs font-bold text-primary">Seri: {currentStreak} Gün 🔥</span>
+          <span className="text-xs font-bold text-primary">Seri: {currentStreak} Gün</span>
         </div>
 
         <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900/80 dark:border-zinc-800/50 border border-border/50 shadow-sm space-y-6">
@@ -185,7 +213,7 @@ export function RewardsScreen() {
                     s.special && !isActive && "border-2 border-dashed border-brand-primary bg-brand-primary/10 dark:bg-brand-primary/20",
                     isToday && !checkedIn && "ring-2 ring-primary/30 animate-pulse"
                   )}>
-                    {isActive ? <CheckCircle2 className="w-5 h-5" /> : <span className="text-[10px] font-bold">+{s.reward}</span>}
+                    {isActive ? <CheckCircle2 className="w-5 h-5" /> : <span className="text-[9px] font-bold">+50</span>}
                   </div>
                   <span className={cn("text-[10px] font-medium", isActive ? "text-primary font-bold" : "text-muted-foreground")}>
                     {s.label}
@@ -197,13 +225,17 @@ export function RewardsScreen() {
 
           <Button
             onClick={handleDailyCheckIn}
-            disabled={checkedIn}
+            disabled={checkedIn || isClaimingDailyGift}
             className={cn(
               "w-full h-12 rounded-2xl font-bold transition-all",
               checkedIn ? "bg-muted text-muted-foreground" : "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-lg shadow-purple-500/20 active:scale-95"
             )}
           >
-            {checkedIn ? '✓ Ödül Alındı' : `Bugünkü Ödülü Al (+${streakDays[Math.min(currentStreak - 1, 6)]?.reward ?? 1} Jeton)`}
+            {isClaimingDailyGift
+              ? 'Hediye alınıyor...'
+              : checkedIn
+                ? '✓ Bugünkü ödül alındı'
+                : 'Bugünkü Aura Hediyeni Al (+50 Jeton)'}
           </Button>
         </div>
       </section>
@@ -230,7 +262,7 @@ export function RewardsScreen() {
                     <div className="flex items-center justify-between mb-1">
                       <h4 className="text-sm font-bold text-accent dark:text-zinc-100 truncate">{task.title}</h4>
                       <span className="text-[10px] font-black text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full ring-1 ring-amber-200 dark:ring-amber-500/30">
-                        +{task.reward} 🪙
+                        +{task.reward} Jeton
                       </span>
                     </div>
 
@@ -255,7 +287,7 @@ export function RewardsScreen() {
                     )}
                   >
                     {isClaiming ? (
-                      <span className="flex items-center gap-1">⏳</span>
+                      <span className="flex items-center gap-1">...</span>
                     ) : isClaimed ? (
                       '✓ Alındı'
                     ) : isCompleted ? (
@@ -271,7 +303,6 @@ export function RewardsScreen() {
         </div>
       </section>
 
-      {/* ── Ad Reward Modal ── */}
       <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
     </div>
   );

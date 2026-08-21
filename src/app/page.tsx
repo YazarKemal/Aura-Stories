@@ -121,7 +121,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-background dark:bg-brand-dark text-foreground dark:text-brand-text max-w-md mx-auto relative overflow-hidden transition-colors duration-500">
+    <main className="min-h-[100dvh] w-full max-w-none bg-background dark:bg-brand-dark text-foreground dark:text-brand-text relative overflow-hidden transition-colors duration-500">
       {/* isLoading: useEffect localStorage kontrolü tamamlanana kadar boş ekran.
            İlk ziyarette splash hemen render olur (showSplash=true varsayılan).
            Geri dönen kullanıcıda useEffect anında false yapar → direkt ana sayfa. */}

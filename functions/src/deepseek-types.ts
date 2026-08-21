@@ -8,12 +8,15 @@ export interface DeepSeekMessage {
 }
 
 export type DeepSeekResponseFormat = 'text' | 'json_object';
+export type DeepSeekThinkingMode = 'enabled' | 'disabled';
 
 export interface DeepSeekRequestOptions {
   /** Model adı — varsayılan DEFAULT_MODEL sabitinden alınır */
   model?: string;
-  /** Sıcaklık 0-2 arası, varsayılan 0.9 */
+  /** Sıcaklık 0-2 arası, varsayılan 0.9. Thinking kapalıyken etkilidir. */
   temperature?: number;
+  /** DeepSeek V4 thinking modu. Aura'nın interaktif akışlarında varsayılan disabled. */
+  thinkingMode?: DeepSeekThinkingMode;
   /** Maksimum çıktı token'ı, pozitif ve üst sınırda */
   maxTokens?: number;
   /** Yanıt formatı: text veya json_object */

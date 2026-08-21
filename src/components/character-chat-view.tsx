@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Story, CharacterRoster } from '@/lib/types';
 import {
   ArrowLeft, Send, MoreHorizontal, ShieldCheck, Sparkles, Coins,
-  AlertCircle, Loader2, Brain, Flag, CheckCircle2
+  AlertCircle, Loader2, Orbit, Flag, CheckCircle2
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -13,16 +13,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useUserState } from '@/lib/user-state';
 import { useToast } from '@/hooks/use-toast';
-import { loadChatHistory, saveChatMessage, submitContentReport, type ChatMessage } from '@/lib/firebase';
+import { loadChatHistory, saveChatMessage, submitContentReport } from '@/lib/firebase';
 import { useNetwork } from '@/hooks/use-network';
-import { sendChatMessage } from '@/lib/chat-client';
+import { sendChatMessage, type ChatWorldUpdate } from '@/lib/chat-client';
 import { AdRewardModal } from '@/components/ad-reward-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   Sheet,
   SheetContent,
@@ -45,12 +45,12 @@ interface Message {
 }
 
 const REPORT_REASONS = [
-  "Yasa Dışı İçerik",
-  "Aşırı Şiddet / Tehdit",
-  "Telif Hakkı İhlali",
-  "Spam",
-  "Nefret Söylemi",
-  "Rahatsız Edici İçerik",
+  'Yasa Dışı İçerik',
+  'Aşırı Şiddet / Tehdit',
+  'Telif Hakkı İhlali',
+  'Spam',
+  'Nefret Söylemi',
+  'Rahatsız Edici İçerik',
 ];
 
 export function CharacterChatView({ story, activeCharacter, onBack }: CharacterChatViewProps) {
@@ -76,12 +76,10 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ── Report state ──────────────────────────────────────────
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportTargetMsg, setReportTargetMsg] = useState<Message | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
 
-  // ── Mobile keyboard handling ──────────────────────────────
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -102,7 +100,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     };
   }, []);
 
-  // Reset messages when character switches
   useEffect(() => {
     setMessages([
       { id: `greeting-${char.id}`, text: char.greeting, sender: 'character', timestamp: new Date() },
@@ -111,17 +108,14 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     setInputText('');
   }, [char.id, char.greeting]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Focus input on mount
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Firestore'dan sohbet geçmişini yükle
   useEffect(() => {
     const uid = userState.user?.uid;
     if (!uid) return;
@@ -135,33 +129,37 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   }, [userState.user?.uid, story.id, char.id]);
 
   const sendToAPI = useCallback(
-    async (history: Message[], operationId: string): Promise<{ text: string; memoryUpdates?: { newFactsLearned: { fact: string; importance: string }[]; hiddenSecretsRemaining: number } }> => {
+    async (history: Message[], operationId: string): Promise<{ text: string; worldUpdate?: ChatWorldUpdate }> => {
       const conversationMessages = history
         .filter((m): m is Message & { sender: 'user' | 'character' } => m.sender === 'user' || m.sender === 'character')
         .map(m => ({ text: m.text, sender: m.sender }));
       const result = await sendChatMessage({
-        storyId: story.id, storyTitle: story.title, storySynopsis: story.synopsis,
-        storyLongSynopsis: story.longSynopsis, storyTags: story.tags,
-        storyAuthor: story.author, characterName: char.name,
+        storyId: story.id,
+        storyTitle: story.title,
+        storySynopsis: story.synopsis,
+        storyLongSynopsis: story.longSynopsis,
+        storyTags: story.tags,
+        storyAuthor: story.author,
+        characterName: char.name,
+        characterRole: char.role,
+        characterPersonality: char.personality,
         messages: conversationMessages,
         operationId,
       });
-      return { text: result.text, memoryUpdates: result.memoryUpdates };
+      return { text: result.text, worldUpdate: result.worldUpdate };
     },
-    [story, char.name]
+    [story, char.name, char.role, char.personality]
   );
 
   const handleSendMessage = useCallback(async () => {
     const text = inputText.trim();
-    if (!text || isLoading) return;
-    if (sendLockRef.current) return;
+    if (!text || isLoading || sendLockRef.current) return;
 
-    // ── Auth guard — giriş yapmamış kullanıcı AI çağrısı yapamaz ──
     if (!userState.user?.uid) {
       toast({
-        title: "Giriş Yapmanız Gerekiyor",
-        description: "AI sohbet özelliğini kullanmak için lütfen giriş yapın.",
-        variant: "destructive",
+        title: 'Giriş Yapmanız Gerekiyor',
+        description: 'AI sohbet özelliğini kullanmak için lütfen giriş yapın.',
+        variant: 'destructive',
       });
       return;
     }
@@ -170,66 +168,65 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     setIsLoading(true);
 
     if (!online) {
-      toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Mesaj göndermek için internet bağlantısı gerekli.', variant: 'destructive' });
+      toast({ title: 'İnternet Bağlantısı Yok', description: 'Mesaj göndermek için internet bağlantısı gerekli.', variant: 'destructive' });
       sendLockRef.current = false;
       setIsLoading(false);
       return;
     }
 
-    // Kredi kontrolü: AI function SERVER-SIDE yapar.
-    // İstemci ön harcama YAPMAZ — çift ücretlendirme olmasın.
-    const chatOpId = `chat_${userState.user?.uid || 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const chatOpId = `chat_${userState.user.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     setError(null);
     setInputText('');
 
     const userMsg: Message = { id: `user-${Date.now()}`, text, sender: 'user', timestamp: new Date() };
-
-    // Firestore'a kaydet
-    const uid = userState.user?.uid;
-    if (uid) {
-      saveChatMessage(uid, story.id, char.id, {
-        id: userMsg.id, text: userMsg.text, sender: userMsg.sender,
-        timestamp: userMsg.timestamp.toISOString(),
-      });
-    }
+    const uid = userState.user.uid;
+    void saveChatMessage(uid, story.id, char.id, {
+      id: userMsg.id,
+      text: userMsg.text,
+      sender: userMsg.sender,
+      timestamp: userMsg.timestamp.toISOString(),
+    });
 
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
-
-    // API çağrısı — kredi kontrolü server-side
 
     try {
       const result = await sendToAPI(updatedHistory, chatOpId);
 
       const aiMsg: Message = { id: `ai-${Date.now()}`, text: result.text, sender: 'character', timestamp: new Date() };
-
-      if (uid) {
-        saveChatMessage(uid, story.id, char.id, {
-          id: aiMsg.id, text: aiMsg.text, sender: aiMsg.sender,
-          timestamp: aiMsg.timestamp.toISOString(),
-        });
-      }
+      void saveChatMessage(uid, story.id, char.id, {
+        id: aiMsg.id,
+        text: aiMsg.text,
+        sender: aiMsg.sender,
+        timestamp: aiMsg.timestamp.toISOString(),
+      });
 
       setMessages(prev => [...prev, aiMsg]);
 
-      if (result.memoryUpdates && result.memoryUpdates.newFactsLearned.length > 0) {
-        const facts = result.memoryUpdates.newFactsLearned;
-        const memoryMsg: Message = {
-          id: `mem-${Date.now()}`,
-          text: `🧠 Hafıza Güncellendi: "${facts[0].fact.slice(0, 60)}${facts[0].fact.length > 60 ? '...' : ''}" öğrenildi! (${result.memoryUpdates.hiddenSecretsRemaining} sır kaldı)${facts.length > 1 ? ` +${facts.length - 1} bilgi daha` : ''}`,
-          sender: 'system', timestamp: new Date(),
+      // Eski client-side "öğrenildi" mesajı kaldırıldı. Kullanıcının söylediği
+      // bir iddianın gerçek kanona yazılıp yazılmadığını yalnız server belirler.
+      if (result.worldUpdate && result.worldUpdate.canonicalEvents > 0) {
+        const statusText = result.worldUpdate.participantStatus === 'recognized'
+          ? 'Bu konuşma hikâyenin seyrini değiştirdi ve evren seni tanınabilir bir aktör olarak kaydetti.'
+          : result.worldUpdate.participantStatus === 'noticed'
+            ? 'Bu konuşma hikâyede kanonik bir iz bıraktı. Karakterlerin sonraki davranışları bundan etkilenebilir.'
+            : 'Bu konuşma hikâyenin kanonik durumunu değiştirdi. Sonraki bölüm bu sonucu hatırlayacak.';
+        const dynamicMsg: Message = {
+          id: `dynamic-${Date.now()}`,
+          text: `DYNAMIC STORY · ${statusText}`,
+          sender: 'system',
+          timestamp: new Date(),
         };
-        setMessages(prev => [...prev, memoryMsg]);
+        setMessages(prev => [...prev, dynamicMsg]);
       }
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
-      // Refund yalnızca Functions refundTransaction tarafından yapılır.
-
       const errMsg: Message = {
         id: `err-${Date.now()}`,
-        text: '⚠️ ' + (err.message || 'Bağlantı hatası. Lütfen tekrar dene.'),
-        sender: 'system', timestamp: new Date(),
+        text: err.message || 'Bağlantı hatası. Lütfen tekrar dene.',
+        sender: 'system',
+        timestamp: new Date(),
       };
       setMessages(prev => [...prev, errMsg]);
     } finally {
@@ -238,7 +235,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     }
   }, [inputText, isLoading, messages, sendToAPI, online, toast, userState.user?.uid, story.id, char.id]);
 
-  // Reklam ödülü sonrası yarım kalan mesajı otomatik gönder
   const handleAdReward = (earned: number) => {
     if (userState.credits + earned >= 5) {
       handleSendMessage();
@@ -252,7 +248,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     }
   };
 
-  // ── Report handling ───────────────────────────────────────
   const openReportForMessage = (msg: Message) => {
     if (msg.sender !== 'character') return;
     setReportTargetMsg(msg);
@@ -265,7 +260,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
     setIsReportSheetOpen(false);
     try {
       const uid = userState.user?.uid;
-      if (!uid) return; // auth zorunlu
+      if (!uid) return;
       await submitContentReport({
         uid,
         storyId: story.id,
@@ -278,33 +273,29 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         createdAt: new Date().toISOString(),
       });
       toast({
-        title: "Rapor İletildi",
-        description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
-        variant: "default",
+        title: 'Rapor İletildi',
+        description: 'Şikayetiniz incelenmek üzere ekibimize iletilmiştir.',
       });
     } catch {
       toast({
-        title: "Hata",
-        description: "Rapor iletilemedi. Lütfen tekrar deneyin.",
-        variant: "destructive",
+        title: 'Hata',
+        description: 'Rapor iletilemedi. Lütfen tekrar deneyin.',
+        variant: 'destructive',
       });
     }
     setReportReason(null);
     setReportTargetMsg(null);
   };
 
-  // Character initials
   const initials = char.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <div ref={containerRef} className="fixed inset-0 z-[300] bg-background flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden">
-      {/* Immersive Blurred Background */}
       <div className="absolute inset-0 z-0">
         <Image src={story.imageUrl} alt="" fill className="object-cover blur-[100px] opacity-20 scale-110" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
       </div>
 
-      {/* ── Chat Header ──────────────────────────────────── */}
       <header className="relative z-10 px-5 py-4 flex items-center justify-between glass-morphism border-b border-white/10">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-2 -ml-2 text-accent hover:bg-white/10 rounded-full transition-colors active:scale-90" aria-label="Sohbetten çık">
@@ -313,7 +304,7 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar className="w-11 h-11 border-2 border-primary shadow-md ring-2 ring-primary/20">
-                <AvatarImage src={story.imageUrl} className="object-cover" />
+                <AvatarImage src={char.avatarUrl || story.imageUrl} className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-primary font-bold text-sm">{initials}</AvatarFallback>
               </Avatar>
               <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background ring-1 ring-green-600/30" />
@@ -328,7 +319,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           </div>
         </div>
 
-        {/* ── Header menu: report chat ── */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="p-2 text-muted-foreground hover:bg-white/10 rounded-full transition-colors" aria-label="Sohbet menüsü">
@@ -338,24 +328,20 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           <DropdownMenuContent align="end" className="w-48 rounded-2xl">
             <DropdownMenuItem
               onClick={() => {
-                // Son AI mesajını bul ve raporla
                 const lastAi = [...messages].reverse().find(m => m.sender === 'character');
                 if (lastAi) openReportForMessage(lastAi);
               }}
               className="gap-2 text-sm cursor-pointer"
             >
-              <Flag className="w-4 h-4" />
-              İçeriği Bildir
+              <Flag className="w-4 h-4" />İçeriği Bildir
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
 
-      {/* ── Chat Area ────────────────────────────────────── */}
       <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-5 no-scrollbar">
-        <div className="self-center py-1.5 px-4 rounded-full bg-white/40 backdrop-blur-sm border border-white/20 text-[10px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm">
-          <Sparkles className="w-3 h-3 text-primary" />
-          {char.name} ile Sohbet
+        <div className="self-center py-1.5 px-4 rounded-full bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/20 text-[10px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm">
+          <Sparkles className="w-3 h-3 text-primary" />{char.name} ile Sohbet
         </div>
 
         {messages.map(msg => (
@@ -367,12 +353,13 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
             )}
           >
             {msg.sender === 'system' ? (
-              msg.text.startsWith('🧠') ? (
-                <div className="px-4 py-2 rounded-full bg-purple-50/90 backdrop-blur-sm border border-purple-200 text-xs text-purple-700 font-medium flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300 shadow-sm">
-                  <Brain className="w-3.5 h-3.5" />{msg.text}
+              msg.text.startsWith('DYNAMIC STORY') ? (
+                <div className="px-4 py-2.5 rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/20 text-[11px] text-primary font-bold flex items-start gap-2 animate-in fade-in zoom-in-95 duration-300 shadow-sm text-center">
+                  <Orbit className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{msg.text}</span>
                 </div>
               ) : (
-                <div className="px-4 py-2 rounded-full bg-red-50/90 backdrop-blur-sm border border-red-200 text-xs text-red-700 font-medium flex items-center gap-2">
+                <div className="px-4 py-2 rounded-full bg-red-50/90 dark:bg-red-950/40 backdrop-blur-sm border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 font-medium flex items-center gap-2">
                   <AlertCircle className="w-3 h-3" />{msg.text}
                 </div>
               )
@@ -385,11 +372,10 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
                     : 'bg-white/85 dark:bg-[#1C1F2E]/90 backdrop-blur-md text-accent dark:text-gray-100 border border-white/60 dark:border-gray-700 rounded-tl-md'
                 )}>
                   {msg.text}
-                  {/* AI mesajına rapor butonu */}
                   {msg.sender === 'character' && (
                     <button
                       onClick={(e) => { e.stopPropagation(); openReportForMessage(msg); }}
-                      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white dark:bg-zinc-700 border border-gray-200 dark:border-gray-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30"
+                      className="absolute -top-1.5 -right-1.5 w-7 h-7 rounded-full bg-white dark:bg-zinc-700 border border-gray-200 dark:border-gray-600 shadow-sm opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30"
                       aria-label="Mesajı raporla"
                     >
                       <Flag className="w-3 h-3 text-muted-foreground hover:text-destructive" />
@@ -423,7 +409,6 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         )}
       </div>
 
-      {/* ── Input Area ───────────────────────────────────── */}
       <footer className="relative z-10 px-5 pb-5 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 px-3 py-1 self-center bg-amber-50/90 dark:bg-amber-500/10 backdrop-blur-sm rounded-full border border-amber-200/60 dark:border-amber-500/30 shadow-sm">
@@ -432,13 +417,18 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
           </div>
           <div className="flex items-center gap-2.5 bg-white/90 dark:bg-[#1C1F2E]/90 backdrop-blur-md p-2 rounded-[2rem] shadow-xl border border-primary/10 dark:border-gray-700">
             <Input
-              ref={inputRef} aria-label="Mesaj yaz" value={inputText}
-              onChange={e => setInputText(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={`${char.name}'e bir şey yaz...`} disabled={isLoading}
+              ref={inputRef}
+              aria-label="Mesaj yaz"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`${char.name}'e bir şey yaz...`}
+              disabled={isLoading}
               className="border-none bg-transparent focus-visible:ring-0 text-sm dark:text-white h-12 rounded-full px-4 placeholder:text-muted-foreground/50 dark:placeholder:text-gray-500"
             />
             <Button
-              aria-label="Mesaj gönder" onClick={handleSendMessage}
+              aria-label="Mesaj gönder"
+              onClick={handleSendMessage}
               disabled={isLoading || !inputText.trim()}
               className={cn('w-12 h-12 rounded-full text-white shadow-lg transition-all p-0 flex items-center justify-center flex-shrink-0',
                 inputText.trim() && !isLoading ? 'bg-primary shadow-primary/20 hover:scale-105 active:scale-95' : 'bg-muted-foreground/30 shadow-none')}
@@ -449,10 +439,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         </div>
       </footer>
 
-      {/* Yetersiz jeton upsell'i */}
       <AdRewardModal isOpen={isAdModalOpen} onClose={() => setIsAdModalOpen(false)} onReward={handleAdReward} />
 
-      {/* ── Report Sheet ─────────────────────────────────── */}
       <Sheet open={isReportSheetOpen} onOpenChange={(open) => { setIsReportSheetOpen(open); if (!open) { setReportReason(null); setReportTargetMsg(null); } }}>
         <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[600]">
           <div className="p-8 flex flex-col items-center gap-2">
@@ -470,8 +458,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
             {REPORT_REASONS.map((reason) => (
               <button key={reason} onClick={() => setReportReason(reason)}
                 className={cn(
-                  "w-full p-4 rounded-2xl text-sm font-bold transition-all text-left flex items-center justify-between",
-                  reportReason === reason ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-muted/30 text-accent hover:bg-muted/50"
+                  'w-full p-4 rounded-2xl text-sm font-bold transition-all text-left flex items-center justify-between',
+                  reportReason === reason ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-muted/30 text-accent hover:bg-muted/50'
                 )}>
                 {reason}
                 {reportReason === reason && <CheckCircle2 className="w-4 h-4" />}

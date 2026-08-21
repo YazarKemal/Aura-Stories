@@ -11,8 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useUserState } from '@/lib/user-state';
-import { firebaseGoogleLogin } from '@/lib/firebase';
-import { Mail, Lock, User, LogIn, UserPlus, Sparkles, Loader2 } from 'lucide-react';
+import { authPersistenceReady, firebaseGoogleLogin } from '@/lib/firebase';
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  getAuth,
+  setPersistence,
+} from 'firebase/auth';
+import { Mail, Lock, User, LogIn, UserPlus, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,6 +29,7 @@ type AuthTab = 'login' | 'register';
 
 /** Auth işlemi bu süre içinde bitmezse zaman aşımı sayılır */
 const AUTH_TIMEOUT_MS = 15000;
+const REMEMBERED_EMAIL_KEY = 'aura-remembered-email';
 
 /** Firebase hata kodlarını kullanıcıya gösterilecek Türkçe mesajlara çevirir */
 function mapFirebaseError(code: string | undefined, tab: AuthTab): string {
@@ -54,6 +61,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberedEmail, setRememberedEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -68,15 +78,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     });
   }, []);
 
+  // Uygulama parola saklamaz. Yalnızca hatırlanması istenen e-posta tutulur;
+  // oturum kalıcılığını Firebase Auth persistence yönetir.
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+    try {
+      const savedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY)?.trim() || '';
+      setRememberedEmail(savedEmail);
+      if (savedEmail) {
+        setRememberMe(true);
+        setEmail((current) => current || savedEmail);
+      }
+    } catch {
+      // WebView depolaması kullanılamıyorsa form normal şekilde çalışmaya devam eder.
+    }
+  }, [isOpen]);
+
   const resetForm = () => {
     setName('');
     setEmail('');
     setPassword('');
+    setShowPassword(false);
     setError('');
   };
 
   const handleTabSwitch = (t: AuthTab) => {
     setTab(t);
+    setShowPassword(false);
     setError('');
   };
 
@@ -106,16 +134,38 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     setIsSubmitting(true);
     try {
-      const result = await withTimeout(
-        tab === 'register'
+      const shouldPersistLocally = tab === 'register' ? true : rememberMe;
+      const result = await withTimeout((async () => {
+        // firebase.ts ilk açılışta LOCAL persistence kuruyor. Önce onun bitmesini
+        // bekleyip kullanıcının "Beni hatırla" tercihini son söz olarak uygula.
+        await authPersistenceReady;
+        await setPersistence(
+          getAuth(),
+          shouldPersistLocally ? browserLocalPersistence : browserSessionPersistence
+        );
+
+        return tab === 'register'
           ? register(name.trim(), email.trim(), password)
-          : login(email.trim(), password),
-        AUTH_TIMEOUT_MS
-      );
+          : login(email.trim(), password);
+      })(), AUTH_TIMEOUT_MS);
 
       if (!result.ok) {
         setError(mapFirebaseError(result.code, tab));
         return;
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          if (shouldPersistLocally) {
+            window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+            setRememberedEmail(email.trim());
+          } else {
+            window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+            setRememberedEmail('');
+          }
+        } catch {
+          // E-posta hatırlatma başarısız olsa bile başarılı girişi bozma.
+        }
       }
 
       resetForm();
@@ -151,6 +201,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             {/* Tabs */}
             <div className="flex bg-muted/50 dark:bg-zinc-800 rounded-2xl p-1 w-full max-w-[240px]">
               <button
+                type="button"
                 onClick={() => handleTabSwitch('login')}
                 className={cn(
                   "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
@@ -163,6 +214,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 Giriş
               </button>
               <button
+                type="button"
                 onClick={() => handleTabSwitch('register')}
                 className={cn(
                   "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
@@ -187,6 +239,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="auth-name"
+                  name="name"
+                  autoComplete="name"
                   type="text"
                   placeholder="Adınızı girin"
                   value={name}
@@ -197,12 +251,28 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
           )}
 
+          {tab === 'login' && rememberedEmail && (
+            <button
+              type="button"
+              onClick={() => setEmail(rememberedEmail)}
+              className="w-full min-h-10 px-3 rounded-xl bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold flex items-center gap-2 text-left transition-colors"
+            >
+              <User className="w-4 h-4 shrink-0" />
+              <span className="truncate">{rememberedEmail}</span>
+            </button>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="auth-email" className="text-xs font-bold text-muted-foreground">E-posta</Label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="auth-email"
+                name="username"
+                autoComplete="username"
+                inputMode="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 type="email"
                 placeholder="eposta@ornek.com"
                 value={email}
@@ -218,14 +288,39 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="auth-password"
-                type="password"
+                name="password"
+                autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 pl-11 rounded-2xl border-border/50 dark:border-zinc-700 bg-muted/30 dark:bg-zinc-800"
+                className="h-12 pl-11 pr-12 rounded-2xl border-border/50 dark:border-zinc-700 bg-muted/30 dark:bg-zinc-800"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl text-muted-foreground hover:text-accent hover:bg-muted/50 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
+
+          {tab === 'login' && (
+            <label className="flex items-center justify-between gap-3 min-h-10 px-1 cursor-pointer select-none">
+              <span className="flex items-center gap-3 min-w-0">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-border accent-primary shrink-0"
+                />
+                <span className="text-xs font-bold text-foreground">Beni hatırla</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground text-right">Bu cihazda oturum açık kalsın</span>
+            </label>
+          )}
 
           {error && (
             <p className="text-xs font-bold text-destructive text-center bg-destructive/5 py-2 rounded-xl">{error}</p>

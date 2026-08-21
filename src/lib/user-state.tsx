@@ -5,7 +5,7 @@ import {
   auth, onAuthChange, firebaseLogin, firebaseRegister, firebaseLogout,
   getFirestoreUser, createFirestoreUser, isGiftClaimedToday,
   onUserSnapshot, loadAllProgress, saveProgress,
-  loadAllEntitlements, onEntitlementsSnapshot,
+  loadAllEntitlements, onEntitlementsSnapshot, updateBlockedAuthors,
   type StoryProgress, type StoryEntitlement,
 } from '@/lib/firebase';
 
@@ -70,10 +70,16 @@ export interface UserState {
   wordsRead: number;
   streak: number;
   lastGiftClaimedAt: string | null;
+  /** Engellenen yazarların display-name'leri — oturum yenileme/sonraki girişte korunur. */
+  blockedAuthors: string[];
 }
 
 interface UserStateContextType {
   userState: UserState;
+  /** Bir yazar (display-name) engellenmiş mi? */
+  isAuthorBlocked: (author: string) => boolean;
+  /** Engeli ekler/kaldırır ve Firestore'a kalıcı olarak yazar. */
+  toggleBlockedAuthor: (author: string) => Promise<void>;
   getCurrentChapter: (storyId: string) => number;
   isChapterAccessible: (storyId: string, chapter: number) => boolean;
 
@@ -114,6 +120,7 @@ const DEFAULT_STATE: UserState = {
   wordsRead: 0,
   streak: 0,
   lastGiftClaimedAt: null,
+  blockedAuthors: [],
 };
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -226,6 +233,30 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userState.user?.uid, userState.lastGiftClaimedAt]);
 
+  // ── Author Blocking ─────────────────────────────────────
+
+  const isAuthorBlocked = useCallback(
+    (author: string) => userState.blockedAuthors.includes(author),
+    [userState.blockedAuthors]
+  );
+
+  const toggleBlockedAuthor = useCallback(async (author: string) => {
+    const uid = userState.user?.uid;
+    if (!uid || !author) return;
+    const current = userState.blockedAuthors;
+    const next = current.includes(author)
+      ? current.filter(a => a !== author)
+      : [...current, author];
+    // İyimser güncelleme — UI anında tepki verir
+    setUserState(prev => ({ ...prev, blockedAuthors: next }));
+    try {
+      await updateBlockedAuthors(uid, next);
+    } catch {
+      // Hata → önceki duruma geri dön
+      setUserState(prev => ({ ...prev, blockedAuthors: current }));
+    }
+  }, [userState.user?.uid, userState.blockedAuthors]);
+
   // ── Authentication (Firebase) ─────────────────────────────
 
   // Firebase auth state listener — onSnapshot ile canlı veri
@@ -268,6 +299,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           wordsRead: fsUser!.wordsRead ?? 0,
           streak: fsUser!.streak ?? 0,
           lastGiftClaimedAt: fsUser!.lastGiftClaimedAt ?? null,
+          blockedAuthors: fsUser!.blockedAuthors ?? [],
           firebaseReady: true,
         }));
 
@@ -325,6 +357,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
               wordsRead: updated.wordsRead ?? 0,
               streak: updated.streak ?? 0,
               lastGiftClaimedAt: updated.lastGiftClaimedAt ?? null,
+              blockedAuthors: updated.blockedAuthors ?? [],
             }));
           }
         });
@@ -336,6 +369,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
           credits: 200,
           storyStates: {},
           storyEngines: {},
+          blockedAuthors: [],
           firebaseReady: true,
         }));
       }
@@ -397,6 +431,7 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       value={{
         userState, getCurrentChapter, isChapterAccessible,
         saveGeneratedChapter, getLatestFateOptions, getStoryEngine,
+        isAuthorBlocked, toggleBlockedAuthor,
         login, register, logout, isLoggedIn, isAdmin,
         isGiftClaimedToday: isGiftClaimedTodayValue,
         claimDailyGift: claimDailyGiftFn,

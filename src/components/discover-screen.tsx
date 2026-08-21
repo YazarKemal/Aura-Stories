@@ -19,6 +19,7 @@ import { personalizeStoryRecommendations } from '@/ai/flows/personalized-story-r
 import { Story, Category } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getStories, getCategories, seedStoriesToFirestore, onStoriesSnapshot } from '@/lib/firebase';
+import { useUserState } from '@/lib/user-state';
 
 interface DiscoverScreenProps {
   onSelectStory: (story: Story) => void;
@@ -32,6 +33,7 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
   const [aiRecommendations, setAiRecommendations] = useState<Story[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(true);
   const fetchInitiated = useRef(false);
+  const { isAuthorBlocked } = useUserState();
 
   // ── Carousel autoplay + pagination state ──────────────
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -158,11 +160,12 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
   }, [carouselApi]);
 
   // Vitrin için öne çıkan hikayeler (isFeatured), eksikse popülerlerle tamamla
-  const featuredStories = stories.filter(s => s.isFeatured);
+  const visibleStories = stories.filter(s => !isAuthorBlocked(s.author));
+  const featuredStories = visibleStories.filter(s => s.isFeatured);
   const carouselStories =
     featuredStories.length >= 3
       ? featuredStories.slice(0, 3)
-      : [...featuredStories, ...stories.filter(s => !s.isFeatured && s.isPopular).slice(0, 3 - featuredStories.length)];
+      : [...featuredStories, ...visibleStories.filter(s => !s.isFeatured && s.isPopular).slice(0, 3 - featuredStories.length)];
 
   return (
     <div className="flex flex-col gap-8 pb-24 animate-in fade-in duration-700">
@@ -277,7 +280,7 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
           <Link href="/popular" className="text-xs font-medium text-primary cursor-pointer hover:underline">Tümünü Gör</Link>
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
-          {stories
+          {visibleStories
             .filter(s => (selectedCategory === 'Hepsi' || s.category === selectedCategory) && s.isPopular)
             .map(story => (
               <StoryCard key={story.id} story={story} variant="popular" onClick={onSelectStory} />
@@ -309,7 +312,7 @@ export function DiscoverScreen({ onSelectStory, selectedCategory, onCategoryChan
               </div>
             ))
           ) : (
-            aiRecommendations.map(story => (
+            aiRecommendations.filter(s => !isAuthorBlocked(s.author)).map(story => (
               <StoryCard key={story.id} story={story} variant="recommended" onClick={onSelectStory} />
             ))
           )}

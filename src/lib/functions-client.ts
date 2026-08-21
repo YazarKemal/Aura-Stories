@@ -8,6 +8,10 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '@/lib/firebase';
 import type { GenerateStoryPayload, GenerateStoryResult } from '@/lib/story-client';
 import type { ChatRequestPayload, ChatResponsePayload } from '@/lib/chat-client';
+import type {
+  DynamicCharacterRosterInput,
+  DynamicCharacterRosterResult,
+} from '@/lib/types';
 
 let _functions: ReturnType<typeof getFunctions> | null = null;
 function functions() { if (!_functions) _functions = getFunctions(app, 'europe-west1'); return _functions; }
@@ -33,6 +37,16 @@ export async function callCharacterChat(
   return (await fn(payload) as CR<ChatResponsePayload>).data;
 }
 
+export async function callGenerateCharacterRoster(
+  payload: DynamicCharacterRosterInput
+): Promise<DynamicCharacterRosterResult> {
+  const fn = httpsCallable<DynamicCharacterRosterInput, DynamicCharacterRosterResult>(
+    functions(),
+    'generateCharacterRoster'
+  );
+  return (await fn(payload) as CR<DynamicCharacterRosterResult>).data;
+}
+
 // ── Action-Based Economy ──────────────────────────────────────
 // Client yalnızca ACTION gönderir — AMOUNT YOK
 
@@ -49,7 +63,6 @@ export async function callClaimDailyGift(operationId: string): Promise<{ success
 }
 
 export async function callGrantAdReward(): Promise<{ success: boolean; simulated: boolean }> {
-  // HİÇBİR parametre alınmaz — mode/amount YOK
   const fn = httpsCallable<{}, { success: boolean; simulated: boolean }>(functions(), 'grantAdRewardCallable');
   return (await fn({}) as CR<{ success: boolean; simulated: boolean }>).data;
 }

@@ -116,7 +116,7 @@ type ReadingMode = 'scroll' | 'swipe' | 'flip';
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
   const { online } = useNetwork();
-  const { userState, saveGeneratedChapter, getStoryEngine } = useUserState();
+  const { userState, saveGeneratedChapter, getStoryEngine, isAuthorBlocked, toggleBlockedAuthor } = useUserState();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -341,10 +341,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   const handleBlockAuthor = () => {
+    const currentlyBlocked = isAuthorBlocked(story.author);
+    toggleBlockedAuthor(story.author);
     toast({
-      title: "Yazar Engellendi",
-      description: `${story.author} içeriği artık size gösterilmeyecek.`,
-      variant: "destructive",
+      title: currentlyBlocked ? "Engel Kaldırıldı" : "Yazar Engellendi",
+      description: currentlyBlocked
+        ? `${story.author} içeriği tekrar gösterilecek.`
+        : `${story.author} içeriği artık size gösterilmeyecek.`,
+      variant: currentlyBlocked ? "default" : "destructive",
     });
   };
 
@@ -669,7 +673,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-all duration-300 max-w-md mx-auto",
+          "fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-md border-b px-6 flex items-center justify-between transition-all duration-300",
           (!isVisible || !isUIVisible) ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
           readingTheme === 'dark' ? "bg-[#161823]/90 border-zinc-800" : "bg-white/80 border-black/10"
         )}
@@ -730,7 +734,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
               >
                 <UserX className="w-4 h-4" />
-                Yazarı Engelle
+                {isAuthorBlocked(story.author) ? "Engeli Kaldır" : "Yazarı Engelle"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -768,7 +772,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {readingMode !== 'flip' && (
       <article
         className={cn(
-          !isHorizontal && "pb-40 max-w-md mx-auto relative",
+          !isHorizontal && "pb-40 relative",
           isHorizontal && "flex flex-row h-[calc(100dvh-64px)]"
         )}
       >
@@ -1216,7 +1220,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       {/* Docked Audio Player */}
       {isAudioPlayerOpen && (
         <div 
-          className="fixed bottom-0 left-0 right-0 z-[250] max-w-md mx-auto animate-in slide-in-from-bottom duration-500"
+          className="fixed bottom-0 left-0 right-0 z-[250] animate-in slide-in-from-bottom duration-500"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mx-6 mb-6 p-4 rounded-[2rem] glass-morphism border border-white/20 shadow-2xl flex flex-col gap-4">

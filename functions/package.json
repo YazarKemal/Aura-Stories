@@ -17,8 +17,8 @@
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf lib",
-    "test": "tsx --test src/deepseek.test.ts src/economy.test.ts",
-    "test:unit": "tsx --test src/deepseek.test.ts src/economy.test.ts"
+    "test": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts",
+    "test:unit": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

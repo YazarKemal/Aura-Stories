@@ -139,6 +139,34 @@ describe('users/{uid} — update', () => {
       updateDoc(doc(db, 'users', 'user1'), { role: 'admin' })
     );
   });
+
+  it('kullanıcı blockedAuthors listesini güncelleyebilir', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', 'user1'), { blockedAuthors: ['Elif Şafak'] })
+    );
+  });
+
+  it('blockedAuthors boş liste ile temizlenebilir (unblock)', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', 'user1'), { blockedAuthors: [] })
+    );
+  });
+
+  it('blockedAuthors liste değilse reddedilir', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users', 'user1'), { blockedAuthors: 'Elif Şafak' })
+    );
+  });
+
+  it('blockedAuthors çok büyük liste reddedilir', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users', 'user1'), { blockedAuthors: Array(501).fill('a') })
+    );
+  });
 });
 
 describe('rateLimits — yazılamaz', () => {

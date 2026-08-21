@@ -7,6 +7,7 @@ import { Story } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { onStoriesSnapshot } from '@/lib/firebase';
+import { useUserState } from '@/lib/user-state';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoryCard } from './story-card';
@@ -18,6 +19,7 @@ interface SearchViewProps {
 }
 
 export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
+  const { isAuthorBlocked } = useUserState();
   const [searchQuery, setSearchQuery] = useState('');
   const [stories, setStories] = useState<Story[]>(mockStories);
 
@@ -35,7 +37,8 @@ export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
 
   const filteredStories = useMemo(() => {
     return stories.filter((story) => {
-      const matchesQuery = 
+      if (isAuthorBlocked(story.author)) return false;
+      const matchesQuery =
         story.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         story.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
         story.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -52,7 +55,7 @@ export function SearchView({ onBack, onSelectStory }: SearchViewProps) {
 
       return matchesQuery && matchesTags && matchesStatus && matchesLength;
     });
-  }, [searchQuery, selectedTags, selectedStatus, wordCount]);
+  }, [searchQuery, selectedTags, selectedStatus, wordCount, isAuthorBlocked]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 

@@ -4,19 +4,19 @@
 
 @layer base {
   :root {
-    --background: 280 40% 98%; /* Morning Mist Purple #F8F4FA */
+    --background: 280 40% 98%;
     --foreground: 268 20% 10%;
     --card: 0 0% 100%;
     --card-foreground: 268 20% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 268 20% 10%;
-    --primary: 268 56% 62%; /* Royal Amethyst #9B67D4 */
+    --primary: 268 56% 62%;
     --primary-foreground: 280 40% 98%;
     --secondary: 236 40% 92%;
     --secondary-foreground: 236 40% 40%;
     --muted: 236 20% 94%;
     --muted-foreground: 236 10% 45%;
-    --accent: 236 40% 50%; /* Deep Iris #4D53B2 */
+    --accent: 236 40% 50%;
     --accent-foreground: 280 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -24,28 +24,43 @@
     --input: 268 20% 90%;
     --ring: 268 56% 62%;
     --radius: 1rem;
+
+    /* Aura premium surface tokens */
+    --aura-gold: 43 96% 58%;
+    --aura-violet: 271 91% 65%;
+    --aura-surface: 0 0% 100%;
+    --aura-surface-raised: 270 40% 99%;
+    --aura-hairline: 268 28% 88%;
+    --aura-glow-alpha: 0.12;
   }
+
   .dark {
-    /* ── Premium Cinematic Dark Theme ───────────────────── */
-    --background: 228 19% 5%;        /* Deep cinematic black #0B0C10 */
-    --foreground: 240 10% 92%;       /* Clean near-white */
-    --card: 228 22% 10%;             /* Frosted glass base #141620 */
+    --background: 228 19% 5%;
+    --foreground: 240 10% 92%;
+    --card: 228 22% 10%;
     --card-foreground: 240 10% 92%;
     --popover: 228 22% 10%;
     --popover-foreground: 240 10% 92%;
-    --primary: 271 91% 65%;          /* Neon lilac #A855F7 */
+    --primary: 271 91% 65%;
     --primary-foreground: 228 19% 5%;
-    --secondary: 228 19% 14%;        /* Deep charcoal */
+    --secondary: 228 19% 14%;
     --secondary-foreground: 240 10% 88%;
     --muted: 228 15% 14%;
-    --muted-foreground: 240 5% 70%;  /* zinc-300/400 — high readability */
-    --accent: 43 96% 58%;            /* Soft gold/amber */
+    --muted-foreground: 240 5% 70%;
+    --accent: 43 96% 58%;
     --accent-foreground: 228 19% 5%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 228 15% 16%;           /* Subtle borders */
+    --border: 228 15% 16%;
     --input: 228 15% 16%;
-    --ring: 271 91% 65%;             /* Match primary glow */
+    --ring: 271 91% 65%;
+
+    --aura-gold: 43 96% 62%;
+    --aura-violet: 271 91% 68%;
+    --aura-surface: 228 22% 9%;
+    --aura-surface-raised: 228 20% 12%;
+    --aura-hairline: 228 14% 20%;
+    --aura-glow-alpha: 0.2;
   }
 }
 
@@ -53,33 +68,121 @@
   * {
     @apply border-border;
   }
+
   html {
     @apply bg-[#0D0E12];
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
+
   html.light {
     @apply bg-[#fcf8ff];
   }
+
   body {
     @apply bg-background text-foreground font-body antialiased transition-colors duration-500;
     min-height: 100vh;
+    overscroll-behavior-y: none;
   }
+
   .light body {
-    background-image: linear-gradient(to bottom, #fcf8ff, #ffffff);
+    background-image:
+      radial-gradient(circle at 80% -10%, hsl(var(--primary) / 0.10), transparent 34rem),
+      linear-gradient(to bottom, #fcf8ff, #ffffff);
   }
+
   .dark body {
-    background-image: linear-gradient(to bottom, #0B0C10, #141620);
+    background-image:
+      radial-gradient(circle at 75% -12%, hsl(var(--primary) / 0.12), transparent 32rem),
+      radial-gradient(circle at -10% 30%, hsl(var(--accent) / 0.04), transparent 26rem),
+      linear-gradient(to bottom, #0B0C10, #141620);
   }
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.28);
+    color: hsl(var(--foreground));
+  }
+
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.75);
+    outline-offset: 3px;
   }
 }
 
 .glass-morphism {
-  @apply bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-lg;
+  background:
+    linear-gradient(145deg, hsl(var(--aura-surface-raised) / 0.86), hsl(var(--aura-surface) / 0.72));
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  border: 1px solid hsl(var(--aura-hairline) / 0.82);
+  box-shadow:
+    0 22px 60px rgb(0 0 0 / 0.20),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.aura-premium-surface {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, hsl(var(--aura-surface-raised) / 0.96), hsl(var(--aura-surface) / 0.90));
+  border: 1px solid hsl(var(--aura-hairline) / 0.82);
+  box-shadow:
+    0 20px 55px rgb(0 0 0 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.aura-premium-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 85% 0%, hsl(var(--primary) / 0.14), transparent 46%);
+}
+
+.aura-premium-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .active-nav-glow {
-  box-shadow: 0 0 15px -2px hsl(var(--primary));
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.15),
+    0 0 24px -4px hsl(var(--primary) / 0.62);
+}
+
+[role="progressbar"] {
+  overflow: hidden;
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.14);
+}
+
+[role="progressbar"] > * {
+  transition: transform 220ms linear;
+  box-shadow: 0 0 14px hsl(var(--primary) / 0.38);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -90,14 +193,64 @@
   scrollbar-width: none;
 }
 
+.aura-touch-target {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Aura Vision kendi kapatma kontrolünü çiziyor; ortak Dialog X'ini ikinci kez gösterme. */
+[role="dialog"]:has(button.glass-morphism) > [data-aura-close] {
+  display: none;
+}
+
+/* Dokunmatik cihazlarda paragraf aksiyonları için en az 44px dokunma hedefi sağla. */
+@media (hover: none) and (pointer: coarse) {
+  .group\/para > div[class*="-right-12"],
+  .group\/para > div[class*="-right-10"] {
+    right: 0.25rem !important;
+    gap: 0.125rem !important;
+  }
+
+  .group\/para > div[class*="-right-12"] button,
+  .group\/para > div[class*="-right-10"] button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: hsl(var(--background) / 0.88);
+    border: 1px solid hsl(var(--border) / 0.72);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+    backdrop-filter: blur(14px);
+  }
+
+  .group\/para > div[class*="-right-12"] button svg,
+  .group\/para > div[class*="-right-10"] button svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
 @keyframes pulse-subtle {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+  50% { transform: scale(1.025); }
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes aura-breathe {
+  0%, 100% { opacity: 0.48; transform: scale(0.96); }
+  50% { opacity: 0.9; transform: scale(1.04); }
 }
 
 .animate-pulse-subtle {
@@ -106,4 +259,17 @@
 
 .animate-float {
   animation: float 4s ease-in-out infinite;
+}
+
+.animate-aura-breathe {
+  animation: aura-breathe 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

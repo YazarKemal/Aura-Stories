@@ -8,8 +8,10 @@ import { StoryCard } from '@/components/story-card';
 import { stories as mockStories } from '@/lib/mock-data';
 import { onStoriesSnapshot, seedStoriesToFirestore } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUserState } from '@/lib/user-state';
 
 export default function PopularPage() {
+  const { isAuthorBlocked } = useUserState();
   const [stories, setStories] = useState<Story[]>(mockStories);
   const [isLoading, setIsLoading] = useState(true);
   const seedAttempted = useRef(false);
@@ -31,7 +33,7 @@ export default function PopularPage() {
     return () => unsub();
   }, []);
 
-  const popularStories = stories.filter(s => s.isPopular);
+  const popularStories = stories.filter(s => s.isPopular && !isAuthorBlocked(s.author));
 
   return (
     <div className="min-h-dvh bg-[#fcf8ff] dark:bg-[#0D0E12]">

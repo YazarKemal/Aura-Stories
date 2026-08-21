@@ -5,46 +5,33 @@
  * istek sayısı sınırlaması. İstemci localStorage'ına GÜVENMEZ.
  *
  * Limits (sunucu kontrollü, değiştirilemez):
- *   Chat:    10 istek/dakika, 100 istek/gün
- *   Story:    5 istek/dakika,  30 istek/gün
+ *   Chat:             10 istek/dakika, 100 istek/gün
+ *   Story:             5 istek/dakika,  30 istek/gün
+ *   Character roster:  2 istek/dakika,  12 istek/gün
  */
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 
-// ── Sabit limitler ────────────────────────────────────────────
-
 interface RateLimitConfig {
-  /** Dakikada maksimum istek */
   maxPerMinute: number;
-  /** Günde maksimum istek */
   maxPerDay: number;
 }
 
-export const RATE_LIMITS: Record<string, RateLimitConfig> = {
+export const RATE_LIMITS = {
   generateStory: { maxPerMinute: 5, maxPerDay: 30 },
   characterChat: { maxPerMinute: 10, maxPerDay: 100 },
-} as const;
+  characterRoster: { maxPerMinute: 2, maxPerDay: 12 },
+} as const satisfies Record<string, RateLimitConfig>;
 
-// ── Public API ────────────────────────────────────────────────
-
-/**
- * Kullanıcının rate limit'ini kontrol eder ve sayacı artırır.
- * Limit aşıldıysa HttpsError fırlatır.
- *
- * @param uid       - Kullanıcı UID'si
- * @param operation - 'generateStory' veya 'characterChat'
- */
 export async function checkRateLimit(
   uid: string,
   operation: keyof typeof RATE_LIMITS
 ): Promise<void> {
   const limits = RATE_LIMITS[operation];
-  if (!limits) return; // Bilinmeyen operasyon → sessizce izin ver
-
   const db = getFirestore();
   const now = Date.now();
-  const minuteWindow = Math.floor(now / 60_000); // dakika penceresi
-  const dayWindow = new Date().toISOString().slice(0, 10); // "2026-08-04"
+  const minuteWindow = Math.floor(now / 60_000);
+  const dayWindow = new Date().toISOString().slice(0, 10);
 
   const docRef = db.collection('users').doc(uid).collection('rateLimits').doc(operation);
 
@@ -55,27 +42,23 @@ export async function checkRateLimit(
 
       const currentMinute = data.minuteWindow as number | undefined;
       const currentDay = data.dayWindow as string | undefined;
+      const minuteCount = currentMinute === minuteWindow ? (data.minuteCount as number || 0) : 0;
+      const dayCount = currentDay === dayWindow ? (data.dayCount as number || 0) : 0;
 
-      // Yeni pencere → sayaçları sıfırla
-      const minuteCount = (currentMinute === minuteWindow) ? (data.minuteCount as number || 0) : 0;
-      const dayCount = (currentDay === dayWindow) ? (data.dayCount as number || 0) : 0;
-
-      // Limit kontrolü
       if (minuteCount >= limits.maxPerMinute) {
         throw new HttpsError(
           'resource-exhausted',
-          `Çok fazla istek gönderdiniz. Lütfen bir dakika bekleyin.`
+          'Çok fazla istek gönderdiniz. Lütfen bir dakika bekleyin.'
         );
       }
 
       if (dayCount >= limits.maxPerDay) {
         throw new HttpsError(
           'resource-exhausted',
-          `Günlük istek limitinize ulaştınız. Yarın tekrar deneyin.`
+          'Günlük istek limitinize ulaştınız. Yarın tekrar deneyin.'
         );
       }
 
-      // Sayacı artır
       tx.set(docRef, {
         minuteCount: minuteCount + 1,
         minuteWindow,
@@ -87,8 +70,7 @@ export async function checkRateLimit(
   } catch (err: unknown) {
     if (err instanceof HttpsError) throw err;
 
-    // Firestore hatası → rate limit kontrolü yapılamadı.
-    // Güvenli tarafta kalmak için izin ver ama log'la.
+    // Rate-limit storage arızası kullanıcı akışını kilitlemesin; fakat görünür log bırak.
     console.error(`[rate-limiter] Firestore hatası (${operation}, ${uid}):`, err);
   }
 }
