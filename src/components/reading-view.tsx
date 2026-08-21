@@ -33,6 +33,7 @@ import {
   Flag,
   UserX,
   AlertCircle,
+  Loader2,
   Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -144,6 +145,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // UGC Safety State
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string | null>(null);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
+  const reportSubmittingRef = useRef(false);
   
   // Quote Sharing State
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
@@ -303,7 +306,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleReportSubmit = async () => {
     if (!reportReason) return;
-    setIsReportSheetOpen(false);
+    // Tekrarlanan dokunuşlar aynı girişim için ikinci bir gönderim başlatmasın.
+    if (reportSubmittingRef.current) return;
+    reportSubmittingRef.current = true;
+    setIsReportSubmitting(true);
 
     try {
       // Mevcut bölüm içeriğinden referans al
@@ -314,7 +320,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       const { submitContentReport } = await import('@/lib/firebase');
       const uid = userState.user?.uid;
-      if (!uid) return; // auth zorunlu
+      if (!uid) {
+        toast({
+          title: "Giriş Gerekli",
+          description: "Şikayet göndermek için giriş yapmalısınız.",
+          variant: "destructive",
+        });
+        return;
+      }
       await submitContentReport({
         uid,
         storyId: story.id,
@@ -330,14 +343,19 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
         variant: "default",
       });
+      setIsReportSheetOpen(false);
+      setReportReason(null);
     } catch {
       toast({
         title: "Hata",
-        description: "Rapor iletilemedi. Lütfen tekrar deneyin.",
+        description: "Rapor iletilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
         variant: "destructive",
       });
+      // Sheet açık ve neden korunur → kullanıcı yeniden deneyebilir.
+    } finally {
+      setIsReportSubmitting(false);
+      reportSubmittingRef.current = false;
     }
-    setReportReason(null);
   };
 
   const handleBlockAuthor = () => {
@@ -1395,12 +1413,17 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </button>
             ))}
             
-            <Button 
-              disabled={!reportReason}
+            <Button
+              disabled={!reportReason || isReportSubmitting}
               onClick={handleReportSubmit}
               className="mt-6 w-full h-14 rounded-2xl bg-destructive text-white font-bold shadow-lg shadow-destructive/20 hover:scale-[1.02] active:scale-95 transition-all"
             >
-              Şikayeti Gönder
+              {isReportSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gönderiliyor…
+                </>
+              ) : "Şikayeti Gönder"}
             </Button>
           </div>
         </SheetContent>
