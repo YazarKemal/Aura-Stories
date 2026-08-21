@@ -86,6 +86,8 @@ export interface FirestoreUser {
   streak: number;
   lastGiftClaimedAt: string | null;
   vipUntil: string | null;
+  /** Engellenen yazarların display-name'leri (story.author ile eşleşir). */
+  blockedAuthors: string[];
 }
 
 export async function getFirestoreUser(uid: string): Promise<FirestoreUser | null> {
@@ -115,6 +117,7 @@ export async function createFirestoreUser(
     streak: 0,
     lastGiftClaimedAt: null,
     vipUntil: null,
+    blockedAuthors: [],
   };
   await setDoc(doc(db, 'users', uid), user);
   return user;
@@ -139,6 +142,19 @@ export function onUserSnapshot(
   return onSnapshot(firestoreDoc(db, 'users', uid), (snap) => {
     callback(snap.exists() ? (snap.data() as FirestoreUser) : null);
   });
+}
+
+/** Engellenen yazarlar listesini users/{uid} üzerinde kalıcı olarak günceller. */
+export async function updateBlockedAuthors(
+  uid: string,
+  blockedAuthors: string[]
+): Promise<void> {
+  try {
+    await updateDoc(firestoreDoc(db, 'users', uid), { blockedAuthors });
+  } catch (err) {
+    console.warn('[Firestore] Engellenen yazarlar kaydedilemedi:', err);
+    throw err;
+  }
 }
 
 import { collection, query, getDocs } from 'firebase/firestore';

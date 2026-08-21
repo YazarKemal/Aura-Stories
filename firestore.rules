@@ -26,7 +26,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid','email','name','role','credits','createdAt',
           'level','readHours','wordsRead','streak',
-          'lastGiftClaimedAt','vipUntil'
+          'lastGiftClaimedAt','vipUntil','blockedAuthors'
         ])
         && request.resource.data.uid == uid
         && request.resource.data.role == 'user'
@@ -36,7 +36,10 @@ service cloud.firestore {
         && request.resource.data.level == 1 && request.resource.data.readHours == 0
         && request.resource.data.wordsRead == 0 && request.resource.data.streak == 0
         && request.resource.data.email is string && request.resource.data.email.size() <= 200
-        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && (!request.resource.data.keys().hasAny(['blockedAuthors'])
+          || (request.resource.data.blockedAuthors is list
+            && request.resource.data.blockedAuthors.size() <= 500));
 
       allow read: if isOwner(uid) || isAdmin();
 
@@ -44,7 +47,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid','email','name','role','credits','createdAt',
           'level','readHours','wordsRead','streak',
-          'lastGiftClaimedAt','vipUntil'
+          'lastGiftClaimedAt','vipUntil','blockedAuthors'
         ])
         && request.resource.data.credits == resource.data.credits
         && request.resource.data.role == resource.data.role
@@ -57,7 +60,10 @@ service cloud.firestore {
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.email is string && request.resource.data.email.size() <= 200
-        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && (!request.resource.data.keys().hasAny(['blockedAuthors'])
+          || (request.resource.data.blockedAuthors is list
+            && request.resource.data.blockedAuthors.size() <= 500));
 
       allow delete: if false;
 

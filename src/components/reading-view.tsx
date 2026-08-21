@@ -116,7 +116,7 @@ type ReadingMode = 'scroll' | 'swipe' | 'flip';
 export function ReadingView({ story, onBack }: ReadingViewProps) {
   const { toast } = useToast();
   const { online } = useNetwork();
-  const { userState, saveGeneratedChapter, getStoryEngine } = useUserState();
+  const { userState, saveGeneratedChapter, getStoryEngine, isAuthorBlocked, toggleBlockedAuthor } = useUserState();
   const [isVisible, setIsVisible] = useState(true);
   const [selectedLore, setSelectedLore] = useState<LoreInfo | null>(null);
   const [votedOption, setVotedOption] = useState<string | null>(null);
@@ -341,10 +341,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   };
 
   const handleBlockAuthor = () => {
+    const currentlyBlocked = isAuthorBlocked(story.author);
+    toggleBlockedAuthor(story.author);
     toast({
-      title: "Yazar Engellendi",
-      description: `${story.author} içeriği artık size gösterilmeyecek.`,
-      variant: "destructive",
+      title: currentlyBlocked ? "Engel Kaldırıldı" : "Yazar Engellendi",
+      description: currentlyBlocked
+        ? `${story.author} içeriği tekrar gösterilecek.`
+        : `${story.author} içeriği artık size gösterilmeyecek.`,
+      variant: currentlyBlocked ? "default" : "destructive",
     });
   };
 
@@ -730,7 +734,7 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
                 className="flex items-center gap-2 text-destructive font-bold p-3 rounded-xl cursor-pointer"
               >
                 <UserX className="w-4 h-4" />
-                Yazarı Engelle
+                {isAuthorBlocked(story.author) ? "Engeli Kaldır" : "Yazarı Engelle"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

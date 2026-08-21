@@ -18,7 +18,7 @@ interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibraryScreenProps) {
-  const { userState } = useUserState();
+  const { userState, isAuthorBlocked } = useUserState();
   const [activeSubTab, setActiveSubTab] = useState('Varsayılan');
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +35,7 @@ export function LibraryScreen({ onNavigateToDiscover, onSelectStory }: LibrarySc
   const subTabs = ['Varsayılan', 'Yeni', 'İlerleme', 'İndirilenler'];
 
   const filteredStories = stories.filter(story => {
+    if (isAuthorBlocked(story.author)) return false;
     if (activeSubTab === 'İndirilenler') return story.isDownloaded;
     // For prototype simplicity, other tabs show a selection
     if (activeSubTab === 'Yeni') return story.status === 'ongoing';
