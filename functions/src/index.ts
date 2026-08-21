@@ -326,12 +326,13 @@ export const generateStory = onCall<GenerateStoryOutput>({
 
   const reservation = await reserveCredits(uid, action, operationId, storyId).catch((err: any) => {
     if (err?.code === 'INSUFFICIENT_CREDITS') throw new HttpsError('failed-precondition', 'Yetersiz jeton.');
-    if (err?.code === 'IDEMPOTENCY_MISMATCH' || err?.code === 'ALREADY_FINALIZED') throw new HttpsError('already-exists', err.message);
+    if (err?.code === 'IDEMPOTENCY_MISMATCH') throw new HttpsError('already-exists', err.message);
+    if (err?.code === 'ALREADY_FINALIZED') throw new HttpsError('aborted', err.message);
     throw new HttpsError('internal', 'Jeton işlemi başarısız.');
   });
 
   if (reservation.alreadyReserved) {
-    throw new HttpsError('already-exists', 'Bu işlem zaten işleniyor. Yeni operationId ile tekrar deneyin.');
+    throw new HttpsError('aborted', 'Bu işlem zaten işleniyor. Lütfen bekleyin.');
   }
 
   try {

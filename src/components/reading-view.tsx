@@ -71,7 +71,7 @@ import { AdRewardModal } from '@/components/ad-reward-modal';
 import { Input } from '@/components/ui/input';
 import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
-import { generateStoryChapter } from '@/lib/story-client';
+import { generateStoryChapter, StoryError } from '@/lib/story-client';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -502,25 +502,42 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     { kind: 'unlock' } | { kind: 'forceFate'; option: 'A' | 'B'; optionText: string } | null
   >(null);
 
+  // Ağ hatası sonrası aynı işlemi idempotent yeniden denemek için operationId
+  // korunur. Sunucu reserveCredits aynı operationId için ikinci ücretlendirme
+  // YAPMAZ; başarıda veya kesin hatalarda temizlenir, belirsiz ağ hatasında korunur.
+  const pendingOpIdRef = useRef<{ operationId: string; action: 'chapter_unlock' | 'force_fate' } | null>(null);
+
+  const getStableOperationId = (action: 'chapter_unlock' | 'force_fate'): string => {
+    const pending = pendingOpIdRef.current;
+    if (pending && pending.action === action) return pending.operationId;
+    const operationId = `${action === 'force_fate' ? 'force' : 'story'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    pendingOpIdRef.current = { operationId, action };
+    return operationId;
+  };
+
   // TEK yetkili ücretlendirme noktası: generateStory Function.
   // İstemci kredi DÜŞMEZ, İADE ETMEZ. Refund yalnızca Functions tarafında.
-  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false, operationId?: string) => {
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
-    if (!skipGuard) { if (isGeneratingRef.current) return; isGeneratingRef.current = true; setIsGeneratingStory(true); }
-    if (!online) {
-      toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
-      isGeneratingRef.current = false; setIsGeneratingStory(false); return;
-    }
-
-    const chapterNum = engine.activeChapter + 1;
-    setForceChoiceLabel(isForce ? optionText : null);
-    const storyOpId = operationId || `story_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
+  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean) => {
+    // Çift-tık kilidi — senkron olduğundan state gecikmesinden etkilenmez.
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+    setIsGeneratingStory(true);
 
     try {
+      if (!userState.user?.uid) {
+        toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
+        return;
+      }
+      if (!online) {
+        toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
+        return;
+      }
+
+      const chapterNum = engine.activeChapter + 1;
+      setForceChoiceLabel(isForce ? optionText : null);
+      const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
+      const storyOpId = getStableOperationId(action);
+
       const data = await generateStoryChapter({
         storyId: story.id, storyTitle: story.title, storyAuthor: story.author,
         storySynopsis: story.synopsis, storyTags: story.tags,
@@ -539,38 +556,68 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         generatedAt: new Date().toISOString(),
       };
       saveGeneratedChapter(story.id, chapter);
+      pendingOpIdRef.current = null; // Başarılı — bir sonraki bölüm için taze opId
       setVotedOption(null);
       setJournalQuote(''); setJournalEmotion(''); setShowJournalPrompt(true);
       toast({ title: `✨ ${data.title}`, description: 'Yeni bölüm hazır! Hikaye devam ediyor...' });
-    } catch (err: any) {
-      toast({ title: '⚠️ Hata', description: err.message || 'Hikaye üretilemedi.', variant: 'destructive' });
+    } catch (err: unknown) {
+      if (err instanceof StoryError) {
+        switch (err.code) {
+          case 'insufficient-credits':
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Yetersiz Jeton', description: err.message, variant: 'destructive' });
+            break;
+          case 'unauthenticated':
+            pendingOpIdRef.current = null;
+            toast({ title: 'Oturum Sona Erdi', description: err.message, variant: 'destructive' });
+            break;
+          case 'already-exists':
+            pendingOpIdRef.current = null;
+            toast({ title: 'İşlem Zaten Tamamlandı', description: err.message, variant: 'destructive' });
+            break;
+          case 'in-progress':
+            // Sunucu hâlâ işliyor — aynı opId korunur, kullanıcı bekler.
+            toast({ title: 'İşlem Sürüyor', description: err.message, variant: 'destructive' });
+            break;
+          case 'retry-fresh':
+            pendingOpIdRef.current = null;
+            toast({ title: 'Önceki Deneme İade Edildi', description: 'Tekrar deneyebilirsiniz.', variant: 'destructive' });
+            break;
+          case 'invalid-argument':
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Hata', description: err.message, variant: 'destructive' });
+            break;
+          case 'network':
+            // Sunucu durumu belirsiz — opId KORUNUR, idempotent yeniden deneme.
+            toast({ title: '⚠️ Bağlantı Hatası', description: err.message, variant: 'destructive' });
+            break;
+          case 'server':
+          default:
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Hata', description: err.message, variant: 'destructive' });
+            break;
+        }
+      } else {
+        pendingOpIdRef.current = null;
+        toast({ title: '⚠️ Hata', description: (err as Error)?.message || 'Hikaye üretilemedi.', variant: 'destructive' });
+      }
     } finally {
-      isGeneratingRef.current = false; setIsGeneratingStory(false); setForceChoiceLabel(null);
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
+      setForceChoiceLabel(null);
     }
   };
 
-  const handleUnlockAndGenerate = async () => {
-    if (isGeneratingRef.current) return;
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
+  const handleUnlockAndGenerate = () => {
     // generateStory Function TEK yetkili ücretlendirme noktasıdır.
     // İstemci kredi DÜŞMEZ — unlockWithVote çağrılmaz.
-    const unlockOpId = `unlock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true, unlockOpId);
+    void handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false);
   };
 
-  const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
-    if (isGeneratingRef.current) return;
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
+  const handleForceFate = (option: 'A' | 'B', optionText: string) => {
     // generateStory Function TEK yetkili ücretlendirme noktasıdır.
     // İstemci kredi DÜŞMEZ — forceFateChoice çağrılmaz.
-    const forceOpId = `force_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await handleGenerateStory(option, optionText, true, true, forceOpId);
+    void handleGenerateStory(option, optionText, true);
   };
 
   // Reklam ödülü sonrası yarım kalan akışı otomatik tamamla.

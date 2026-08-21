@@ -81,6 +81,60 @@ function buildContinuityChapters(previousChapters: PreviousChapter[]): PreviousC
   return first ? [first, ...recent.filter(chapter => chapter.chapterNumber !== first.chapterNumber)] : recent;
 }
 
+/**
+ * Hikaye üretimi hataları için normalleştirilmiş kod. UI bu koda göre farklı
+ * kullanıcı mesajı gösterir (yetersiz jeton, oturum, tekrar deneme vb.) — ham
+ * FirebaseError string eşleştirmesi yapılmaz.
+ */
+export type StoryErrorCode =
+  | 'insufficient-credits'
+  | 'unauthenticated'
+  | 'already-exists'
+  | 'in-progress'
+  | 'retry-fresh'
+  | 'invalid-argument'
+  | 'network'
+  | 'server';
+
+export class StoryError extends Error {
+  readonly code: StoryErrorCode;
+  constructor(code: StoryErrorCode, message: string) {
+    super(message);
+    this.name = 'StoryError';
+    this.code = code;
+  }
+}
+
+function toStoryError(err: unknown): StoryError {
+  const e = err as { code?: string; message?: string } | null;
+  const rawCode = e?.code || '';
+  const sub = rawCode.startsWith('functions/') ? rawCode.slice('functions/'.length) : '';
+  const message = (e?.message || '').replace(/^functions\/[a-z-]+:\s*/i, '');
+
+  switch (sub) {
+    case 'failed-precondition':
+      return new StoryError('insufficient-credits', message || 'Yetersiz jeton.');
+    case 'unauthenticated':
+      return new StoryError('unauthenticated', message || 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+    case 'already-exists':
+      return new StoryError('already-exists', message || 'Bu işlem zaten tamamlandı.');
+    case 'aborted':
+      return message.includes('iade') || message.includes('sonuçlandı')
+        ? new StoryError('retry-fresh', message || 'Önceki deneme iade edildi. Tekrar deneyin.')
+        : new StoryError('in-progress', message || 'İşlem devam ediyor. Lütfen bekleyin.');
+    case 'invalid-argument':
+      return new StoryError('invalid-argument', message || 'Geçersiz istek.');
+    case 'internal':
+    case 'resource-exhausted':
+      return new StoryError('server', message || 'Sunucu hatası. Lütfen tekrar deneyin.');
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return new StoryError('network', message || 'İnternet bağlantısı kurulamadı.');
+    default:
+      return new StoryError('network', message || 'İnternet bağlantısı kurulamadı.');
+  }
+}
+
 export async function generateStoryChapter(
   payload: GenerateStoryPayload,
   operationId: string,
@@ -103,11 +157,6 @@ export async function generateStoryChapter(
       action,
     });
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      const msg = err.message;
-      const colonIdx = msg.indexOf(': ');
-      throw new Error(colonIdx > 0 ? msg.slice(colonIdx + 2) : msg || 'AI hikaye üretimi başarısız oldu.');
-    }
-    throw err;
+    throw toStoryError(err);
   }
 }
