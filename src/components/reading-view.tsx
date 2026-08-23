@@ -4,26 +4,22 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Story } from '@/lib/types';
-import { 
-  ArrowLeft, 
-  Type, 
-  Lock, 
-  Coins, 
-  Play, 
-  Pause,
-  Sparkles, 
-  Timer, 
-  CheckCircle2, 
-  MessageSquare, 
-  Gift, 
+import {
+  ArrowLeft,
+  Type,
+  Lock,
+  Coins,
+  Sparkles,
+  Timer,
+  CheckCircle2,
+  MessageSquare,
+  Gift,
   Heart,
   Coffee,
   Crown,
   Flower2,
   Send,
   Headphones,
-  SkipBack,
-  SkipForward,
   X,
   Share2,
   Instagram,
@@ -33,10 +29,10 @@ import {
   Flag,
   UserX,
   AlertCircle,
+  Loader2,
   Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -67,10 +63,11 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useUserState, FORCE_FATE_COST } from '@/lib/user-state';
 import { AdRewardModal } from '@/components/ad-reward-modal';
+import { TtsPlayerView } from '@/components/tts-player-view';
 import { Input } from '@/components/ui/input';
 import { useNetwork } from '@/hooks/use-network';
 import { saveJournalEntry, type JournalEntry } from '@/lib/firebase';
-import { generateStoryChapter } from '@/lib/story-client';
+import { generateStoryChapter, StoryError } from '@/lib/story-client';
 
 const FlipBook = dynamic(() => import('@/components/FlipBook').then(m => ({ default: m.FlipBook })), {
   ssr: false,
@@ -144,6 +141,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // UGC Safety State
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string | null>(null);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
+  const reportSubmittingRef = useRef(false);
   
   // Quote Sharing State
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
@@ -180,11 +179,8 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
   // Immersive Mode — tap center to toggle UI visibility
   const [isUIVisible, setIsUIVisible] = useState(true);
 
-  // Audio Player State
-  const [isAudioPlayerOpen, setIsAudioPlayerOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [audioProgress, setAudioProgress] = useState(35);
+  // TTS Player — dedicated tam ekran oynatıcı tek playback sahibidir
+  const [isTtsPlayerOpen, setIsTtsPlayerOpen] = useState(false);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
 
   // ── Cinematic Ambient Sound ──────────────────────────────
@@ -303,7 +299,10 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
   const handleReportSubmit = async () => {
     if (!reportReason) return;
-    setIsReportSheetOpen(false);
+    // Tekrarlanan dokunuşlar aynı girişim için ikinci bir gönderim başlatmasın.
+    if (reportSubmittingRef.current) return;
+    reportSubmittingRef.current = true;
+    setIsReportSubmitting(true);
 
     try {
       // Mevcut bölüm içeriğinden referans al
@@ -314,7 +313,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
 
       const { submitContentReport } = await import('@/lib/firebase');
       const uid = userState.user?.uid;
-      if (!uid) return; // auth zorunlu
+      if (!uid) {
+        toast({
+          title: "Giriş Gerekli",
+          description: "Şikayet göndermek için giriş yapmalısınız.",
+          variant: "destructive",
+        });
+        return;
+      }
       await submitContentReport({
         uid,
         storyId: story.id,
@@ -330,19 +336,32 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         description: "Şikayetiniz incelenmek üzere ekibimize iletilmiştir.",
         variant: "default",
       });
+      setIsReportSheetOpen(false);
+      setReportReason(null);
     } catch {
       toast({
         title: "Hata",
-        description: "Rapor iletilemedi. Lütfen tekrar deneyin.",
+        description: "Rapor iletilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
         variant: "destructive",
       });
+      // Sheet açık ve neden korunur → kullanıcı yeniden deneyebilir.
+    } finally {
+      setIsReportSubmitting(false);
+      reportSubmittingRef.current = false;
     }
-    setReportReason(null);
   };
 
-  const handleBlockAuthor = () => {
+  const handleBlockAuthor = async () => {
     const currentlyBlocked = isAuthorBlocked(story.author);
-    toggleBlockedAuthor(story.author);
+    const persisted = await toggleBlockedAuthor(story.author);
+    if (!persisted) {
+      toast({
+        title: "İşlem başarısız",
+        description: "Değişiklik kaydedilemedi. Lütfen tekrar deneyin.",
+        variant: "destructive",
+      });
+      return;
+    }
     toast({
       title: currentlyBlocked ? "Engel Kaldırıldı" : "Yazar Engellendi",
       description: currentlyBlocked
@@ -484,25 +503,42 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
     { kind: 'unlock' } | { kind: 'forceFate'; option: 'A' | 'B'; optionText: string } | null
   >(null);
 
+  // Ağ hatası sonrası aynı işlemi idempotent yeniden denemek için operationId
+  // korunur. Sunucu reserveCredits aynı operationId için ikinci ücretlendirme
+  // YAPMAZ; başarıda veya kesin hatalarda temizlenir, belirsiz ağ hatasında korunur.
+  const pendingOpIdRef = useRef<{ operationId: string; action: 'chapter_unlock' | 'force_fate' } | null>(null);
+
+  const getStableOperationId = (action: 'chapter_unlock' | 'force_fate'): string => {
+    const pending = pendingOpIdRef.current;
+    if (pending && pending.action === action) return pending.operationId;
+    const operationId = `${action === 'force_fate' ? 'force' : 'story'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    pendingOpIdRef.current = { operationId, action };
+    return operationId;
+  };
+
   // TEK yetkili ücretlendirme noktası: generateStory Function.
   // İstemci kredi DÜŞMEZ, İADE ETMEZ. Refund yalnızca Functions tarafında.
-  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean, skipGuard = false, operationId?: string) => {
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
-    if (!skipGuard) { if (isGeneratingRef.current) return; isGeneratingRef.current = true; setIsGeneratingStory(true); }
-    if (!online) {
-      toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
-      isGeneratingRef.current = false; setIsGeneratingStory(false); return;
-    }
-
-    const chapterNum = engine.activeChapter + 1;
-    setForceChoiceLabel(isForce ? optionText : null);
-    const storyOpId = operationId || `story_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
+  const handleGenerateStory = async (option: 'A' | 'B', optionText: string, isForce: boolean) => {
+    // Çift-tık kilidi — senkron olduğundan state gecikmesinden etkilenmez.
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+    setIsGeneratingStory(true);
 
     try {
+      if (!userState.user?.uid) {
+        toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
+        return;
+      }
+      if (!online) {
+        toast({ title: '⚠️ İnternet Bağlantısı Yok', description: 'Hikaye üretmek için internet bağlantısı gerekli.', variant: 'destructive' });
+        return;
+      }
+
+      const chapterNum = engine.activeChapter + 1;
+      setForceChoiceLabel(isForce ? optionText : null);
+      const action: 'chapter_unlock' | 'force_fate' = isForce ? 'force_fate' : 'chapter_unlock';
+      const storyOpId = getStableOperationId(action);
+
       const data = await generateStoryChapter({
         storyId: story.id, storyTitle: story.title, storyAuthor: story.author,
         storySynopsis: story.synopsis, storyTags: story.tags,
@@ -521,38 +557,68 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         generatedAt: new Date().toISOString(),
       };
       saveGeneratedChapter(story.id, chapter);
+      pendingOpIdRef.current = null; // Başarılı — bir sonraki bölüm için taze opId
       setVotedOption(null);
       setJournalQuote(''); setJournalEmotion(''); setShowJournalPrompt(true);
       toast({ title: `✨ ${data.title}`, description: 'Yeni bölüm hazır! Hikaye devam ediyor...' });
-    } catch (err: any) {
-      toast({ title: '⚠️ Hata', description: err.message || 'Hikaye üretilemedi.', variant: 'destructive' });
+    } catch (err: unknown) {
+      if (err instanceof StoryError) {
+        switch (err.code) {
+          case 'insufficient-credits':
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Yetersiz Jeton', description: err.message, variant: 'destructive' });
+            break;
+          case 'unauthenticated':
+            pendingOpIdRef.current = null;
+            toast({ title: 'Oturum Sona Erdi', description: err.message, variant: 'destructive' });
+            break;
+          case 'already-exists':
+            pendingOpIdRef.current = null;
+            toast({ title: 'İşlem Zaten Tamamlandı', description: err.message, variant: 'destructive' });
+            break;
+          case 'in-progress':
+            // Sunucu hâlâ işliyor — aynı opId korunur, kullanıcı bekler.
+            toast({ title: 'İşlem Sürüyor', description: err.message, variant: 'destructive' });
+            break;
+          case 'retry-fresh':
+            pendingOpIdRef.current = null;
+            toast({ title: 'Önceki Deneme İade Edildi', description: 'Tekrar deneyebilirsiniz.', variant: 'destructive' });
+            break;
+          case 'invalid-argument':
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Hata', description: err.message, variant: 'destructive' });
+            break;
+          case 'network':
+            // Sunucu durumu belirsiz — opId KORUNUR, idempotent yeniden deneme.
+            toast({ title: '⚠️ Bağlantı Hatası', description: err.message, variant: 'destructive' });
+            break;
+          case 'server':
+          default:
+            pendingOpIdRef.current = null;
+            toast({ title: '⚠️ Hata', description: err.message, variant: 'destructive' });
+            break;
+        }
+      } else {
+        pendingOpIdRef.current = null;
+        toast({ title: '⚠️ Hata', description: (err as Error)?.message || 'Hikaye üretilemedi.', variant: 'destructive' });
+      }
     } finally {
-      isGeneratingRef.current = false; setIsGeneratingStory(false); setForceChoiceLabel(null);
+      isGeneratingRef.current = false;
+      setIsGeneratingStory(false);
+      setForceChoiceLabel(null);
     }
   };
 
-  const handleUnlockAndGenerate = async () => {
-    if (isGeneratingRef.current) return;
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
+  const handleUnlockAndGenerate = () => {
     // generateStory Function TEK yetkili ücretlendirme noktasıdır.
     // İstemci kredi DÜŞMEZ — unlockWithVote çağrılmaz.
-    const unlockOpId = `unlock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false, true, unlockOpId);
+    void handleGenerateStory('A', 'Topluluk oylamasıyla seçilen yol', false);
   };
 
-  const handleForceFate = async (option: 'A' | 'B', optionText: string) => {
-    if (isGeneratingRef.current) return;
-    if (!userState.user?.uid) {
-      toast({ title: "Giriş Yapmanız Gerekiyor", description: "AI hikaye üretimi için lütfen giriş yapın.", variant: "destructive" });
-      return;
-    }
+  const handleForceFate = (option: 'A' | 'B', optionText: string) => {
     // generateStory Function TEK yetkili ücretlendirme noktasıdır.
     // İstemci kredi DÜŞMEZ — forceFateChoice çağrılmaz.
-    const forceOpId = `force_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await handleGenerateStory(option, optionText, true, true, forceOpId);
+    void handleGenerateStory(option, optionText, true);
   };
 
   // Reklam ödülü sonrası yarım kalan akışı otomatik tamamla.
@@ -577,13 +643,6 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
       setCelebrationGift(null);
       setIsGiftsOpen(false);
     }, 2000);
-  };
-
-  const toggleSpeed = () => {
-    const speeds = [1, 1.25, 1.5, 2];
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % speeds.length;
-    setPlaybackSpeed(speeds[nextIndex]);
   };
 
   const giftOptions = [
@@ -1197,17 +1256,15 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
           </div>
         )}
 
-        {!isAudioPlayerOpen && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setIsAudioPlayerOpen(true); }}
-            className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative"
-          >
-            <Headphones className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-            <span className="absolute -left-16 top-1/2 -translate-y-1/2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Dinle
-            </span>
-          </button>
-        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); setIsTtsPlayerOpen(true); }}
+          className="w-14 h-14 rounded-full bg-accent text-white shadow-2xl shadow-accent/40 flex items-center justify-center hover:scale-110 active:scale-90 transition-all group relative"
+        >
+          <Headphones className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+          <span className="absolute -left-16 top-1/2 -translate-y-1/2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Dinle
+          </span>
+        </button>
 
         <button
           onClick={(e) => { e.stopPropagation(); setIsGiftsOpen(true); }}
@@ -1217,64 +1274,14 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
         </button>
       </div>
 
-      {/* Docked Audio Player */}
-      {isAudioPlayerOpen && (
-        <div 
-          className="fixed bottom-0 left-0 right-0 z-[250] animate-in slide-in-from-bottom duration-500"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mx-6 mb-6 p-4 rounded-[2rem] glass-morphism border border-white/20 shadow-2xl flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl overflow-hidden relative shadow-md">
-                   <Image src={story.imageUrl} alt="cover" fill className="object-cover" />
-                </div>
-                <div className="flex flex-col">
-                   <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Sesli Okuma</span>
-                   <span className="text-xs font-bold text-accent truncate max-w-[120px]">{story.title}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={toggleSpeed}
-                  className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-bold hover:bg-primary/20 transition-colors"
-                >
-                  {playbackSpeed}x
-                </button>
-                <button 
-                  onClick={() => setIsAudioPlayerOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-black/5 text-muted-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Progress value={audioProgress} className="h-1.5 bg-primary/10" />
-              <div className="flex justify-between text-[10px] font-bold text-muted-foreground px-1">
-                <span>02:15</span>
-                <span>14:30</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-center gap-8">
-               <button className="text-accent hover:text-primary transition-colors active:scale-90">
-                 <SkipBack className="w-5 h-5 fill-current" />
-               </button>
-               <button 
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-               >
-                 {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
-               </button>
-               <button className="text-accent hover:text-primary transition-colors active:scale-90">
-                 <SkipForward className="w-5 h-5 fill-current" />
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* TTS Player — dedicated tam ekran oynatıcı (tek playback sahibi) */}
+      <TtsPlayerView
+        open={isTtsPlayerOpen}
+        story={story}
+        chapterNumber={engine.activeChapter}
+        paragraphs={allParagraphs}
+        onBack={() => setIsTtsPlayerOpen(false)}
+      />
 
       {/* Quote Share Sheet */}
       <Sheet open={isShareSheetOpen} onOpenChange={setIsShareSheetOpen}>
@@ -1395,12 +1402,17 @@ export function ReadingView({ story, onBack }: ReadingViewProps) {
               </button>
             ))}
             
-            <Button 
-              disabled={!reportReason}
+            <Button
+              disabled={!reportReason || isReportSubmitting}
               onClick={handleReportSubmit}
               className="mt-6 w-full h-14 rounded-2xl bg-destructive text-white font-bold shadow-lg shadow-destructive/20 hover:scale-[1.02] active:scale-95 transition-all"
             >
-              Şikayeti Gönder
+              {isReportSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gönderiliyor…
+                </>
+              ) : "Şikayeti Gönder"}
             </Button>
           </div>
         </SheetContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +66,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [rememberedEmail, setRememberedEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Senkron submit kilidi — isSubmitting (React state) yeniden render'a kadar
+  // güncellenmediği için hızlı çift dokunuşta ikinci isteği engelleyemez.
+  const submittingRef = useRef(false);
 
   // Capacitor Android WebView'da signInWithPopup çalışmaz.
   // Google butonunu native platformda gizle, email/password çalışmaya devam etsin.
@@ -132,6 +135,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       const shouldPersistLocally = tab === 'register' ? true : rememberMe;
@@ -175,6 +180,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         ? 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.'
         : 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -357,12 +363,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               disabled={isSubmitting}
               onClick={async (e) => {
                 e.preventDefault();
-                if (isSubmitting) return;
+                if (submittingRef.current) return;
                 setError('');
                 if (typeof navigator !== 'undefined' && !navigator.onLine) {
                   setError('İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin.');
                   return;
                 }
+                submittingRef.current = true;
                 setIsSubmitting(true);
                 try {
                   await withTimeout(firebaseGoogleLogin(), AUTH_TIMEOUT_MS);
@@ -377,6 +384,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     setError('Google ile giriş başarısız. Lütfen tekrar deneyin.');
                   }
                 } finally {
+                  submittingRef.current = false;
                   setIsSubmitting(false);
                 }
               }}

@@ -79,6 +79,8 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
   const [isReportSheetOpen, setIsReportSheetOpen] = useState(false);
   const [reportTargetMsg, setReportTargetMsg] = useState<Message | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
+  const reportSubmittingRef = useRef(false);
 
   useEffect(() => {
     const vv = window.visualViewport;
@@ -257,18 +259,30 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
 
   const handleReportSubmit = async () => {
     if (!reportReason || !reportTargetMsg) return;
-    setIsReportSheetOpen(false);
+    // Tekrarlanan dokunuşlar aynı girişim için ikinci bir gönderim başlatmasın.
+    if (reportSubmittingRef.current) return;
+    reportSubmittingRef.current = true;
+    setIsReportSubmitting(true);
+    const target = reportTargetMsg;
+
     try {
       const uid = userState.user?.uid;
-      if (!uid) return;
+      if (!uid) {
+        toast({
+          title: 'Giriş Gerekli',
+          description: 'Şikayet göndermek için giriş yapmalısınız.',
+          variant: 'destructive',
+        });
+        return;
+      }
       await submitContentReport({
         uid,
         storyId: story.id,
         storyTitle: story.title,
         contentType: 'chat',
         characterName: char.name,
-        contentPreview: reportTargetMsg.text.slice(0, 500),
-        messageId: reportTargetMsg.id,
+        contentPreview: target.text.slice(0, 500),
+        messageId: target.id,
         reason: reportReason,
         createdAt: new Date().toISOString(),
       });
@@ -276,15 +290,20 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
         title: 'Rapor İletildi',
         description: 'Şikayetiniz incelenmek üzere ekibimize iletilmiştir.',
       });
+      setIsReportSheetOpen(false);
+      setReportReason(null);
+      setReportTargetMsg(null);
     } catch {
       toast({
         title: 'Hata',
-        description: 'Rapor iletilemedi. Lütfen tekrar deneyin.',
+        description: 'Rapor iletilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
         variant: 'destructive',
       });
+      // Sheet açık, hedef mesaj ve neden korunur → kullanıcı yeniden deneyebilir.
+    } finally {
+      setIsReportSubmitting(false);
+      reportSubmittingRef.current = false;
     }
-    setReportReason(null);
-    setReportTargetMsg(null);
   };
 
   const initials = char.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -465,9 +484,14 @@ export function CharacterChatView({ story, activeCharacter, onBack }: CharacterC
                 {reportReason === reason && <CheckCircle2 className="w-4 h-4" />}
               </button>
             ))}
-            <Button disabled={!reportReason} onClick={handleReportSubmit}
+            <Button disabled={!reportReason || isReportSubmitting} onClick={handleReportSubmit}
               className="mt-6 w-full h-14 rounded-2xl bg-destructive text-white font-bold shadow-lg shadow-destructive/20 hover:scale-[1.02] active:scale-95 transition-all">
-              Raporu Gönder
+              {isReportSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gönderiliyor…
+                </>
+              ) : "Raporu Gönder"}
             </Button>
           </div>
         </SheetContent>

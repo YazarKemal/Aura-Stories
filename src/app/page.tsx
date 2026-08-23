@@ -30,7 +30,7 @@ import { maybeShowInterstitial } from '@/lib/interstitial-ads';
 export default function Home() {
   const isVipActive = () => false; // Kapalı test: VIP devre dışı
   // Varsayılan state'ler — SSR ile uyumlu, hydration hatası yok
-  const [isLoading, setIsLoading] = useState(true);
+  const [appReady, setAppReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('discover');
@@ -66,17 +66,17 @@ export default function Home() {
       setShowSplash(false);
       setShowOnboarding(false);
       setIsLoginModalOpen(false);
+      setAppReady(true);
     } else {
-      // İlk defa geliyor → splash → onboarding akışını başlat
+      // İlk defa geliyor → splash → onboarding akışını başlat.
+      // appReady false kalır: ana uygulama shell'i splash/onboarding
+      // tamamlanana kadar render edilmez (flash yok).
       const timer = setTimeout(() => {
         setShowSplash(false);
         setShowOnboarding(true);
       }, 2800);
-      setIsLoading(false);
       return () => clearTimeout(timer);
     }
-
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -111,6 +111,7 @@ export default function Home() {
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     setIsLoginModalOpen(true);
+    setAppReady(true);
   };
 
   const handleAgeGateComplete = () => {
@@ -122,16 +123,15 @@ export default function Home() {
 
   return (
     <main className="min-h-[100dvh] w-full max-w-none bg-background dark:bg-brand-dark text-foreground dark:text-brand-text relative overflow-hidden transition-colors duration-500">
-      {/* isLoading: useEffect localStorage kontrolü tamamlanana kadar boş ekran.
-           İlk ziyarette splash hemen render olur (showSplash=true varsayılan).
-           Geri dönen kullanıcıda useEffect anında false yapar → direkt ana sayfa. */}
-      {isLoading && !showSplash && (
-        <div className="fixed inset-0 z-[999] bg-background" />
-      )}
-
+      {/* appReady false iken ana uygulama shell'i render edilmez:
+           splash/onboarding/yaş-EULA akışı bittikten sonra açılır.
+           İlk ziyarette: Splash → Onboarding → yaş/EULA → uygulama.
+           Geri dönen kullanıcıda useEffect anında appReady=true yapar → direkt ana sayfa. */}
       {showSplash && <SplashScreen />}
 
       {showOnboarding && <OnboardingView onComplete={handleOnboardingComplete} />}
+
+      {appReady && ( <>
 
       {/* Age Gating & EULA Modal */}
       <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
@@ -356,7 +356,9 @@ export default function Home() {
           onBack={() => {
             // Doğal çıkış anı — VIP değilse interstitial dene (fire-and-forget, bloklamaz)
             if (!isVipActive()) void maybeShowInterstitial();
-            setIsReading(false); setSelectedStory(null);
+            setIsReading(false);
+            // selectedStory korunur → BookDetailView tekrar görünür olur.
+            // Hikayeden tamamen çıkmak BookDetailView'ın kendi geri butonuna kalmış.
           }}
         />
       )}
@@ -406,6 +408,7 @@ export default function Home() {
       {!selectedStory && !isReading && !isWriterDashboardOpen && !isChatOpen && !isSearchOpen && !isVIPOpen && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
+      </>)}
     </main>
   );
 }

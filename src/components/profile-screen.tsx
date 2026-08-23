@@ -65,9 +65,11 @@ interface ProfileScreenProps {
 
 export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, isDarkMode, onDarkModeToggle }: ProfileScreenProps) {
   const { toast } = useToast();
-  const { userState, logout, isGiftClaimedToday, claimDailyGift } = useUserState();
+  const { userState, logout, isGiftClaimedToday, claimDailyGift, toggleBlockedAuthor } = useUserState();
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [isBlockedAuthorsOpen, setIsBlockedAuthorsOpen] = useState(false);
+  const blockedAuthors = userState.blockedAuthors;
 
   const currentUser = userState.user;
   const dailyGiftClaimed = isGiftClaimedToday;
@@ -601,6 +603,29 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
               <Switch checked={isDarkMode} onCheckedChange={onDarkModeToggle} />
             </div>
 
+            {/* Engellenen Yazarlar */}
+            <button
+              onClick={() => setIsBlockedAuthorsOpen(true)}
+              className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 active:scale-[0.99] transition-all text-left"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🚫</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-bold text-accent">Engellenen Yazarlar</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {blockedAuthors.length === 0
+                      ? 'Kimseyi engellemediniz'
+                      : `${blockedAuthors.length} yazar engelli`}
+                  </span>
+                </div>
+              </div>
+              {blockedAuthors.length > 0 && (
+                <span className="text-[11px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                  {blockedAuthors.length}
+                </span>
+              )}
+            </button>
+
             {/* Hesap Bilgileri */}
             <div className="p-4 rounded-2xl bg-muted/20 flex flex-col gap-2">
               <span className="text-sm font-bold text-accent">Hesap Bilgileri</span>
@@ -664,6 +689,66 @@ export function ProfileScreen({ onOpenWriterDashboard, onOpenVIP, onOpenLogin, i
                 İletişim: contact@prompthavenai.com
               </p>
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* 🚫 Engellenen Yazarlar Sheet */}
+      {/* ══════════════════════════════════════════════════════ */}
+      <Sheet open={isBlockedAuthorsOpen} onOpenChange={setIsBlockedAuthorsOpen}>
+        <SheetContent side="bottom" className="rounded-t-[3rem] bg-card p-0 border-none animate-in slide-in-from-bottom duration-500 z-[620]">
+          <div className="p-8 flex flex-col gap-6 max-h-[75vh] overflow-y-auto no-scrollbar">
+            <div className="w-12 h-1.5 bg-muted rounded-full self-center" />
+            <SheetHeader className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-900/30 flex items-center justify-center text-gray-500 mb-2">
+                <span className="text-2xl">🚫</span>
+              </div>
+              <SheetTitle className="text-xl font-headline font-black text-accent">Engellenen Yazarlar</SheetTitle>
+              <SheetDescription className="text-sm text-muted-foreground">
+                Engeli kaldırdığınız yazarların hikayeleri Keşfet&apos;te yeniden görünür.
+              </SheetDescription>
+            </SheetHeader>
+
+            {blockedAuthors.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-muted-foreground">Henüz engellediğiniz bir yazar yok.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {blockedAuthors.map((author) => (
+                  <div
+                    key={author}
+                    className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-muted/20"
+                  >
+                    <span className="text-sm font-bold text-accent truncate">{author}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const persisted = await toggleBlockedAuthor(author);
+                        if (persisted) {
+                          toast({
+                            title: "Engel Kaldırıldı",
+                            description: `${author} içeriği tekrar gösterilecek.`,
+                            variant: "default",
+                          });
+                        } else {
+                          toast({
+                            title: "İşlem başarısız",
+                            description: "Değişiklik kaydedilemedi. Lütfen tekrar deneyin.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      className="shrink-0 h-9 px-4 rounded-xl border-primary/40 text-primary font-bold hover:bg-primary/10"
+                    >
+                      Engeli Kaldır
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
