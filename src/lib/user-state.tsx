@@ -263,6 +263,30 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const snapshotUnsubRef = useRef<(() => void) | null>(null);
   const entitlementsUnsubRef = useRef<(() => void) | null>(null);
 
+  // Tek yazıcılı profil bootstrap: register() ve onAuthChange her ikisi de
+  // eksik profil görünce createFirestoreUser çağırıyordu — aynı uid için
+  // eşzamanlı çift setDoc yarışı olabilir. Bu harita uid başına tek uçuş
+  // (single-flight) garantisi verir; her iki yazar da aynı promise'i paylaşır.
+  const profileBootstrapRef = useRef(new Map<string, ReturnType<typeof createFirestoreUser>>());
+
+  const ensureUserProfile = useCallback(
+    async (uid: string, email: string, name: string) => {
+      const existing = await getFirestoreUser(uid);
+      if (existing) return existing;
+      const inflight = profileBootstrapRef.current.get(uid);
+      if (inflight) return inflight;
+      const write = createFirestoreUser(uid, email, name);
+      profileBootstrapRef.current.set(uid, write);
+      void write.finally(() => {
+        if (profileBootstrapRef.current.get(uid) === write) {
+          profileBootstrapRef.current.delete(uid);
+        }
+      });
+      return write;
+    },
+    []
+  );
+
   useEffect(() => {
     const unsub = onAuthChange(async (fbUser) => {
       // Önceki snapshot'ları temizle
@@ -276,14 +300,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (fbUser) {
-        let fsUser = await getFirestoreUser(fbUser.uid);
-        if (!fsUser) {
-          fsUser = await createFirestoreUser(
-            fbUser.uid,
-            fbUser.email || '',
-            fbUser.displayName || fbUser.email?.split('@')[0] || 'Okur'
-          );
-        }
+        const fsUser = await ensureUserProfile(
+          fbUser.uid,
+          fbUser.email || '',
+          fbUser.displayName || fbUser.email?.split('@')[0] || 'Okur'
+        );
         const authUser: AuthUser = {
           uid: fsUser.uid,
           name: fsUser.name,
@@ -408,13 +429,13 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (name: string, email: string, password: string): Promise<{ ok: boolean; code?: string }> => {
     try {
       const cred = await firebaseRegister(email, password);
-      await createFirestoreUser(cred.user.uid, email, name);
+      await ensureUserProfile(cred.user.uid, email, name);
       return { ok: true };
     } catch (err: any) {
       console.error('[Auth] Kayıt hatası:', err.message);
       return { ok: false, code: err?.code };
     }
-  }, []);
+  }, [ensureUserProfile]);
 
   const logout = useCallback(async () => {
     try {
