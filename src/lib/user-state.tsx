@@ -79,7 +79,7 @@ interface UserStateContextType {
   /** Bir yazar (display-name) engellenmiş mi? */
   isAuthorBlocked: (author: string) => boolean;
   /** Engeli ekler/kaldırır ve Firestore'a kalıcı olarak yazar. */
-  toggleBlockedAuthor: (author: string) => Promise<void>;
+  toggleBlockedAuthor: (author: string) => Promise<boolean>;
   getCurrentChapter: (storyId: string) => number;
   isChapterAccessible: (storyId: string, chapter: number) => boolean;
 
@@ -240,9 +240,9 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     [userState.blockedAuthors]
   );
 
-  const toggleBlockedAuthor = useCallback(async (author: string) => {
+  const toggleBlockedAuthor = useCallback(async (author: string): Promise<boolean> => {
     const uid = userState.user?.uid;
-    if (!uid || !author) return;
+    if (!uid || !author) return false;
     const current = userState.blockedAuthors;
     const next = current.includes(author)
       ? current.filter(a => a !== author)
@@ -251,9 +251,11 @@ export function UserStateProvider({ children }: { children: React.ReactNode }) {
     setUserState(prev => ({ ...prev, blockedAuthors: next }));
     try {
       await updateBlockedAuthors(uid, next);
+      return true;
     } catch {
       // Hata → önceki duruma geri dön
       setUserState(prev => ({ ...prev, blockedAuthors: current }));
+      return false;
     }
   }, [userState.user?.uid, userState.blockedAuthors]);
 
