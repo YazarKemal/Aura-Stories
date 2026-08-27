@@ -17,8 +17,9 @@
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf lib",
-    "test": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts",
-    "test:unit": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts"
+    "storybrain:compile": "npx tsx src/storybrain/seed-compiler.ts --input C:/Users/kemal/DreameResearchCollector/data/dreame_blueprints_v2.jsonl --output src/storybrain/storybrain-seed.v1.json",
+    "test": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts src/storybrain/seed-compiler.test.ts src/storybrain/story-brain.test.ts src/storybible.test.ts src/prompt-bible-integration.test.ts",
+    "test:unit": "tsx --test src/deepseek.test.ts src/economy.test.ts src/story-quality.test.ts src/prompts.test.ts src/character-roster-engine.test.ts src/dynamic-story.test.ts src/storybrain/seed-compiler.test.ts src/storybrain/story-brain.test.ts src/storybible.test.ts src/prompt-bible-integration.test.ts"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

@@ -8,6 +8,13 @@ import { buildChatPrompt } from './prompts';
 import { generateAuraStory } from './story-engine';
 import { generateCharacterRosterFromStory } from './character-roster-engine';
 import {
+  loadOrCreateStoryBible,
+  mergeStoryBibleGuidance,
+  formatStoryBibleForPrompt,
+  recordStoryBibleFromChapter,
+} from './storybible';
+import { STORY_BRAIN_VERSION, synthesizeStoryBrain } from './storybrain/story-brain';
+import {
   applyDynamicChatEffects,
   formatDynamicStoryForCharacter,
   formatDynamicStoryForNarrative,
@@ -338,12 +345,34 @@ export const generateStory = onCall<GenerateStoryOutput>({
   try {
     await setDynamicParticipantPreferences(uid, storyId, input.readerPersona);
     const worldState = await loadDynamicStoryState(uid, storyId);
+
+    // StoryBrain + kalıcı Story Bible (kaynak-nötr agrega temelli yönlendirme).
+    const bible = await loadOrCreateStoryBible(uid, storyId);
+    const brainProfile = synthesizeStoryBrain({
+      uid,
+      storyId,
+      storyTitle: input.storyTitle,
+      genreHint: input.storyTags,
+      version: STORY_BRAIN_VERSION,
+    });
+    const bibleWithGuidance = mergeStoryBibleGuidance(bible, brainProfile);
+    const dynamicContext =
+      `${formatDynamicStoryForNarrative(worldState)}\n\n${formatStoryBibleForPrompt(bibleWithGuidance)}`;
+
     const engineInput = {
       ...input,
-      dynamicContext: formatDynamicStoryForNarrative(worldState),
+      dynamicContext,
     };
 
     const engineResult = await generateAuraStory(engineInput, STORY_ENGINE_CALL_TIMEOUT_MS);
+
+    // Kader + bölüm deftere işlenir; fail-open (ücretli bölümü asla düşürmez).
+    await recordStoryBibleFromChapter(
+      uid,
+      storyId,
+      { chosenFate: input.chosenFate, chapterNumber },
+      engineResult.output,
+    ).catch(err => console.warn('[generateStory] bible capture skipped', String(err)));
 
     console.info('[generateStory] quality', {
       storyId,
